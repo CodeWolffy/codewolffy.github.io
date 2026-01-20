@@ -76,13 +76,13 @@ export function Header() {
             </div>
             {/* Mobile Nav */}
             {isMenuOpen && (
-                <div className="md:hidden border-t p-4 space-y-4 bg-background">
-                    <nav className="flex flex-col space-y-2">
-                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/">首页</a>
-                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/archives">归档</a>
-                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/projects">项目</a>
-                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/friends">友链</a>
-                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/about">关于</a>
+                <div className="md:hidden border-t p-4 space-y-2 bg-background">
+                    <nav className="flex flex-col space-y-1">
+                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/">首页</a>
+                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/archives">归档</a>
+                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/projects">项目</a>
+                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/friends">友链</a>
+                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/about">关于</a>
                     </nav>
                 </div>
             )}
