@@ -1,3 +1,93 @@
 ---
-return Astro.redirect('/blog');
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Button } from "@/components/ui/button";
+import { getCollection } from "astro:content";
+
+const posts = (await getCollection("blog")).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+
+const latestPosts = posts.slice(0, 4); 
 ---
+
+<BaseLayout title="MyTechBlog">
+	<section class="relative overflow-hidden py-24 lg:py-32 bg-background">
+        <div class="absolute inset-0 -z-10 h-full w-full bg-white dark:bg-black bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
+            <div class="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/20 opacity-20 blur-[100px]"></div>
+        </div>
+		<div class="container mx-auto flex flex-col items-center gap-4 text-center">
+            <div class="space-y-4">
+                <h1 class="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    MyTechBlog
+                </h1>
+                <p class="mx-auto max-w-[700px] text-muted-foreground text-xl md:text-2xl animate-in fade-in slide-in-from-bottom-5 duration-1000 delay-200">
+                    探索技术、编程与设计的边界。
+                </p>
+            </div>
+            <div class="flex gap-4 mt-6 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-300">
+                <a href="/about">
+                    <Button size="lg" className="rounded-full">关于我</Button>
+                </a>
+                <a href="/tags">
+                    <Button size="lg" variant="outline" className="rounded-full">浏览标签</Button>
+                </a>
+            </div>
+		</div>
+	</section>
+
+    <section class="container mx-auto py-12 lg:py-16">
+        <div class="flex items-center justify-between mb-8">
+            <h2 class="text-3xl font-bold tracking-tight">最新文章</h2>
+            <a href="/tags" class="text-muted-foreground hover:text-primary transition-colors">
+                查看所有标签 →
+            </a>
+        </div>
+        
+		<div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+			{latestPosts.map((post) => (
+				<article class="group relative flex flex-col space-y-3 rounded-lg border p-6 hover:shadow-lg transition-shadow bg-card">
+					{post.data.heroImage && (
+                        <div class="aspect-video overflow-hidden rounded-md bg-muted">
+                            <img
+                                src={post.data.heroImage}
+                                alt={post.data.title}
+                                width={804}
+                                height={452}
+                                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                        </div>
+					)}
+                    <div class="flex-1 space-y-2">
+                        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                            <time datetime={post.data.pubDate.toISOString()}>
+                                {post.data.pubDate.toLocaleDateString()}
+                            </time>
+                            {post.data.tags && post.data.tags.length > 0 && (
+                                <>
+                                    <span>•</span>
+                                    <span>{post.data.tags[0]}</span>
+                                </>
+                            )}
+                        </div>
+                        <h3 class="text-2xl font-bold leading-tight group-hover:text-primary transition-colors">
+                            <a href={`/blog/${post.slug}`}>
+                                {post.data.title}
+                            </a>
+                        </h3>
+                        <p class="text-muted-foreground line-clamp-3 leading-relaxed">
+                            {post.data.description}
+                        </p>
+                    </div>
+					<a href={`/blog/${post.slug}`} class="absolute inset-0">
+						<span class="sr-only">阅读 {post.data.title}</span>
+					</a>
+				</article>
+			))}
+		</div>
+        {posts.length === 0 && (
+            <div class="text-center py-20 text-muted-foreground">
+                <p>暂无文章。请在 src/content/blog 中添加内容！</p>
+            </div>
+        )}
+	</section>
+</BaseLayout>

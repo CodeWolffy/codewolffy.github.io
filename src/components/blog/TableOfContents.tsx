@@ -42,7 +42,7 @@ export function TableOfContents({ headings }: TocProps) {
 
     return (
         <nav className="space-y-2">
-            <h3 className="font-medium">On This Page</h3>
+            <h3 className="font-medium">本页目录</h3>
             <ul className="space-y-2 text-sm">
                 {headings.map((heading) => (
                     <li key={heading.slug} style={{ paddingLeft: `${(heading.depth - 1) * 1}rem` }}>

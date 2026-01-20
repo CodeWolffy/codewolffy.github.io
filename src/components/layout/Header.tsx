@@ -9,14 +9,8 @@ export function Header() {
     const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
 
     React.useEffect(() => {
-        // Init theme
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-            setTheme('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-            setTheme('light');
-        }
+        // Sync state with document class initialized by BaseLayout
+        setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     }, []);
 
     const toggleTheme = () => {
@@ -33,15 +27,15 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container flex h-14 items-center justify-between">
+            <div className="container mx-auto flex h-14 items-center justify-between">
                 {/* Logo */}
                 <div className="mr-4 hidden md:flex">
                     <a className="mr-6 flex items-center space-x-2 font-bold" href="/">
                         <span className="hidden font-bold sm:inline-block">MyTechBlog</span>
                     </a>
                     <nav className="flex items-center space-x-6 text-sm font-medium">
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/blog">Blog</a>
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/about">About</a>
+                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/">首页</a>
+                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/about">关于</a>
                     </nav>
                 </div>
 
@@ -81,8 +75,8 @@ export function Header() {
             {isMenuOpen && (
                 <div className="md:hidden border-t p-4 space-y-4 bg-background">
                     <nav className="flex flex-col space-y-2">
-                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/blog">Blog</a>
-                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/about">About</a>
+                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/">首页</a>
+                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/about">关于</a>
                     </nav>
                 </div>
             )}
