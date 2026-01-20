@@ -1,43 +1,59 @@
-# Astro Starter Kit: Minimal
+# MyTechBlog
 
-```sh
-npm create astro@latest -- --template minimal
+一个基于 Astro 构建的现代个人技术博客。
+
+🌐 **在线访问**: [https://codewolffy.github.io](https://codewolffy.github.io)
+
+## ✨ 特性
+
+- ⚡ **极速性能** - 基于 Astro 5，静态站点生成
+- 🎨 **深色/浅色主题** - 自动跟随系统或手动切换
+- 🔍 **全文搜索** - 集成 Pagefind 搜索引擎
+- 💬 **评论系统** - 基于 GitHub Discussions 的 Giscus
+- 📑 **目录导航** - 自动生成文章目录
+- 🏷️ **标签系统** - 文章分类管理
+- 📱 **响应式设计** - 完美适配移动端
+
+## 🛠️ 技术栈
+
+- [Astro](https://astro.build/) - Web 框架
+- [React](https://react.dev/) - UI 组件
+- [Tailwind CSS](https://tailwindcss.com/) - 样式框架
+- [TypeScript](https://www.typescriptlang.org/) - 类型安全
+- [MDX](https://mdxjs.com/) - 增强 Markdown
+
+## 🚀 快速开始
+
+```bash
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 预览构建结果
+npm run preview
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## 📝 添加文章
 
-## 🚀 Project Structure
+在 `src/content/blog/` 目录下创建 `.mdx` 文件：
 
-Inside of your Astro project, you'll see the following folders and files:
+```mdx
+---
+title: "文章标题"
+description: "文章描述"
+pubDate: "2024-01-20"
+heroImage: "封面图片URL"
+tags: ["标签1", "标签2"]
+---
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+文章内容...
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## 📄 License
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+MIT

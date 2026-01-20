@@ -1,0 +1,128 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Button } from "@/components/ui/button";
+
+// 项目数据
+const projects = [
+    {
+        title: "MyTechBlog",
+        description: "一个使用 Astro + React + Tailwind CSS 构建的现代个人技术博客，支持暗色模式、全文搜索和评论系统。",
+        image: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        tags: ["Astro", "React", "TypeScript", "Tailwind CSS"],
+        github: "https://github.com/CodeWolffy/codewolffy.github.io",
+        demo: "/"
+    },
+    {
+        title: "Todo App",
+        description: "一个功能完整的待办事项应用，支持任务分类、优先级设置和本地存储。",
+        image: "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        tags: ["React", "TypeScript", "Local Storage"],
+        github: "https://github.com/CodeWolffy",
+        demo: null
+    },
+    {
+        title: "Weather Dashboard",
+        description: "天气预报仪表盘，实时获取天气数据，支持多城市切换和未来几天的天气预测。",
+        image: "https://images.unsplash.com/photo-1592210454359-9043f067919b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        tags: ["Vue.js", "API", "Chart.js"],
+        github: "https://github.com/CodeWolffy",
+        demo: null
+    },
+    {
+        title: "Markdown Editor",
+        description: "在线 Markdown 编辑器，支持实时预览、语法高亮和导出功能。",
+        image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        tags: ["React", "Marked", "CodeMirror"],
+        github: "https://github.com/CodeWolffy",
+        demo: null
+    }
+];
+---
+
+<BaseLayout title="项目展示 | MyTechBlog" description="我的个人项目作品集">
+    <div class="container mx-auto max-w-6xl py-6 lg:py-10 px-4 md:px-6">
+        <div class="space-y-4 mb-10">
+            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">
+                项目展示
+            </h1>
+            <p class="text-xl text-muted-foreground">
+                我的开源项目与作品集
+            </p>
+        </div>
+        
+        <div class="grid gap-8 md:grid-cols-2">
+            {projects.map((project) => (
+                <article class="group relative flex flex-col rounded-xl border bg-card overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    {/* 项目封面图 */}
+                    <div class="aspect-video overflow-hidden bg-muted">
+                        <img 
+                            src={project.image} 
+                            alt={project.title}
+                            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                        />
+                    </div>
+                    
+                    {/* 项目信息 */}
+                    <div class="flex-1 p-6 flex flex-col">
+                        <h3 class="text-xl font-bold group-hover:text-primary transition-colors mb-2">
+                            {project.title}
+                        </h3>
+                        <p class="text-muted-foreground text-sm leading-relaxed mb-4 flex-1">
+                            {project.description}
+                        </p>
+                        
+                        {/* 技术栈标签 */}
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            {project.tags.map((tag) => (
+                                <span class="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                    {tag}
+                                </span>
+                            ))}
+                        </div>
+                        
+                        {/* 操作按钮 */}
+                        <div class="flex gap-3">
+                            <a href={project.github} target="_blank" rel="noopener noreferrer" class="flex-1">
+                                <Button variant="outline" className="w-full">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="mr-2">
+                                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                                    </svg>
+                                    源码
+                                </Button>
+                            </a>
+                            {project.demo && (
+                                <a href={project.demo} target="_blank" rel="noopener noreferrer" class="flex-1">
+                                    <Button className="w-full">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                            <polyline points="15 3 21 3 21 9"></polyline>
+                                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                                        </svg>
+                                        演示
+                                    </Button>
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </article>
+            ))}
+        </div>
+        
+        {/* 更多项目提示 */}
+        <div class="mt-16 p-8 rounded-2xl border bg-card/50 text-center">
+            <h2 class="text-2xl font-bold mb-4">更多项目</h2>
+            <p class="text-muted-foreground mb-6">
+                访问我的 GitHub 主页查看更多开源项目
+            </p>
+            <a href="https://github.com/CodeWolffy" target="_blank" rel="noopener noreferrer">
+                <Button size="lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="mr-2">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    访问 GitHub
+                </Button>
+            </a>
+        </div>
+    </div>
+</BaseLayout>

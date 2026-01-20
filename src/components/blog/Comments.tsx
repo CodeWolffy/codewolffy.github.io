@@ -36,12 +36,10 @@ export function Comments() {
                 emitMetadata="0"
                 inputPosition="bottom"
                 theme={theme}
-                lang="en"
+                lang="zh-CN"
                 loading="lazy"
             />
-            <div className="text-center text-xs text-muted-foreground mt-2">
-                * Note: Please configure your Giscus repo details in <code>src/components/blog/Comments.tsx</code>
-            </div>
+
         </div>
     );
 }

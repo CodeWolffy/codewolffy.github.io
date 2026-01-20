@@ -1,0 +1,89 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+const allPosts = (await getCollection("blog")).sort(
+    (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+
+// 按年份分组
+const postsByYear = allPosts.reduce((acc, post) => {
+    const year = post.data.pubDate.getFullYear();
+    if (!acc[year]) {
+        acc[year] = [];
+    }
+    acc[year].push(post);
+    return acc;
+}, {} as Record<number, typeof allPosts>);
+
+const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
+---
+
+<BaseLayout title="文章归档 | MyTechBlog" description="按时间线浏览所有文章">
+    <div class="container mx-auto max-w-4xl py-6 lg:py-10 px-4 md:px-6">
+        <div class="space-y-4 mb-10">
+            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">
+                文章归档
+            </h1>
+            <p class="text-xl text-muted-foreground">
+                共 {allPosts.length} 篇文章
+            </p>
+        </div>
+        
+        <div class="relative">
+            <!-- 时间线 -->
+            <div class="absolute left-4 top-0 bottom-0 w-px bg-border md:left-8"></div>
+            
+            {years.map((year) => (
+                <div class="mb-12">
+                    <!-- 年份标签 -->
+                    <div class="relative flex items-center mb-6">
+                        <div class="absolute left-0 w-8 h-8 md:w-16 md:h-8 flex items-center justify-center">
+                            <div class="w-4 h-4 rounded-full bg-primary shadow-lg shadow-primary/25"></div>
+                        </div>
+                        <h2 class="ml-12 md:ml-24 text-2xl font-bold text-primary">{year}</h2>
+                    </div>
+                    
+                    <!-- 文章列表 -->
+                    <div class="space-y-4 ml-12 md:ml-24">
+                        {postsByYear[Number(year)].map((post) => (
+                            <article class="group relative rounded-lg border p-4 hover:shadow-md transition-all hover:border-primary/50 bg-card">
+                                <a href={`/blog/${post.slug}`} class="block">
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                        <h3 class="font-semibold text-lg group-hover:text-primary transition-colors">
+                                            {post.data.title}
+                                        </h3>
+                                        <time 
+                                            datetime={post.data.pubDate.toISOString()}
+                                            class="text-sm text-muted-foreground shrink-0"
+                                        >
+                                            {post.data.pubDate.toLocaleDateString('zh-CN', {
+                                                month: 'long',
+                                                day: 'numeric'
+                                            })}
+                                        </time>
+                                    </div>
+                                    {post.data.tags && post.data.tags.length > 0 && (
+                                        <div class="flex flex-wrap gap-2 mt-2">
+                                            {post.data.tags.map((tag: string) => (
+                                                <span class="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </a>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+        
+        {allPosts.length === 0 && (
+            <div class="text-center py-20 text-muted-foreground">
+                <p>暂无文章。</p>
+            </div>
+        )}
+    </div>
+</BaseLayout>

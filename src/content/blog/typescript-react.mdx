@@ -1,0 +1,52 @@
+---
+title: "使用 TypeScript 构建类型安全的 React 应用"
+description: "探索如何在 React 项目中充分利用 TypeScript 的类型系统，提高代码质量和开发体验。"
+pubDate: "2024-01-18"
+heroImage: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
+tags: ["typescript", "react", "前端开发"]
+---
+
+# 为什么选择 TypeScript？
+
+TypeScript 已经成为现代前端开发的标配。它不仅提供了静态类型检查，还带来了更好的 IDE 支持和代码可维护性。
+
+## 核心优势
+
+1. **类型安全** - 在编译时捕获类型错误
+2. **智能提示** - 更好的自动补全和重构支持
+3. **文档化** - 类型即文档
+
+## 实战示例
+
+下面是一个简单的类型安全组件：
+
+```typescript
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+}
+
+const Button: React.FC<ButtonProps> = ({ 
+  label, 
+  onClick, 
+  variant = 'primary' 
+}) => {
+  return (
+    <button 
+      className={`btn btn-${variant}`}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+};
+```
+
+## 最佳实践
+
+- 使用 `interface` 定义组件 props
+- 避免使用 `any` 类型
+- 利用泛型提高代码复用性
+
+希望这篇文章对你有帮助！

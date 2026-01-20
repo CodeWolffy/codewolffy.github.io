@@ -1,0 +1,64 @@
+---
+title: "现代 CSS：从 Flexbox 到 Grid 布局"
+description: "深入了解现代 CSS 布局技术，掌握 Flexbox 和 Grid 的核心概念与实际应用。"
+pubDate: "2024-01-15"
+heroImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
+tags: ["css", "前端开发", "tailwindcss"]
+---
+
+# 现代 CSS 布局革命
+
+告别 `float` 和各种清除浮动的 hack，拥抱现代 CSS 布局！
+
+## Flexbox：一维布局之王
+
+Flexbox 非常适合处理单行或单列的布局：
+
+```css
+.container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+```
+
+### 常用属性速查
+
+| 属性 | 作用 |
+|------|------|
+| `justify-content` | 主轴对齐 |
+| `align-items` | 交叉轴对齐 |
+| `flex-wrap` | 换行行为 |
+| `gap` | 项目间距 |
+
+## Grid：二维布局利器
+
+当你需要同时控制行和列时，Grid 是最佳选择：
+
+```css
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto;
+  gap: 2rem;
+}
+```
+
+## Tailwind CSS 实战
+
+使用 Tailwind 可以更快速地应用这些布局：
+
+```html
+<div class="flex items-center justify-between gap-4">
+  <div class="grid grid-cols-3 gap-4">
+    <!-- 内容 -->
+  </div>
+</div>
+```
+
+## 总结
+
+- **Flexbox** 用于一维布局（导航栏、按钮组等）
+- **Grid** 用于二维布局（卡片网格、页面布局等）
+- 两者可以组合使用，发挥各自优势

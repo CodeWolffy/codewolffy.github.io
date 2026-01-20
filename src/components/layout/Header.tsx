@@ -35,6 +35,9 @@ export function Header() {
                     </a>
                     <nav className="flex items-center space-x-6 text-sm font-medium">
                         <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/">首页</a>
+                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/archives">归档</a>
+                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/projects">项目</a>
+                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/friends">友链</a>
                         <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/about">关于</a>
                     </nav>
                 </div>
@@ -57,7 +60,7 @@ export function Header() {
                         <Search />
                     </div>
                     <nav className="flex items-center">
-                        <a href="https://github.com" target="_blank" rel="noreferrer">
+                        <a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer">
                             <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 py-2 w-9 px-0">
                                 <Github className="h-4 w-4" />
                                 <span className="sr-only">GitHub</span>
@@ -76,6 +79,9 @@ export function Header() {
                 <div className="md:hidden border-t p-4 space-y-4 bg-background">
                     <nav className="flex flex-col space-y-2">
                         <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/">首页</a>
+                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/archives">归档</a>
+                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/projects">项目</a>
+                        <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/friends">友链</a>
                         <a className="text-sm font-medium transition-colors hover:text-foreground/80" href="/about">关于</a>
                     </nav>
                 </div>

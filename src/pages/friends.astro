@@ -1,0 +1,102 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Button } from "@/components/ui/button";
+
+// 友链数据
+const friends = [
+    {
+        name: "GitHub",
+        description: "Where the world builds software",
+        avatar: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+        url: "https://github.com"
+    },
+    {
+        name: "Astro",
+        description: "Build faster websites with less client-side JavaScript",
+        avatar: "https://astro.build/assets/press/astro-icon-light-gradient.svg",
+        url: "https://astro.build"
+    },
+    {
+        name: "React",
+        description: "A JavaScript library for building user interfaces",
+        avatar: "https://upload.wikimedia.org/wikipedia/commons/a/a7/React-icon.svg",
+        url: "https://react.dev"
+    },
+    {
+        name: "TypeScript",
+        description: "JavaScript with syntax for types",
+        avatar: "https://upload.wikimedia.org/wikipedia/commons/f/f5/Typescript.svg",
+        url: "https://www.typescriptlang.org"
+    },
+    {
+        name: "Tailwind CSS",
+        description: "A utility-first CSS framework",
+        avatar: "https://tailwindcss.com/_next/static/media/tailwindcss-mark.3c5441fc7a190fb1800d4a5c7f07ba4b1345a9c8.svg",
+        url: "https://tailwindcss.com"
+    },
+    {
+        name: "MDN Web Docs",
+        description: "Resources for developers, by developers",
+        avatar: "https://developer.mozilla.org/apple-touch-icon.6803c8f0.png",
+        url: "https://developer.mozilla.org"
+    }
+];
+---
+
+<BaseLayout title="友情链接 | MyTechBlog" description="友情链接与推荐资源">
+    <div class="container mx-auto max-w-4xl py-6 lg:py-10 px-4 md:px-6">
+        <div class="space-y-4 mb-10">
+            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">
+                友情链接
+            </h1>
+            <p class="text-xl text-muted-foreground">
+                优质资源与友站推荐
+            </p>
+        </div>
+        
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {friends.map((friend) => (
+                <a 
+                    href={friend.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="group relative flex flex-col items-center p-6 rounded-xl border bg-card hover:shadow-lg hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
+                >
+                    <div class="w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center mb-4 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
+                        <img 
+                            src={friend.avatar} 
+                            alt={friend.name}
+                            class="w-12 h-12 object-contain"
+                            loading="lazy"
+                        />
+                    </div>
+                    <h3 class="font-semibold text-lg group-hover:text-primary transition-colors">
+                        {friend.name}
+                    </h3>
+                    <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2">
+                        {friend.description}
+                    </p>
+                    <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                    </div>
+                </a>
+            ))}
+        </div>
+        
+        <div class="mt-16 p-8 rounded-2xl border bg-card/50 text-center">
+            <h2 class="text-2xl font-bold mb-4">申请友链</h2>
+            <p class="text-muted-foreground mb-6">
+                如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。
+            </p>
+            <a href="https://github.com/CodeWolffy" target="_blank" rel="noopener noreferrer">
+                <Button size="lg">
+                    联系我
+                </Button>
+            </a>
+        </div>
+    </div>
+</BaseLayout>

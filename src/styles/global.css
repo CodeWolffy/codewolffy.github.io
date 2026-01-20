@@ -28,30 +28,8 @@
     --input: hsl(240 5.9% 90%);
     --ring: hsl(240 5.9% 10%);
     --radius: 0.5rem;
-}
 
-.dark {
-    --background: hsl(240 10% 3.9%);
-    --foreground: hsl(0 0% 98%);
-    --card: hsl(240 10% 3.9%);
-    --card-foreground: hsl(0 0% 98%);
-    --popover: hsl(240 10% 3.9%);
-    --popover-foreground: hsl(0 0% 98%);
-    --primary: hsl(0 0% 98%);
-    --primary-foreground: hsl(240 5.9% 10%);
-    --secondary: hsl(240 3.7% 15.9%);
-    --secondary-foreground: hsl(0 0% 98%);
-    --muted: hsl(240 3.7% 15.9%);
-    --muted-foreground: hsl(240 5% 64.9%);
-    --accent: hsl(240 3.7% 15.9%);
-    --accent-foreground: hsl(0 0% 98%);
-    --destructive: hsl(0 62.8% 30.6%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(240 3.7% 15.9%);
-    --input: hsl(240 3.7% 15.9%);
-    --ring: hsl(240 4.9% 83.9%);
-
-    /* Pagefind Theme Adapter */
+    /* Pagefind Theme Variables (Light Mode) */
     --pagefind-ui-scale: 1;
     --pagefind-ui-primary: hsl(240 5.9% 10%);
     --pagefind-ui-text: hsl(240 10% 3.9%);
@@ -86,7 +64,7 @@
     --input: hsl(240 3.7% 15.9%);
     --ring: hsl(240 4.9% 83.9%);
 
-    /* Pagefind Dark Mode Adapter */
+    /* Pagefind Theme Variables (Dark Mode) */
     --pagefind-ui-primary: hsl(0 0% 98%);
     --pagefind-ui-text: hsl(0 0% 98%);
     --pagefind-ui-background: hsl(240 10% 3.9%);
@@ -122,13 +100,72 @@
         @apply border-border;
     }
 
+    html {
+        overflow-y: scroll;
+    }
+
+    /* 自定义滚动条样式 - 更窄更美观 */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: hsl(240 5.9% 80%);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: hsl(240 5.9% 70%);
+    }
+
+    .dark ::-webkit-scrollbar-thumb {
+        background: hsl(240 3.7% 25%);
+    }
+
+    .dark ::-webkit-scrollbar-thumb:hover {
+        background: hsl(240 3.7% 35%);
+    }
+
     body {
         @apply bg-background text-foreground;
     }
 }
 
-/* Ensure pagefind input is interactable in dialog */
-#search .pagefind-ui__search-input {
-    pointer-events: auto !important;
-    z-index: 51 !important;
+/* Hide pagefind's built-in search input since we use our own */
+#pagefind-results .pagefind-ui__search-input,
+#pagefind-results .pagefind-ui__search-clear {
+    display: none !important;
+}
+
+/* Style pagefind results in dropdown */
+#pagefind-results .pagefind-ui {
+    --pagefind-ui-scale: 0.9;
+}
+
+#pagefind-results .pagefind-ui__results-area {
+    margin-top: 0;
+}
+
+#pagefind-results .pagefind-ui__result {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+#pagefind-results .pagefind-ui__result:hover {
+    background: var(--accent);
+}
+
+#pagefind-results .pagefind-ui__result-link {
+    color: var(--foreground);
+    font-weight: 500;
+}
+
+#pagefind-results .pagefind-ui__result-excerpt {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
 }
