@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
+import { Github, Mail } from "lucide-react";
 
 // 友链数据
 const friends = [
@@ -119,11 +120,20 @@ const friends = [
             <p class="text-muted-foreground mb-6">
                 如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。
             </p>
-            <a href="https://github.com/CodeWolffy" target="_blank" rel="noopener noreferrer">
-                <Button size="lg" className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-                    联系我
-                </Button>
-            </a>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="https://github.com/CodeWolffy" target="_blank" rel="noopener noreferrer">
+                    <Button size="lg" variant="outline" className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+                        <Github className="mr-2 h-5 w-5" />
+                        GitHub
+                    </Button>
+                </a>
+                <a href="mailto:2270617833@qq.com">
+                    <Button size="lg" variant="outline" className="rounded-full px-8 hover:scale-105 transition-all duration-300">
+                        <Mail className="mr-2 h-5 w-5" />
+                        2270617833@qq.com
+                    </Button>
+                </a>
+            </div>
         </div>
     </div>
 </BaseLayout>

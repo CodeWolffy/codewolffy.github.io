@@ -47,7 +47,7 @@ const { Content, headings } = await post.render();
                         ))}
                     </div>
                 )}
-                <div class="lg:hidden mb-6 p-4 bg-secondary/30 rounded-xl sticky top-[3.5rem] z-40 backdrop-blur-md border border-border/50">
+                <div class="lg:hidden mb-4 py-1.5 px-4 bg-secondary rounded-xl sticky top-14 z-40 border border-border/50 w-full">
                     <TableOfContents headings={headings} client:load />
                 </div>
                 {post.data.heroImage && (
@@ -69,7 +69,7 @@ const { Content, headings } = await post.render();
         </div>
         
         <div class="hidden lg:block">
-            <div class="sticky top-20 pl-4 border-l">
+            <div class="sticky top-32 mt-32 pl-4 border-l">
                 <TableOfContents headings={headings} client:visible />
             </div>
         </div>

@@ -4,7 +4,8 @@ import { getCollection } from "astro:content";
 
 const allPosts = await getCollection("blog");
 const categories = [...new Set(allPosts.map((post) => post.data.category).filter(Boolean))];
-const pageTitle = "分类索引";
+const tags = [...new Set(allPosts.map((post) => post.data.tags).flat().filter(Boolean))];
+const pageTitle = "分类与标签";
 ---
 
 <BaseLayout title={pageTitle}>
@@ -12,28 +13,80 @@ const pageTitle = "分类索引";
         <div class="flex flex-col items-start gap-4 md:flex-row md:justify-between md:gap-8">
             <div class="flex-1 space-y-4">
                 <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">
-                    分类
+                    分类与标签
                 </h1>
                 <p class="text-xl text-muted-foreground">
-                    按分类浏览文章
+                    浏览所有的分类与标签
                 </p>
             </div>
         </div>
+        
         <hr class="my-8" />
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category) => (
-                <a
-                    href={`/categories/${category}`}
-                    class="group relative flex flex-col justify-between space-y-2 rounded-lg border p-6 hover:bg-muted/50 transition-colors"
-                >
-                    <h2 class="font-semibold text-xl group-hover:underline">
-                        {category}
-                    </h2>
-                </a>
-            ))}
-            {categories.length === 0 && (
-                 <p class="text-muted-foreground">暂无分类。</p>
-            )}
+        
+        <div class="space-y-16">
+            <!-- 分类区域 -->
+            <section>
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="h-8 w-1.5 bg-primary rounded-full"></div>
+                    <h2 class="text-2xl font-bold tracking-tight">文章分类</h2>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {categories.map((category) => {
+                        const count = allPosts.filter((post) => post.data.category === category).length;
+                        return (
+                            <a
+                                href={`/categories/${category}`}
+                                class="group relative flex flex-col justify-between space-y-2 rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <h3 class="font-semibold text-xl group-hover:text-primary transition-colors">
+                                        {category}
+                                    </h3>
+                                    <span class="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                        {count} 篇
+                                    </span>
+                                </div>
+                                <p class="text-sm text-muted-foreground group-hover:text-muted-foreground/80">
+                                    查看所有 "{category}" 相关的文章
+                                </p>
+                            </a>
+                        );
+                    })}
+                    {categories.length === 0 && (
+                         <p class="text-muted-foreground">暂无分类。</p>
+                    )}
+                </div>
+            </section>
+
+             <!-- 标签区域 -->
+             <section>
+                 <div class="flex items-center gap-3 mb-8">
+                    <div class="h-8 w-1.5 bg-secondary-foreground/30 rounded-full"></div>
+                    <h2 class="text-2xl font-bold tracking-tight">热门标签</h2>
+                 </div>
+                 
+                 <div class="flex flex-wrap gap-3">
+                    {tags.map((tag) => {
+                        const count = allPosts.filter((post) => post.data.tags && post.data.tags.includes(tag)).length;
+                        return (
+                            <a
+                                href={`/tags/${tag}`}
+                                class="group inline-flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm"
+                            >
+                                <span class="text-muted-foreground group-hover:text-primary/70">#</span>
+                                {tag}
+                                <span class="ml-1 text-xs text-muted-foreground/50 group-hover:text-primary/50">
+                                    {count}
+                                </span>
+                            </a>
+                        );
+                    })}
+                    {tags.length === 0 && (
+                         <p class="text-muted-foreground">暂无标签。</p>
+                    )}
+                 </div>
+             </section>
         </div>
     </div>
 </BaseLayout>

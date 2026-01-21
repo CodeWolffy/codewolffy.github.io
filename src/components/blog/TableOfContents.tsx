@@ -48,7 +48,7 @@ export function TableOfContents({ headings }: TocProps) {
                 className="flex items-center gap-1 cursor-pointer lg:cursor-default"
                 onClick={() => setIsOpen(!isOpen)}
             >
-                <h3 className="font-medium text-base">此页内容</h3>
+                <h3 className="font-medium text-sm">此页内容</h3>
                 <ChevronRight
                     className={cn(
                         "h-4 w-4 transition-transform lg:hidden text-muted-foreground",

@@ -37,7 +37,12 @@ export function BackButton() {
             href={backInfo.href}
             className="group mb-4 flex items-center text-lg font-bold text-foreground hover:text-primary transition-colors"
         >
-            <span className="mr-2">←</span>
+            <span className="mr-2 inline-flex items-center transition-transform group-hover:-translate-x-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-left">
+                    <path d="m12 19-7-7 7-7" />
+                    <path d="M19 12H5" />
+                </svg>
+            </span>
             {backInfo.label}
         </a>
     );

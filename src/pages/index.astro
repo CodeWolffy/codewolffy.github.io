@@ -16,6 +16,22 @@ allTags.forEach(tag => {
     tagCounts[tag] = (tagCounts[tag] || 0) + 1;
 });
 const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
+
+// Get Categories
+const categories = [...new Set(posts.map((post) => post.data.category).filter(Boolean))];
+// Get Categories and sort by count
+const allCategories = posts.map((post) => post.data.category).filter(Boolean);
+const categoryCounts: Record<string, number> = {};
+allCategories.forEach(cat => {
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+});
+const sortedCategories = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1]) // Sort by count desc
+    .map(([cat]) => cat);
+
+// Limit items for homepage (Preview)
+const topCategories = sortedCategories.slice(0, 3);
+const topTags = sortedTags.slice(0, 8);
 ---
 
 <BaseLayout title="MyTechBlog">
@@ -52,13 +68,13 @@ const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
 			</div>
 			<div class="flex gap-4 mt-4 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-300">
 				<a href="/about">
-					<Button size="default" className="rounded-full px-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+					<Button size="default" variant="outline" className="rounded-full px-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
 						关于我
 					</Button>
 				</a>
-				<a href="/tags">
-					<Button size="default" variant="outline" className="rounded-full px-6 hover:scale-105 transition-all duration-300">
-						浏览标签
+				<a href="/categories">
+					<Button size="default" variant="outline" className="rounded-full px-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+						浏览分类/标签
 					</Button>
 				</a>
 			</div>
@@ -70,7 +86,7 @@ const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-3xl font-bold tracking-tight text-foreground">最新文章</h2>
             <a href="/archives" class="text-muted-foreground hover:text-primary transition-colors group flex items-center gap-1">
-                查看全部 <span class="group-hover:translate-x-1 transition-transform">→</span>
+                查看全部 <span class="group-hover:translate-x-1 transition-transform inline-flex"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
             </a>
         </div>
         
@@ -127,30 +143,61 @@ const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
         )}
 	</section>
 
-    <!-- 标签云区域 -->
+    <!-- 分类与标签区域 -->
     <section class="container mx-auto py-12 lg:py-16">
         <div class="flex items-center justify-between mb-8">
-            <h2 class="text-3xl font-bold tracking-tight text-foreground">探索标签</h2>
-            <a href="/tags" class="text-muted-foreground hover:text-primary transition-colors group flex items-center gap-1">
-                查看全部 <span class="group-hover:translate-x-1 transition-transform">→</span>
+            <h2 class="text-3xl font-bold tracking-tight text-foreground">热门话题</h2>
+            <a href="/categories" class="text-muted-foreground hover:text-primary transition-colors group flex items-center gap-1">
+                更多 <span class="group-hover:translate-x-1 transition-transform inline-flex"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
             </a>
         </div>
         
-        <div class="flex flex-wrap gap-3">
-            {sortedTags.map(([tag, count], index) => (
-                <a 
-                    href={`/tags/${tag}`}
-					class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden"
-					style={`animation-delay: ${index * 50}ms;`}
-                >
-					<!-- 悬停渐变背景 -->
-					<div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <span class="font-medium relative z-10 group-hover:text-primary transition-colors">{tag}</span>
-                    <span class="ml-2 text-xs text-muted-foreground relative z-10">
-                        ({count})
-                    </span>
-                </a>
-            ))}
+        <div class="space-y-10">
+             {/* 分类列表 (Top 3) */}
+             <div>
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <span class="w-1 h-5 bg-primary rounded-full"></span>
+                    精选分类
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {topCategories.map((category) => {
+                         const count = categoryCounts[category];
+                         return (
+                            <a 
+                                href={`/categories/${category}`}
+                                class="group flex items-center justify-between p-4 rounded-xl bg-card border border-border/50 hover:border-primary/50 hover:shadow-md transition-all duration-300"
+                            >
+                                <span class="font-medium group-hover:text-primary transition-colors">{category}</span>
+                                <span class="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full">{count}</span>
+                            </a>
+                         )
+                    })}
+                </div>
+             </div>
+
+             {/* 标签列表 (Top 8) */}
+             <div>
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <span class="w-1 h-5 bg-secondary-foreground/30 rounded-full"></span>
+                    热门标签
+                </h3>
+                <div class="flex flex-wrap gap-3">
+                    {topTags.map(([tag, count], index) => (
+                        <a 
+                            href={`/tags/${tag}`}
+                            class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden"
+                            style={`animation-delay: ${index * 50}ms;`}
+                        >
+                            <!-- 悬停渐变背景 -->
+                            <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <span class="font-medium relative z-10 group-hover:text-primary transition-colors">{tag}</span>
+                            <span class="ml-2 text-xs text-muted-foreground relative z-10">
+                                ({count})
+                            </span>
+                        </a>
+                    ))}
+                </div>
+             </div>
         </div>
     </section>
 </BaseLayout>

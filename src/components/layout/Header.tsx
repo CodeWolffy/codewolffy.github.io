@@ -43,55 +43,59 @@ export function Header() {
     };
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container mx-auto flex h-14 items-center gap-2 !px-2 md:!px-8">
-                {/* Desktop: Logo + Nav */}
-                <div className="mr-4 hidden md:flex shrink-0">
-                    <a className="mr-6 flex items-center space-x-2 font-bold" href="/">
-                        <span className="hidden font-bold sm:inline-block">MyTechBlog</span>
-                    </a>
-                    <nav className="flex items-center space-x-6 text-sm font-medium">
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/">首页</a>
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/archives">归档</a>
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/categories">分类</a>
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/tags">标签</a>
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/projects">项目</a>
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/friends">友链</a>
-                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/about">关于</a>
-                    </nav>
+        <header className="sticky top-0 z-50 w-full border-b bg-background">
+            <div className="flex w-full h-14 items-center px-1 md:px-8">
+                {/* Left Side: Desktop Nav + Mobile Menu + Mobile Logo */}
+                <div className="flex items-center gap-1 mr-auto md:mr-4">
+                    {/* Desktop: Logo + Nav */}
+                    <div className="hidden md:flex shrink-0">
+                        <a className="mr-6 flex items-center space-x-2 font-bold" href="/">
+                            <span className="hidden font-bold sm:inline-block">MyTechBlog</span>
+                        </a>
+                        <nav className="flex items-center space-x-6 text-sm font-medium">
+                            <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/">首页</a>
+                            <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/archives">归档</a>
+                            <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/categories">分类/标签</a>
+                            <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/projects">项目</a>
+                            <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/friends">友链</a>
+                            <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/about">关于</a>
+                        </nav>
+                    </div>
+
+                    {/* Mobile: Menu Button */}
+                    <div className="md:hidden shrink-0">
+                        <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                        </Button>
+                    </div>
+
+                    {/* Mobile: Logo */}
+                    <div className="md:hidden font-bold shrink-0">
+                        <a href="/">MyTechBlog</a>
+                    </div>
                 </div>
 
-                {/* Mobile: Menu Button */}
-                <div className="md:hidden shrink-0">
-                    <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                        {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                    </Button>
-                </div>
+                {/* Right Side: Search + Github + Theme */}
+                <div className="flex items-center gap-1 ml-auto md:ml-0 md:flex-1 md:justify-end lg:justify-start">
+                    {/* Search - Mobile: Collapsed/Right, Desktop: Fill/Left */}
+                    <div className="md:flex-1 shrink-0 md:min-w-0 md:mx-4 flex justify-end md:justify-start">
+                        <Search />
+                    </div>
 
-                {/* Mobile: Logo */}
-                <div className="md:hidden font-bold shrink-0">
-                    <a href="/">MyTechBlog</a>
-                </div>
-
-                {/* Search - Mobile: Collapsed/Right, Desktop: Fill/Left */}
-                <div className="flex-1 md:hidden" /> {/* Spacer for Mobile */}
-                <div className="md:flex-1 shrink-0 md:min-w-0 md:mx-4 flex justify-end md:justify-start">
-                    <Search />
-                </div>
-
-                {/* Right Actions - 固定宽度 */}
-                <div className="flex items-center shrink-0 space-x-1">
-                    <a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" className="inline-flex">
-                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 py-2 w-9 px-0">
-                            <Github className="h-4 w-4" />
-                            <span className="sr-only">GitHub</span>
-                        </div>
-                    </a>
-                    <Button variant="ghost" size="icon" onClick={toggleTheme}>
-                        <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                        <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                        <span className="sr-only">Toggle theme</span>
-                    </Button>
+                    {/* Right Actions - 固定宽度 */}
+                    <div className="flex items-center shrink-0 space-x-1">
+                        <a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" className="inline-flex">
+                            <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 py-2 w-9 px-0">
+                                <Github className="h-4 w-4" />
+                                <span className="sr-only">GitHub</span>
+                            </div>
+                        </a>
+                        <Button variant="ghost" size="icon" onClick={toggleTheme}>
+                            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                            <span className="sr-only">Toggle theme</span>
+                        </Button>
+                    </div>
                 </div>
             </div>
             {/* Mobile Nav */}
@@ -100,8 +104,7 @@ export function Header() {
                     <nav className="flex flex-col space-y-1">
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/">首页</a>
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/archives">归档</a>
-                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/categories">分类</a>
-                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/tags">标签</a>
+                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/categories">分类/标签</a>
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/projects">项目</a>
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/friends">友链</a>
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/about">关于</a>
