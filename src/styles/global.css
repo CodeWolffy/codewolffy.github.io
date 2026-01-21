@@ -98,18 +98,27 @@
 @layer base {
     * {
         @apply border-border;
+        box-sizing: border-box;
     }
 
     /* Container 默认水平 padding - 确保移动端两侧边距一致 */
     .container {
-        padding-left: 1rem;
-        padding-right: 1rem;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
     }
 
     @media (min-width: 640px) {
         .container {
-            padding-left: 2rem;
-            padding-right: 2rem;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
+        }
+    }
+
+    @media (min-width: 1400px) {
+        .container {
+            max-width: 1400px !important;
         }
     }
 
