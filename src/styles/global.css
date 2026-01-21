@@ -115,6 +115,11 @@
 
     html {
         overflow-y: scroll;
+        overflow-x: hidden;
+    }
+
+    body {
+        overflow-x: hidden;
     }
 
     /* 自定义滚动条样式 - 更窄更美观 */
@@ -184,9 +189,15 @@
 }
 
 /* Prose 代码块样式优化 - 防止溢出 */
+.prose {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
 .prose pre {
     overflow-x: auto;
     max-width: 100%;
+    box-sizing: border-box;
 }
 
 .prose code {
@@ -197,11 +208,20 @@
 @media (max-width: 1024px) {
     .prose {
         max-width: 100%;
+        min-width: 0;
     }
 
     .prose pre {
         margin-left: 0;
         margin-right: 0;
+        max-width: calc(100vw - 2rem);
+    }
+
+    .prose img,
+    .prose table,
+    .prose iframe,
+    .prose video {
+        max-width: 100%;
     }
 }
 
