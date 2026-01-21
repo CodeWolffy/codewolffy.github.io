@@ -123,8 +123,8 @@ export function Search() {
             {/* Search Input */}
             <div
                 className={cn(
-                    "flex items-center h-9 rounded-md border border-input bg-background px-3 text-sm transition-all duration-200",
-                    isExpanded ? "w-64 lg:w-80" : "w-40 lg:w-64 cursor-pointer"
+                    "flex items-center h-9 rounded-md border border-input bg-background px-3 text-sm transition-all duration-200 w-full",
+                    isExpanded ? "lg:w-80" : "cursor-pointer"
                 )}
                 onClick={!isExpanded ? handleSearchClick : undefined}
             >
