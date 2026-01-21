@@ -35,7 +35,7 @@ export function BackButton() {
     return (
         <a
             href={backInfo.href}
-            className="group mb-8 flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+            className="group mb-4 flex items-center text-lg font-bold text-foreground hover:text-primary transition-colors"
         >
             <span className="mr-2">←</span>
             {backInfo.label}

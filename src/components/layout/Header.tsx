@@ -53,6 +53,8 @@ export function Header() {
                     <nav className="flex items-center space-x-6 text-sm font-medium">
                         <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/">首页</a>
                         <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/archives">归档</a>
+                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/categories">分类</a>
+                        <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/tags">标签</a>
                         <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/projects">项目</a>
                         <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/friends">友链</a>
                         <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/about">关于</a>
@@ -98,6 +100,8 @@ export function Header() {
                     <nav className="flex flex-col space-y-1">
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/">首页</a>
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/archives">归档</a>
+                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/categories">分类</a>
+                        <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/tags">标签</a>
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/projects">项目</a>
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/friends">友链</a>
                         <a className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80" href="/about">关于</a>

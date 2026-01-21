@@ -1,0 +1,64 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const allPosts = await getCollection('blog');
+  const uniqueCategories = [...new Set(allPosts.map((post) => post.data.category).filter(Boolean))];
+
+  return uniqueCategories.map((category) => {
+    const filteredPosts = allPosts.filter((post) => post.data.category === category);
+    return {
+      params: { category },
+      props: { posts: filteredPosts },
+    };
+  });
+}
+
+const { category } = Astro.params;
+const { posts } = Astro.props;
+---
+
+<BaseLayout title={`分类: ${category}`}>
+    <div class="container mx-auto max-w-4xl py-6 lg:py-10">
+        <div class="flex flex-col items-start gap-4 md:flex-row md:justify-between md:gap-8">
+            <div class="flex-1 space-y-4">
+                <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">
+                    分类: {category}
+                </h1>
+            </div>
+        </div>
+        <hr class="my-8" />
+        <div class="grid gap-10 sm:grid-cols-2">
+            {posts.map((post) => (
+                <article class="group relative flex flex-col space-y-2">
+                    {post.data.heroImage && (
+                        <img
+                            src={post.data.heroImage}
+                            alt={post.data.title}
+                            width={804}
+                            height={452}
+                            class="rounded-md border bg-muted transition-colors"
+                        />
+                    )}
+                    <h2 class="text-2xl font-extrabold tracking-tight">
+                        <a href={`/blog/${post.slug}/`}>{post.data.title}</a>
+                    </h2>
+                    {post.data.description && (
+                        <p class="text-muted-foreground">
+                            {post.data.description}
+                        </p>
+                    )}
+                    {post.data.pubDate && (
+                        <p class="text-sm text-muted-foreground">
+                            {post.data.pubDate.toLocaleDateString()}
+                        </p>
+                    )}
+                    <a href={`/blog/${post.slug}/`} class="absolute inset-0">
+                        <span class="sr-only">View Article</span>
+                    </a>
+                </article>
+            ))}
+        </div>
+    </div>
+</BaseLayout>
