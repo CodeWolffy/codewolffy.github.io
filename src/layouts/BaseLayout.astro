@@ -64,7 +64,13 @@ const { title, description = "A modern tech blog." } = Astro.props;
 				observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 			}
 			
-			// Re-apply theme after View Transitions navigation
+			// Preserve theme across View Transitions by copying dark class to new document
+			document.addEventListener('astro:before-swap', (event) => {
+				const isDark = document.documentElement.classList.contains('dark');
+				event.newDocument.documentElement.classList[isDark ? 'add' : 'remove']('dark');
+			});
+			
+			// Re-apply theme after View Transitions navigation (fallback)
 			document.addEventListener('astro:after-swap', applyTheme);
 		</script>
         {import.meta.env.PROD && (
