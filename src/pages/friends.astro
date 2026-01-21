@@ -44,9 +44,16 @@ const friends = [
 ---
 
 <BaseLayout title="友情链接 | MyTechBlog" description="友情链接与推荐资源">
-    <div class="container mx-auto max-w-4xl py-6 lg:py-10 px-4 md:px-6">
-        <div class="space-y-4 mb-10">
-            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">
+	<!-- 装饰背景 -->
+	<div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+		<div class="absolute top-1/4 -left-20 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]"></div>
+		<div class="absolute bottom-1/4 -right-20 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[100px]"></div>
+	</div>
+
+    <div class="container mx-auto max-w-4xl py-8 lg:py-12">
+        <!-- 页面标题 -->
+		<div class="space-y-4 mb-12 text-center">
+            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
                 友情链接
             </h1>
             <p class="text-xl text-muted-foreground">
@@ -55,29 +62,45 @@ const friends = [
         </div>
         
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {friends.map((friend) => (
+            {friends.map((friend, index) => (
                 <a 
                     href={friend.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="group relative flex flex-col items-center p-6 rounded-xl border bg-card hover:shadow-lg hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
+					class="group relative flex flex-col items-center p-6 rounded-xl bg-card overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
+					style={`animation-delay: ${index * 100}ms;`}
                 >
-                    <div class="w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center mb-4 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
-                        <img 
-                            src={friend.avatar} 
-                            alt={friend.name}
-                            class="w-12 h-12 object-contain"
-                            loading="lazy"
-                        />
-                    </div>
-                    <h3 class="font-semibold text-lg group-hover:text-primary transition-colors">
+					<!-- 渐变边框效果 -->
+					<!-- 边框效果 -->
+					<div class="absolute inset-0 rounded-xl border border-border/50 group-hover:border-primary/50 transition-colors duration-500"></div>
+					<div class="absolute inset-[1px] rounded-xl bg-card -z-5"></div>
+					
+					<!-- 悬停背景渐变 -->
+					<div class="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0"></div>
+					
+					<!-- 头像带旋转边框 -->
+					<div class="relative mb-4 z-10">
+						<div class="absolute -inset-1 rounded-full bg-primary/30 opacity-0 group-hover:opacity-75 blur-sm transition-opacity duration-500"></div>
+                    	<div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-2 ring-border group-hover:ring-transparent transition-all">
+                        	<img 
+                            	src={friend.avatar} 
+                            	alt={friend.name}
+                            	class="w-12 h-12 object-contain group-hover:scale-110 transition-transform duration-500"
+                            	loading="lazy"
+                        	/>
+                    	</div>
+					</div>
+					
+                    <h3 class="font-semibold text-lg group-hover:text-primary transition-colors duration-300 relative z-10">
                         {friend.name}
                     </h3>
-                    <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2">
+                    <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2 relative z-10">
                         {friend.description}
                     </p>
-                    <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
+					
+					<!-- 外链图标 -->
+                    <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                             <polyline points="15 3 21 3 21 9"></polyline>
                             <line x1="10" y1="14" x2="21" y2="3"></line>
@@ -87,13 +110,17 @@ const friends = [
             ))}
         </div>
         
-        <div class="mt-16 p-8 rounded-2xl border bg-card/50 text-center">
-            <h2 class="text-2xl font-bold mb-4">申请友链</h2>
+		<!-- 申请友链区域 -->
+        <div class="mt-16 p-8 rounded-2xl glass-effect text-center relative overflow-hidden">
+			<!-- 装饰元素 -->
+			<div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-primary/50 rounded-full"></div>
+			
+            <h2 class="text-2xl font-bold mb-4 text-foreground">申请友链</h2>
             <p class="text-muted-foreground mb-6">
                 如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。
             </p>
             <a href="https://github.com/CodeWolffy" target="_blank" rel="noopener noreferrer">
-                <Button size="lg">
+                <Button size="lg" className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
                     联系我
                 </Button>
             </a>

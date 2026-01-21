@@ -20,42 +20,53 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
 ---
 
 <BaseLayout title="文章归档 | MyTechBlog" description="按时间线浏览所有文章">
-    <div class="container mx-auto max-w-4xl py-6 lg:py-10 px-4 md:px-6">
-        <div class="space-y-4 mb-10">
-            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">
+    <div class="container mx-auto max-w-4xl py-8 lg:py-12">
+        <!-- 页面标题区域 -->
+        <div class="space-y-4 mb-12 text-center">
+            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
                 文章归档
             </h1>
             <p class="text-xl text-muted-foreground">
-                共 {allPosts.length} 篇文章
+                共 <span class="font-bold text-foreground">{allPosts.length}</span> 篇文章
             </p>
         </div>
         
         <div class="relative">
-            <!-- 时间线 -->
-            <div class="absolute left-4 top-0 bottom-0 w-px bg-border md:left-8"></div>
+            <!-- 时间线 - 渐变色 -->
+            <div class="absolute left-4 top-0 bottom-0 w-0.5 md:left-8 bg-border"></div>
             
-            {years.map((year) => (
-                <div class="mb-12">
+            {years.map((year, yearIndex) => (
+                <div class="mb-12" style={`animation-delay: ${yearIndex * 150}ms;`}>
                     <!-- 年份标签 -->
                     <div class="relative flex items-center mb-6">
                         <div class="absolute left-0 w-8 h-8 md:w-16 md:h-8 flex items-center justify-center">
-                            <div class="w-4 h-4 rounded-full bg-primary shadow-lg shadow-primary/25"></div>
+                            <!-- 脉冲光点 -->
+                            <div class="w-4 h-4 rounded-full bg-primary shadow-lg shadow-primary/30"></div>
                         </div>
-                        <h2 class="ml-12 md:ml-24 text-2xl font-bold text-primary">{year}</h2>
+                        <!-- 渐变年份标签 -->
+                        <div class="ml-12 md:ml-24 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                            <h2 class="text-xl font-bold text-primary">{year}</h2>
+                        </div>
                     </div>
                     
                     <!-- 文章列表 -->
                     <div class="space-y-4 ml-12 md:ml-24">
-                        {postsByYear[Number(year)].map((post) => (
-                            <article class="group relative rounded-lg border p-4 hover:shadow-md transition-all hover:border-primary/50 bg-card">
-                                <a href={`/blog/${post.slug}`} class="block">
+                        {postsByYear[Number(year)].map((post, postIndex) => (
+                            <article 
+                                class="group relative rounded-xl p-4 hover:shadow-lg transition-all duration-300 bg-card border border-border hover:border-primary/30 border-l-4 border-l-primary overflow-hidden"
+                                style={`animation-delay: ${(yearIndex * 150) + (postIndex * 50)}ms;`}
+                            >
+                                <!-- 悬停背景效果 -->
+                                <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                
+                                <a href={`/blog/${post.slug}`} class="block relative z-10">
                                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                        <h3 class="font-semibold text-lg group-hover:text-primary transition-colors">
+                                        <h3 class="font-semibold text-lg group-hover:text-primary transition-colors duration-300">
                                             {post.data.title}
                                         </h3>
                                         <time 
                                             datetime={post.data.pubDate.toISOString()}
-                                            class="text-sm text-muted-foreground shrink-0"
+                                            class="text-sm text-muted-foreground shrink-0 px-2 py-0.5 rounded-full bg-secondary/50"
                                         >
                                             {post.data.pubDate.toLocaleDateString('zh-CN', {
                                                 month: 'long',
@@ -64,9 +75,9 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
                                         </time>
                                     </div>
                                     {post.data.tags && post.data.tags.length > 0 && (
-                                        <div class="flex flex-wrap gap-2 mt-2">
+                                        <div class="flex flex-wrap gap-2 mt-3">
                                             {post.data.tags.map((tag: string) => (
-                                                <span class="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
+                                                <span class="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
                                                     {tag}
                                                 </span>
                                             ))}
