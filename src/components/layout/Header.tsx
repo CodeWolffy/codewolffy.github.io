@@ -44,7 +44,7 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container mx-auto flex h-14 items-center gap-2">
+            <div className="container mx-auto flex h-14 items-center gap-2 !px-2 md:!px-8">
                 {/* Desktop: Logo + Nav */}
                 <div className="mr-4 hidden md:flex shrink-0">
                     <a className="mr-6 flex items-center space-x-2 font-bold" href="/">
@@ -71,14 +71,15 @@ export function Header() {
                     <a href="/">MyTechBlog</a>
                 </div>
 
-                {/* Search - 占据剩余空间 */}
-                <div className="flex-1 min-w-0">
+                {/* Search - Mobile: Collapsed/Right, Desktop: Fill/Left */}
+                <div className="flex-1 md:hidden" /> {/* Spacer for Mobile */}
+                <div className="md:flex-1 shrink-0 md:min-w-0 md:mx-4 flex justify-end md:justify-start">
                     <Search />
                 </div>
 
                 {/* Right Actions - 固定宽度 */}
-                <div className="flex items-center shrink-0">
-                    <a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" className="hidden md:inline-flex">
+                <div className="flex items-center shrink-0 space-x-1">
+                    <a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" className="inline-flex">
                         <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 py-2 w-9 px-0">
                             <Github className="h-4 w-4" />
                             <span className="sr-only">GitHub</span>

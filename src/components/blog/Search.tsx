@@ -123,8 +123,10 @@ export function Search() {
             {/* Search Input */}
             <div
                 className={cn(
-                    "flex items-center h-9 rounded-md border border-input bg-background px-3 text-sm transition-all duration-200 w-full",
-                    isExpanded ? "lg:w-80" : "cursor-pointer"
+                    "flex items-center h-9 rounded-md border border-input bg-background text-sm transition-all duration-200",
+                    isExpanded
+                        ? "w-[calc(100vw-8rem)] absolute right-0 top-0 md:relative md:w-full md:right-auto md:top-auto z-50 px-3 py-2 md:py-0 shadow-md md:shadow-none"
+                        : "w-9 px-0 justify-center md:w-full md:px-3 md:justify-start cursor-pointer border-transparent md:border-input"
                 )}
                 onClick={!isExpanded ? handleSearchClick : undefined}
             >
@@ -137,7 +139,7 @@ export function Search() {
                     onChange={handleInputChange}
                     className={cn(
                         "flex-1 bg-transparent ml-2 outline-none placeholder:text-muted-foreground",
-                        !isExpanded && "pointer-events-none"
+                        !isExpanded ? "hidden md:block pointer-events-none" : "block"
                     )}
                     readOnly={!isExpanded}
                 />
@@ -150,7 +152,7 @@ export function Search() {
                     </button>
                 )}
                 {!isExpanded && (
-                    <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground ml-2">
+                    <kbd className="hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground ml-2">
                         <span className="text-xs">⌘</span>K
                     </kbd>
                 )}
