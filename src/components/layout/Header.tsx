@@ -50,7 +50,7 @@ export function Header() {
                     {/* Desktop: Logo + Nav */}
                     <div className="hidden md:flex shrink-0">
                         <a className="mr-6 flex items-center space-x-2 font-bold" href="/">
-                            <span className="hidden font-bold sm:inline-block">MyTechBlog</span>
+                            <span className="hidden font-bold sm:inline-block">狼码纪</span>
                         </a>
                         <nav className="flex items-center space-x-6 text-sm font-medium">
                             <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/">首页</a>
@@ -71,7 +71,7 @@ export function Header() {
 
                     {/* Mobile: Logo */}
                     <div className="md:hidden font-bold shrink-0">
-                        <a href="/">MyTechBlog</a>
+                        <a href="/">狼码纪</a>
                     </div>
                 </div>
 

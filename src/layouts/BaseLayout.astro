@@ -98,50 +98,56 @@ const { title, description = "A modern tech blog." } = Astro.props;
 			</main>
 			
 			<!-- Footer 美化版 -->
-			<footer class="relative mt-20 overflow-hidden">
-				<!-- 波浪装饰 -->
-				<div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
-				<div class="absolute top-0 left-1/4 w-32 h-1 bg-primary/30 blur-sm"></div>
-				<div class="absolute top-0 right-1/4 w-24 h-1 bg-primary/30 blur-sm"></div>
-				
-				<div class="container mx-auto py-8 md:py-12">
-					<div class="flex flex-col items-center justify-center gap-4 text-center">
-						<!-- Logo/品牌 -->
-						<a href="/" class="text-2xl font-bold text-foreground hover:text-primary transition-colors">
-							MyTechBlog
+			<footer class="border-t py-6 md:px-8 md:py-0">
+				<div class="container mx-auto flex flex-col items-center justify-center gap-4 md:h-24">
+					<div class="flex items-center gap-4">
+						<a href="#" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+							<span class="sr-only">Bilibili</span>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.996 1.524 2.249 1.56 3.758v4.806c-.054 1.51-.602 2.769-1.646 3.774-1.044 1.004-2.3 1.492-3.766 1.463H5.412c-1.503.029-2.756-.459-3.766-1.463C.602 17.56.054 16.3.001 14.79V9.985c.029-1.503.517-2.756 1.463-3.758C2.51 5.231 3.769 4.707 5.234 4.653h.854l-2.05-2.049A1.065 1.065 0 0 1 5.546 1.09l2.84 2.848h7.228l2.84-2.848a1.065 1.065 0 0 1 1.509 1.513l-2.05 2.05zm-3.875 5.004h-3.876c-.521-.019-.922.398-.902.937v2.5a.916.916 0 0 0 .902.934h3.876a.916.916 0 0 0 .902-.934v-2.5c.019-.539-.382-.956-.902-.937z"/>
+							</svg>
 						</a>
-						
-						<!-- 描述 -->
-						<p class="text-sm text-muted-foreground max-w-md">
-							探索技术、编程与设计的边界
-						</p>
-						
-						<!-- 社交链接 -->
-						<div class="flex items-center gap-4 mt-2">
-							<a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
-								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-									<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-								</svg>
-							</a>
-							<a href="/rss.xml" class="text-muted-foreground hover:text-primary transition-colors">
-								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M4 11a9 9 0 0 1 9 9"></path>
-									<path d="M4 4a16 16 0 0 1 16 16"></path>
-									<circle cx="5" cy="19" r="1"></circle>
-								</svg>
-							</a>
-						</div>
-						
-						<!-- 版权信息 -->
-						<div class="mt-4 pt-4 border-t border-border/50 w-full max-w-md">
-							<p class="text-xs text-muted-foreground">
-								基于 <span class="font-medium">Astro</span>, <span class="font-medium">Tailwind CSS</span> 和 <span class="font-medium">React</span> 构建
-							</p>
-							<p class="text-xs text-muted-foreground mt-1">
-								© {new Date().getFullYear()} MyTechBlog. All rights reserved.
-							</p>
-						</div>
+						<a href="#" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+							<span class="sr-only">Douyin</span>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 1024 1024" fill="currentColor">
+								<path d="M937.386667 423.850667a387.84 387.84 0 0 1-232.874667-77.824v352.341333C704.512 878.250667 565.930667 1024 394.922667 1024S85.333333 878.250667 85.333333 698.368c0-179.882667 138.581333-325.632 309.589334-325.632 17.066667 0 33.706667 1.450667 49.92 4.266667v186.624a131.754667 131.754667 0 0 0-48.64-9.216c-76.288 0-138.154667 65.024-138.154667 145.322666 0 80.213333 61.866667 145.322667 138.24 145.322667 76.202667 0 138.069333-65.109333 138.069333-145.322667V0h172.714667c0 134.485333 103.68 243.541333 231.594667 243.541333v180.309334h-1.28"/>
+							</svg>
+						</a>
+						<a href="#" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+							<span class="sr-only">Instagram</span>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+								<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+								<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+							</svg>
+						</a>
+						<a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+							<span class="sr-only">GitHub</span>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+							</svg>
+						</a>
+						<a href="#" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+							<span class="sr-only">Juejin</span>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M2 12l10 7.422l10 -7.422"/>
+								<path d="M7 9l5 4l5 -4"/>
+								<path d="M11 6l1 .8l1 -.8l-1 -.8z"/>
+							</svg>
+						</a>
+						<a href="/rss.xml" class="text-muted-foreground hover:text-primary transition-colors">
+							<span class="sr-only">RSS</span>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M4 11a9 9 0 0 1 9 9"></path>
+								<path d="M4 4a16 16 0 0 1 16 16"></path>
+								<circle cx="5" cy="19" r="1"></circle>
+							</svg>
+						</a>
 					</div>
+					
+					<p class="text-balance text-center text-sm leading-loose text-muted-foreground">
+						© {new Date().getFullYear()} 狼码纪. All rights reserved.
+					</p>
 				</div>
 			</footer>
 			

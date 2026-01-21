@@ -2,7 +2,9 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getCollection } from "astro:content";
 
-const allPosts = (await getCollection("blog")).sort(
+const allPosts = (await getCollection("blog", ({ data }) => {
+    return import.meta.env.PROD ? data.draft !== true : true;
+})).sort(
     (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 
@@ -19,7 +21,7 @@ const postsByYear = allPosts.reduce((acc, post) => {
 const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
 ---
 
-<BaseLayout title="文章归档 | MyTechBlog" description="按时间线浏览所有文章">
+<BaseLayout title="文章归档 | 狼码纪" description="按时间线浏览所有文章">
     <div class="container mx-auto max-w-4xl py-8 lg:py-12">
         <!-- 页面标题区域 -->
         <div class="space-y-4 mb-12 text-center">

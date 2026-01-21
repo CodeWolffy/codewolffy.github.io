@@ -3,7 +3,9 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
 import { getCollection } from "astro:content";
 
-const posts = (await getCollection("blog")).sort(
+const posts = (await getCollection("blog", ({ data }) => {
+    return import.meta.env.PROD ? data.draft !== true : true;
+})).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 
@@ -34,9 +36,9 @@ const topCategories = sortedCategories.slice(0, 3);
 const topTags = sortedTags.slice(0, 8);
 ---
 
-<BaseLayout title="MyTechBlog">
+<BaseLayout title="狼码纪">
 	<!-- Hero Section 增强版 -->
-	<section class="relative overflow-hidden py-12 lg:py-16 bg-background">
+	<section class="relative overflow-hidden py-1 lg:py-2 bg-background">
 		<!-- 动态渐变背景 -->
 		<div class="absolute inset-0 -z-10">
 			<!-- 网格背景 -->
@@ -60,7 +62,7 @@ const topTags = sortedTags.slice(0, 8);
 			<div class="space-y-3">
 				<!-- 渐变动画标题 -->
 				<h1 class="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl text-foreground pb-2">
-					MyTechBlog
+					狼码纪
 				</h1>
 				<p class="mx-auto max-w-[600px] text-muted-foreground text-lg md:text-xl animate-in fade-in slide-in-from-bottom-5 duration-1000 delay-200">
 					探索技术、编程与设计的边界。
@@ -82,7 +84,7 @@ const topTags = sortedTags.slice(0, 8);
 	</section>
 
 	<!-- 最新文章区域 -->
-    <section class="container mx-auto pt-4 pb-8 lg:pt-8 lg:pb-12">
+    <section class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6">
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-3xl font-bold tracking-tight text-foreground">最新文章</h2>
             <a href="/archives" class="text-muted-foreground hover:text-primary transition-colors group flex items-center gap-1">
@@ -97,11 +99,11 @@ const topTags = sortedTags.slice(0, 8);
 					style={`animation-delay: ${index * 100}ms;`}
 				>
 					
-					{post.data.heroImage && (
+					{(post.data.coverImage || post.data.heroImage) && (
                         <div class="aspect-video overflow-hidden rounded-lg bg-muted relative">
 							<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"></div>
                             <img
-                                src={post.data.heroImage}
+                                src={post.data.coverImage || post.data.heroImage}
                                 alt={post.data.title}
                                 width={804}
                                 height={452}
@@ -144,7 +146,7 @@ const topTags = sortedTags.slice(0, 8);
 	</section>
 
     <!-- 分类与标签区域 -->
-    <section class="container mx-auto py-12 lg:py-16">
+    <section class="container mx-auto py-3 lg:py-4">
         <div class="flex items-center justify-between mb-8">
             <h2 class="text-3xl font-bold tracking-tight text-foreground">热门话题</h2>
             <a href="/categories" class="text-muted-foreground hover:text-primary transition-colors group flex items-center gap-1">

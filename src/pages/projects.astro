@@ -2,44 +2,14 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
 
-// 项目数据
-const projects = [
-    {
-        title: "MyTechBlog",
-        description: "一个使用 Astro + React + Tailwind CSS 构建的现代个人技术博客，支持暗色模式、全文搜索和评论系统。",
-        image: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-        tags: ["Astro", "React", "TypeScript", "Tailwind CSS"],
-        github: "https://github.com/CodeWolffy/codewolffy.github.io",
-        demo: "/"
-    },
-    {
-        title: "Todo App",
-        description: "一个功能完整的待办事项应用，支持任务分类、优先级设置和本地存储。",
-        image: "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-        tags: ["React", "TypeScript", "Local Storage"],
-        github: "https://github.com/CodeWolffy",
-        demo: null
-    },
-    {
-        title: "Weather Dashboard",
-        description: "天气预报仪表盘，实时获取天气数据，支持多城市切换和未来几天的天气预测。",
-        image: "https://images.unsplash.com/photo-1592210454359-9043f067919b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-        tags: ["Vue.js", "API", "Chart.js"],
-        github: "https://github.com/CodeWolffy",
-        demo: null
-    },
-    {
-        title: "Markdown Editor",
-        description: "在线 Markdown 编辑器，支持实时预览、语法高亮和导出功能。",
-        image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-        tags: ["React", "Marked", "CodeMirror"],
-        github: "https://github.com/CodeWolffy",
-        demo: null
-    }
-];
+import { getCollection } from 'astro:content';
+
+const projects = (await getCollection('projects'))
+    .map(item => item.data)
+    .sort((a, b) => b.priority - a.priority);
 ---
 
-<BaseLayout title="项目展示 | MyTechBlog" description="我的个人项目作品集">
+<BaseLayout title="项目展示 | 狼码纪" description="我的个人项目作品集">
 	<!-- 装饰背景 -->
 	<div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
 		<div class="absolute top-0 left-1/3 w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[120px]"></div>
@@ -73,7 +43,7 @@ const projects = [
 						<!-- 图片遮罩 -->
 						<div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"></div>
                         <img 
-                            src={project.image} 
+                            src={project.coverImage || project.image} 
                             alt={project.title}
                             class="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
                             loading="lazy"

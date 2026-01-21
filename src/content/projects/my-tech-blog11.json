@@ -1,0 +1,14 @@
+{
+  "title": "狼码纪",
+  "description": "一个使用 Astro + React + Tailwind CSS 构建的现代个人技术博客，支持暗色模式、全文搜索和评论系统。",
+  "image": "https://images.unsplash.com/photo-1499750310107-5fef28a66643?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+  "tags": [
+    "Astro",
+    "React",
+    "Tailwind CSS",
+    "111"
+  ],
+  "github": "https://github.com/CodeWolffy/codewolffy.github.io",
+  "demo": "https://github.com/CodeWolffy/codewolffy.github.io1",
+  "priority": 10
+}

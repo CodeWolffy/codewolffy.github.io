@@ -3,48 +3,12 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
 import { Github, Mail } from "lucide-react";
 
-// 友链数据
-const friends = [
-    {
-        name: "GitHub",
-        description: "Where the world builds software",
-        avatar: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
-        url: "https://github.com"
-    },
-    {
-        name: "Astro",
-        description: "Build faster websites with less client-side JavaScript",
-        avatar: "https://astro.build/assets/press/astro-icon-light-gradient.svg",
-        url: "https://astro.build"
-    },
-    {
-        name: "React",
-        description: "A JavaScript library for building user interfaces",
-        avatar: "https://upload.wikimedia.org/wikipedia/commons/a/a7/React-icon.svg",
-        url: "https://react.dev"
-    },
-    {
-        name: "TypeScript",
-        description: "JavaScript with syntax for types",
-        avatar: "https://upload.wikimedia.org/wikipedia/commons/f/f5/Typescript.svg",
-        url: "https://www.typescriptlang.org"
-    },
-    {
-        name: "Tailwind CSS",
-        description: "A utility-first CSS framework",
-        avatar: "https://tailwindcss.com/_next/static/media/tailwindcss-mark.3c5441fc7a190fb1800d4a5c7f07ba4b1345a9c8.svg",
-        url: "https://tailwindcss.com"
-    },
-    {
-        name: "MDN Web Docs",
-        description: "Resources for developers, by developers",
-        avatar: "https://developer.mozilla.org/apple-touch-icon.6803c8f0.png",
-        url: "https://developer.mozilla.org"
-    }
-];
+import { getCollection } from 'astro:content';
+
+const friends = (await getCollection('friends')).map(item => item.data);
 ---
 
-<BaseLayout title="友情链接 | MyTechBlog" description="友情链接与推荐资源">
+<BaseLayout title="友情链接 | 狼码纪" description="友情链接与推荐资源">
 	<!-- 装饰背景 -->
 	<div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
 		<div class="absolute top-1/4 -left-20 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]"></div>
@@ -84,7 +48,7 @@ const friends = [
 						<div class="absolute -inset-1 rounded-full bg-primary/30 opacity-0 group-hover:opacity-75 blur-sm transition-opacity duration-500"></div>
                     	<div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-2 ring-border group-hover:ring-transparent transition-all">
                         	<img 
-                            	src={friend.avatar} 
+                            	src={friend.avatar || friend.avatarUrl} 
                             	alt={friend.name}
                             	class="w-12 h-12 object-contain group-hover:scale-110 transition-transform duration-500"
                             	loading="lazy"

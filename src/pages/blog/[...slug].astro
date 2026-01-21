@@ -1,12 +1,16 @@
 ---
-import { type CollectionEntry, getCollection } from 'astro:content';
+import { type CollectionEntry, getCollection, render } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { TableOfContents } from '@/components/blog/TableOfContents';
 import { Comments } from '@/components/blog/Comments';
 import { BackButton } from '@/components/ui/BackButton';
 
+export const prerender = true;
+
 export async function getStaticPaths() {
-	const posts = await getCollection('blog');
+	const posts = await getCollection('blog', ({ data }) => {
+		return import.meta.env.PROD ? data.draft !== true : true;
+	});
 	return posts.map((post) => ({
 		params: { slug: post.slug },
 		props: post,
@@ -15,7 +19,7 @@ export async function getStaticPaths() {
 type Props = CollectionEntry<'blog'>;
 
 const post = Astro.props;
-const { Content, headings } = await post.render();
+const { Content, headings } = await render(post);
 ---
 
 <BaseLayout title={post.data.title} description={post.data.description}>
@@ -50,9 +54,9 @@ const { Content, headings } = await post.render();
                 <div class="lg:hidden mb-4 py-1.5 px-4 bg-secondary rounded-xl sticky top-14 z-40 border border-border/50 w-full">
                     <TableOfContents headings={headings} client:load />
                 </div>
-                {post.data.heroImage && (
+                {(post.data.coverImage || post.data.heroImage) && (
                     <img
-                        src={post.data.heroImage}
+                        src={post.data.coverImage || post.data.heroImage}
                         alt={post.data.title}
                         width={720}
                         height={405}

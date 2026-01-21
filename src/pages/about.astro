@@ -1,52 +1,54 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
+import { getEntry, render } from 'astro:content';
+
+const aboutPage = await getEntry('pages', 'about');
+const { Content } = await render(aboutPage);
 ---
 
-<BaseLayout title="关于我 | MyTechBlog" description="关于作者">
+<BaseLayout title={`${aboutPage.data.title} | 狼码纪`} description={aboutPage.data.description}>
 	<div class="container mx-auto max-w-4xl py-8 lg:py-12">
 		<!-- 头部区域 -->
-		<div class="flex flex-col items-center gap-8 mb-12">
+		<div class="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 mb-16">
 			<!-- 头像 - 动态渐变光环 -->
-			<div class="relative group">
+			<div class="relative group shrink-0">
 				<!-- 旋转光环 -->
 				<div class="absolute -inset-1 rounded-full bg-primary/30 blur-sm"></div>
-				<div class="relative h-32 w-32 rounded-full bg-card border-4 border-background flex items-center justify-center text-4xl shadow-xl">
-					👋
+				<div class="relative h-48 w-48 rounded-full bg-card border-4 border-background flex items-center justify-center text-6xl shadow-xl overflow-hidden">
+					{aboutPage.data.avatar ? (
+						<img src={aboutPage.data.avatar} alt={aboutPage.data.title} class="w-full h-full object-cover" />
+					) : (
+						<span>👋</span>
+					)}
 				</div>
 			</div>
 			
 			<!-- 标题文字 -->
-			<div class="text-center space-y-3">
+			<div class="text-center md:text-left space-y-4">
 				<h1 class="font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
-					关于我
+					{aboutPage.data.title}
 				</h1>
 				<p class="text-xl text-muted-foreground">
-					软件工程师 & 技术爱好者
+					{aboutPage.data.subtitle || '软件工程师 & 技术爱好者'}
 				</p>
 			</div>
 		</div>
 
-		<!-- 简介卡片 - 玻璃态效果 -->
-		<div class="glass-effect rounded-2xl p-8 mb-8 shadow-lg">
-			<div class="prose dark:prose-invert max-w-none text-lg leading-relaxed text-muted-foreground">
-				<p>
-					你好！我是一名热衷于构建现代 Web 应用的软件工程师。
-					这个博客是我分享技术见解、教程和个人思考的地方。
-				</p>
-				<p>
-					我专注于 React, TypeScript 和 Node.js 技术栈。工作之余，我喜欢探索城市的咖啡馆，或者沉浸在科幻小说的世界里。
-				</p>
+		<!-- 简介部分 -->
+		<div class="mb-12">
+			<div class="prose dark:prose-invert max-w-none text-lg leading-loose text-muted-foreground/90">
+				<Content />
 			</div>
 		</div>
 		
 		<!-- 技能标签区域 -->
-		<div class="mb-8">
+		<div class="mb-12">
 			<h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
 				<span class="text-2xl">🛠️</span> 技术栈
 			</h2>
 			<div class="flex flex-wrap gap-3">
-				{['React', 'TypeScript', 'Node.js', 'Tailwind CSS', 'Astro', 'Next.js', 'Python', 'Git'].map((skill) => (
+				{aboutPage.data.skills.map((skill) => (
 					<span class="px-4 py-2 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors duration-300 cursor-default">
 						{skill}
 					</span>
@@ -55,22 +57,21 @@ import { Button } from "@/components/ui/button";
 		</div>
 		
 		<!-- 联系方式 -->
-		<div class="glass-effect rounded-2xl p-8 shadow-lg">
-			<h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
-				<span class="text-2xl">📬</span> 联系方式
-			</h2>
-			<div class="flex flex-wrap gap-4">
-				<a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" class="group">
-					<Button variant="outline" className="rounded-full px-6 hover:scale-105 hover:border-primary/50 transition-all duration-300 group-hover:shadow-lg">
-						<span class="mr-2">👨‍💻</span> GitHub
-					</Button>
-				</a>
-				<a href="https://github.com/CodeWolffy/codewolffy.github.io" target="_blank" rel="noreferrer" class="group">
-					<Button variant="outline" className="rounded-full px-6 hover:scale-105 hover:border-primary/50 transition-all duration-300 group-hover:shadow-lg">
-						<span class="mr-2">📦</span> 本站源码
-					</Button>
-				</a>
+		{aboutPage.data.socialLinks && aboutPage.data.socialLinks.length > 0 && (
+			<div class="mb-12">
+				<h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
+					<span class="text-2xl">📬</span> 联系方式
+				</h2>
+				<div class="flex flex-wrap gap-4">
+					{aboutPage.data.socialLinks.map((link) => (
+						<a href={link.url} target="_blank" rel="noreferrer" class="group">
+							<Button variant="outline" className="rounded-full px-6 hover:scale-105 hover:border-primary/50 transition-all duration-300 group-hover:shadow-lg">
+								{link.icon && <span class="mr-2">{link.icon}</span>} {link.name}
+							</Button>
+						</a>
+					))}
+				</div>
 			</div>
-		</div>
+		)}
 	</div>
 </BaseLayout>
