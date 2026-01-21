@@ -119,14 +119,17 @@ export function Search() {
     }
 
     return (
-        <div ref={searchContainerRef} className="relative">
-            {/* Search Input */}
+        <div ref={searchContainerRef} className={cn(
+            "transition-all duration-200 ease-in-out",
+            isExpanded
+                ? "fixed left-2 right-2 top-2.5 z-50 md:relative md:top-auto md:left-auto md:right-auto md:inset-auto md:w-full"
+                : "relative w-9 md:w-full flex justify-end md:justify-start"
+        )}>
+            {/* Search Input Container */}
             <div
                 className={cn(
-                    "flex items-center h-9 rounded-md border border-input bg-background text-sm transition-all duration-200",
-                    isExpanded
-                        ? "w-[calc(100vw-8rem)] absolute right-0 top-0 md:relative md:w-full md:right-auto md:top-auto z-50 px-3 py-2 md:py-0 shadow-md md:shadow-none"
-                        : "w-9 px-0 justify-center md:w-full md:px-3 md:justify-start cursor-pointer border-transparent md:border-input"
+                    "flex items-center h-9 rounded-md border border-input bg-background text-sm transition-all duration-200 shadow-sm",
+                    isExpanded ? "w-full shadow-md md:shadow-none" : "w-9 px-0 justify-center border-transparent md:border-input md:w-full md:px-3 md:justify-start cursor-pointer"
                 )}
                 onClick={!isExpanded ? handleSearchClick : undefined}
             >
