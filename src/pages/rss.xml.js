@@ -14,5 +14,6 @@ export async function GET(context) {
             link: `/blog/${post.slug}/`,
         })),
         customData: `<language>zh-cn</language>`,
+        stylesheet: '/rss-style.xsl',
     });
 }

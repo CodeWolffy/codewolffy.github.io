@@ -1,6 +1,7 @@
 import type { MarkdownHeading } from 'astro';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { ChevronRight } from 'lucide-react';
 
 interface TocProps {
     headings: MarkdownHeading[];
@@ -8,6 +9,7 @@ interface TocProps {
 
 export function TableOfContents({ headings }: TocProps) {
     const [activeId, setActiveId] = React.useState<string>('');
+    const [isOpen, setIsOpen] = React.useState(false);
 
     React.useEffect(() => {
         const observer = new IntersectionObserver(
@@ -42,8 +44,24 @@ export function TableOfContents({ headings }: TocProps) {
 
     return (
         <nav className="space-y-2">
-            <h3 className="font-medium">本页目录</h3>
-            <ul className="space-y-2 text-sm">
+            <div
+                className="flex items-center gap-1 cursor-pointer lg:cursor-default"
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <h3 className="font-medium text-base">此页内容</h3>
+                <ChevronRight
+                    className={cn(
+                        "h-4 w-4 transition-transform lg:hidden text-muted-foreground",
+                        isOpen && "rotate-90"
+                    )}
+                />
+            </div>
+            <ul className={cn(
+                "space-y-2 text-sm pt-2 lg:pt-0 border-t lg:border-none mt-2 lg:mt-0",
+                isOpen ? "block" : "hidden lg:block",
+                // Add max-height and overflow for mobile sticky handling
+                isOpen && "lg:hidden max-h-[60vh] overflow-y-auto"
+            )}>
                 {headings.map((heading) => (
                     <li key={heading.slug} style={{ paddingLeft: `${(heading.depth - 1) * 1}rem` }}>
                         <a
@@ -61,6 +79,8 @@ export function TableOfContents({ headings }: TocProps) {
                                 setActiveId(heading.slug);
                                 // Update URL hash without jumping
                                 history.pushState(null, '', `#${heading.slug}`);
+                                // Close menu on mobile after selection
+                                setIsOpen(false);
                             }}
                         >
                             {heading.text}

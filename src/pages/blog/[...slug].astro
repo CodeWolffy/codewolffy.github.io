@@ -22,8 +22,11 @@ const { Content, headings } = await post.render();
 	<div class="container mx-auto relative py-6 lg:py-10 max-w-7xl lg:gap-12 lg:grid lg:grid-cols-[1fr_260px]">
         <div class="w-full min-w-0">
             <BackButton client:load />
-            <div>
-                <div class="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+
+                <h1 class="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
+                    {post.data.title}
+                </h1>
+                <div class="flex items-center gap-4 text-sm text-muted-foreground mb-4">
                     {post.data.category && (
                         <a href={`/categories/${post.data.category}`} class="font-medium text-primary hover:underline">
                             {post.data.category}
@@ -36,7 +39,7 @@ const { Content, headings } = await post.render();
                     )}
                 </div>
                 {post.data.tags && post.data.tags.length > 0 && (
-                    <div class="mt-2 flex gap-2">
+                    <div class="mb-6 flex gap-2">
                         {post.data.tags.map((tag) => (
                             <a href={`/tags/${tag}`} class="text-sm font-medium text-primary hover:underline">
                                 #{tag}
@@ -44,19 +47,20 @@ const { Content, headings } = await post.render();
                         ))}
                     </div>
                 )}
-                <h1 class="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mt-2 mb-4">
-                    {post.data.title}
-                </h1>
+                <div class="lg:hidden mb-6 p-4 bg-secondary/30 rounded-xl sticky top-[3.5rem] z-40 backdrop-blur-md border border-border/50">
+                    <TableOfContents headings={headings} client:load />
+                </div>
                 {post.data.heroImage && (
                     <img
                         src={post.data.heroImage}
                         alt={post.data.title}
                         width={720}
                         height={405}
-                        class="my-8 rounded-md border bg-muted transition-colors w-full"
+                        class="mb-8 rounded-md border bg-muted transition-colors w-full"
                     />
                 )}
-            </div>
+
+
             <div class="prose dark:prose-invert max-w-none" data-pagefind-body>
                 <Content />
             </div>
