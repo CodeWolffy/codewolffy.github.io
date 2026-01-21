@@ -169,3 +169,25 @@
     color: var(--muted-foreground);
     font-size: 0.875rem;
 }
+
+/* Prose 代码块样式优化 - 防止溢出 */
+.prose pre {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.prose code {
+    word-break: break-word;
+}
+
+/* 移动端 prose 内容宽度限制 */
+@media (max-width: 1024px) {
+    .prose {
+        max-width: 100%;
+    }
+
+    .prose pre {
+        margin-left: 0;
+        margin-right: 0;
+    }
+}
