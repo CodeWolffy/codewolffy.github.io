@@ -47,8 +47,14 @@ const { title, description = "A modern tech blog." } = Astro.props;
 				}
 				return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 			};
-			const isDark = getThemePreference() === 'dark';
-			document.documentElement.classList[isDark ? 'add' : 'remove']('dark');
+			
+			const applyTheme = () => {
+				const isDark = getThemePreference() === 'dark';
+				document.documentElement.classList[isDark ? 'add' : 'remove']('dark');
+			};
+			
+			// Apply theme on initial load
+			applyTheme();
 	
 			if (typeof localStorage !== 'undefined') {
 				const observer = new MutationObserver(() => {
@@ -57,6 +63,9 @@ const { title, description = "A modern tech blog." } = Astro.props;
 				});
 				observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 			}
+			
+			// Re-apply theme after View Transitions navigation
+			document.addEventListener('astro:after-swap', applyTheme);
 		</script>
         {import.meta.env.PROD && (
             <>
