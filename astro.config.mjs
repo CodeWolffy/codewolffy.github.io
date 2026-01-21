@@ -11,7 +11,8 @@ const isProd = process.env.NODE_ENV === 'production' || process.argv.includes('b
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx(), sitemap(), keystatic()],
+  // 只在开发环境启用 Keystatic，因为它需要 SSR，而 GitHub Pages 只支持静态站点
+  integrations: [react(), mdx(), sitemap(), ...(!isProd ? [keystatic()] : [])],
   site: 'https://codewolffy.github.io',
 
   vite: {
