@@ -11,7 +11,7 @@ const isProd = process.env.NODE_ENV === 'production' || process.argv.includes('b
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx(), sitemap(), ...(isProd ? [] : [keystatic()])],
+  integrations: [react(), mdx(), sitemap(), keystatic()],
   site: 'https://codewolffy.github.io',
 
   vite: {
