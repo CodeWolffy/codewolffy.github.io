@@ -73,6 +73,15 @@ const { title, description = "A modern tech blog." } = Astro.props;
 			
 			// Re-apply theme after View Transitions navigation (fallback)
 			document.addEventListener('astro:after-swap', applyTheme);
+			
+			// 导航追踪：在导航前保存当前路径，用于"返回"按钮
+			document.addEventListener('astro:before-preparation', () => {
+				const currentPath = window.location.pathname;
+				// 只在非文章页面时保存路径（避免文章页之间的跳转覆盖来源）
+				if (!currentPath.startsWith('/blog/')) {
+					sessionStorage.setItem('blog_previous_path', currentPath);
+				}
+			});
 		</script>
         {import.meta.env.PROD && (
             <>

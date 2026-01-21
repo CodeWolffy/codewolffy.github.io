@@ -3,6 +3,7 @@ import { type CollectionEntry, getCollection } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { TableOfContents } from '@/components/blog/TableOfContents';
 import { Comments } from '@/components/blog/Comments';
+import { BackButton } from '@/components/ui/BackButton';
 
 export async function getStaticPaths() {
 	const posts = await getCollection('blog');
@@ -20,10 +21,7 @@ const { Content, headings } = await post.render();
 <BaseLayout title={post.data.title} description={post.data.description}>
 	<div class="container mx-auto px-4 md:px-6 relative py-6 lg:py-10 lg:max-w-6xl lg:gap-10 lg:grid lg:grid-cols-[1fr_300px]">
         <div class="w-full min-w-0">
-            <a href="/" class="group mb-8 flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-                <span class="mr-2">←</span>
-                返回首页
-            </a>
+            <BackButton client:load />
             <div>
                 {post.data.pubDate && (
                     <time datetime={post.data.pubDate.toISOString()} class="block text-sm text-muted-foreground">

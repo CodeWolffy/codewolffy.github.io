@@ -32,20 +32,20 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
         </div>
         
         <div class="relative">
-            <!-- 时间线 - 渐变色 -->
-            <div class="absolute left-4 top-0 bottom-0 w-0.5 md:left-8 bg-border"></div>
+            <!-- 时间线 -->
+            <div class="absolute left-4 top-0 bottom-0 w-0.5 md:left-8 bg-primary/20"></div>
             
             {years.map((year, yearIndex) => (
                 <div class="mb-12" style={`animation-delay: ${yearIndex * 150}ms;`}>
                     <!-- 年份标签 -->
                     <div class="relative flex items-center mb-6">
                         <div class="absolute left-0 w-8 h-8 md:w-16 md:h-8 flex items-center justify-center">
-                            <!-- 脉冲光点 -->
-                            <div class="w-4 h-4 rounded-full bg-primary shadow-lg shadow-primary/30"></div>
+                            <!-- 光点 -->
+                            <div class="w-4 h-4 rounded-full bg-primary shadow-md"></div>
                         </div>
-                        <!-- 渐变年份标签 -->
-                        <div class="ml-12 md:ml-24 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-                            <h2 class="text-xl font-bold text-primary">{year}</h2>
+                        <!-- 年份标签 -->
+                        <div class="ml-12 md:ml-24 px-4 py-1.5 rounded-full bg-secondary border border-border">
+                            <h2 class="text-xl font-bold text-foreground">{year}</h2>
                         </div>
                     </div>
                     
@@ -53,7 +53,7 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
                     <div class="space-y-4 ml-12 md:ml-24">
                         {postsByYear[Number(year)].map((post, postIndex) => (
                             <article 
-                                class="group relative rounded-xl p-4 hover:shadow-lg transition-all duration-300 bg-card border border-border hover:border-primary/30 border-l-4 border-l-primary overflow-hidden"
+                                class="group relative rounded-xl p-4 hover:shadow-md transition-all duration-300 bg-card border border-border hover:border-primary/30 border-l-4 border-l-primary overflow-hidden"
                                 style={`animation-delay: ${(yearIndex * 150) + (postIndex * 50)}ms;`}
                             >
                                 <!-- 悬停背景效果 -->
@@ -77,7 +77,7 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
                                     {post.data.tags && post.data.tags.length > 0 && (
                                         <div class="flex flex-wrap gap-2 mt-3">
                                             {post.data.tags.map((tag: string) => (
-                                                <span class="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                                <span class="text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground font-medium">
                                                     {tag}
                                                 </span>
                                             ))}
