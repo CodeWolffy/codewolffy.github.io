@@ -10,7 +10,24 @@ export function Header() {
 
     React.useEffect(() => {
         // Sync state with document class initialized by BaseLayout
-        setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        const syncTheme = () => {
+            setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        };
+
+        // Initial sync
+        syncTheme();
+
+        // Listen for View Transitions navigation
+        document.addEventListener('astro:after-swap', syncTheme);
+
+        // Listen for class changes on documentElement (for external theme changes)
+        const observer = new MutationObserver(syncTheme);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+        return () => {
+            document.removeEventListener('astro:after-swap', syncTheme);
+            observer.disconnect();
+        };
     }, []);
 
     const toggleTheme = () => {
