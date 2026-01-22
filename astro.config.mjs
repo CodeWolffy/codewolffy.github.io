@@ -13,7 +13,7 @@ export default defineConfig({
   // Cloudflare Pages 支持 SSR，所以 Keystatic 可以在生产环境运行
   integrations: [react(), mdx(), sitemap(), keystatic()],
   // 部署到 Cloudflare Pages 后，请更新为你的实际域名
-  site: 'https://codewolffy.pages.dev',
+  site: 'https://codewolffy-github-io.pages.dev',
 
   vite: {
     plugins: [tailwindcss()]
