@@ -10,16 +10,10 @@ export default config({
             '友链管理': ['friends'],
         },
     },
-    storage: import.meta.env.PROD
-        ? {
-            kind: 'github',
-            repo: 'CodeWolffy/codewolffy.github.io',
-            // @ts-ignore
-            clientId: 'Ov23li7ulApwNrZPmttF',
-        }
-        : {
-            kind: 'local',
-        },
+    storage: {
+        kind: 'github',
+        repo: 'CodeWolffy/codewolffy.github.io',
+    },
     singletons: {
         about: singleton({
             label: '🙋 关于我',
