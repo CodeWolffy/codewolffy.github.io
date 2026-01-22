@@ -43,21 +43,21 @@ export function TableOfContents({ headings }: TocProps) {
     if (headings.length === 0) return null;
 
     return (
-        <nav className="space-y-2">
+        <nav>
             <div
-                className="flex items-center gap-1 cursor-pointer lg:cursor-default"
+                className="flex items-center justify-between gap-1 cursor-pointer lg:cursor-default min-h-[36px]"
                 onClick={() => setIsOpen(!isOpen)}
             >
-                <h3 className="font-medium text-sm">此页内容</h3>
+                <h3 className="font-medium text-sm leading-none">此页内容</h3>
                 <ChevronRight
                     className={cn(
-                        "h-4 w-4 transition-transform lg:hidden text-muted-foreground",
+                        "h-4 w-4 transition-transform lg:hidden text-muted-foreground shrink-0",
                         isOpen && "rotate-90"
                     )}
                 />
             </div>
             <ul className={cn(
-                "space-y-2 text-sm pt-2 lg:pt-0 border-t lg:border-none mt-2 lg:mt-0",
+                "space-y-2 text-sm pt-2 border-t mt-2 lg:pt-0 lg:border-none lg:mt-2",
                 isOpen ? "block" : "hidden lg:block",
                 // Add max-height and overflow for mobile sticky handling
                 isOpen && "lg:hidden max-h-[60vh] overflow-y-auto"

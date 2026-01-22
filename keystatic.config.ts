@@ -10,10 +10,14 @@ export default config({
             '友链管理': ['friends'],
         },
     },
-    storage: {
-        kind: 'github',
-        repo: 'CodeWolffy/codewolffy.github.io',
-    },
+    storage: process.env.NODE_ENV === 'production'
+        ? {
+            kind: 'github',
+            repo: 'CodeWolffy/codewolffy.github.io',
+        }
+        : {
+            kind: 'local',
+        },
     singletons: {
         about: singleton({
             label: '🙋 关于我',

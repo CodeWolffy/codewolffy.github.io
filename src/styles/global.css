@@ -213,6 +213,155 @@
     word-break: break-word;
 }
 
+/* 行内代码样式美化 - 移除反引号，添加背景色 */
+.prose :not(pre)>code {
+    background-color: var(--muted);
+    padding: 0.2em 0.4em;
+    border-radius: 0.25rem;
+    font-weight: 400;
+    font-size: 0.875em;
+}
+
+.prose :not(pre)>code::before,
+.prose :not(pre)>code::after {
+    content: "" !important;
+}
+
+/* 深色模式下的行内代码 */
+.dark .prose :not(pre)>code {
+    background-color: var(--muted);
+}
+
+
+/* ========== 代码块美化样式 ========== */
+
+/* Shiki 双主题切换 - 深色模式下使用 --shiki-dark 变量 */
+/* 注意: Astro 使用 .astro-code 类而不是 .shiki */
+.dark .astro-code {
+    background-color: var(--shiki-dark-bg) !important;
+}
+
+.dark .astro-code span {
+    color: var(--shiki-dark) !important;
+    font-style: var(--shiki-dark-font-style) !important;
+    font-weight: var(--shiki-dark-font-weight) !important;
+    text-decoration: var(--shiki-dark-text-decoration) !important;
+    /* 重要：不设置 span 的背景色，避免遮挡语言标签 */
+}
+
+/* 代码块容器 - 圆角和边框 */
+.prose pre {
+    position: relative;
+    border-radius: 0.75rem;
+    border: 1px solid hsl(240 5.9% 90%);
+    padding: 1rem 1rem 1rem 0;
+    overflow-x: auto;
+    font-size: 0.875rem;
+    line-height: 1.7;
+}
+
+.dark .prose pre {
+    border-color: hsl(240 3.7% 20%);
+}
+
+/* 代码块内的 code 元素 */
+.prose pre code {
+    display: block;
+    counter-reset: line;
+    background: transparent !important;
+    padding: 0;
+    font-size: inherit;
+}
+
+/* 每一行代码 - 添加行号 */
+.prose pre code .line {
+    display: inline-block;
+    width: 100%;
+    padding: 0 1rem;
+    position: relative;
+}
+
+.prose pre code .line::before {
+    content: counter(line);
+    counter-increment: line;
+    display: inline-block;
+    width: 2rem;
+    margin-right: 0.75rem;
+    margin-left: 0.5rem;
+    text-align: left;
+    color: hsl(240 3.8% 66%);
+    user-select: none;
+    font-size: 0.8em;
+    opacity: 0.6;
+}
+
+/* 高亮行样式 */
+.prose pre code .line.highlighted {
+    background-color: hsl(220 90% 60% / 0.1);
+}
+
+.dark .prose pre code .line.highlighted {
+    background-color: hsl(220 70% 50% / 0.15);
+}
+
+/* 语言标签显示 */
+.prose pre::before {
+    content: attr(data-language);
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: lowercase;
+    color: hsl(240 3.8% 56%);
+    opacity: 0.8;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.02em;
+}
+
+/* 亮色模式代码块背景 */
+.prose pre {
+    background: hsl(220 20% 98%) !important;
+}
+
+/* 深色模式代码块背景 */
+.dark .prose pre {
+    background: hsl(225 15% 13%) !important;
+}
+
+/* 深色模式行号颜色调整 */
+.dark .prose pre code .line::before {
+    color: hsl(240 5% 50%);
+}
+
+/* 语法高亮颜色优化 - 浅色模式 */
+.prose pre code {
+    --shiki-color-text: hsl(220 10% 20%);
+}
+
+/* 语法高亮颜色优化 - 深色模式 */
+.dark .prose pre code {
+    --shiki-color-text: hsl(220 10% 85%);
+}
+
+/* 代码块滚动条美化 */
+.prose pre::-webkit-scrollbar {
+    height: 6px;
+}
+
+.prose pre::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.prose pre::-webkit-scrollbar-thumb {
+    background: hsl(240 5.9% 80%);
+    border-radius: 3px;
+}
+
+.dark .prose pre::-webkit-scrollbar-thumb {
+    background: hsl(240 3.7% 30%);
+}
+
 .prose p {
     line-height: 1.0;
     margin-top: 0.6em;
@@ -415,4 +564,257 @@
             hsl(220 90% 60%),
             hsl(280 80% 60%),
             hsl(320 80% 60%)) 1;
+}
+
+/* ========== 深色模式渐变优化 ========== */
+
+/* 深色模式下渐变背景更柔和 */
+.dark .bg-primary\/5 {
+    background-color: hsl(220 50% 50% / 0.08);
+}
+
+.dark .bg-primary\/10 {
+    background-color: hsl(220 50% 50% / 0.12);
+}
+
+.dark .bg-purple-500\/5 {
+    background-color: hsl(280 50% 50% / 0.08);
+}
+
+.dark .bg-blue-500\/5 {
+    background-color: hsl(220 60% 50% / 0.08);
+}
+
+/* 深色模式下卡片发光效果增强 */
+.dark .card-hover-glow::before {
+    background: linear-gradient(135deg,
+            hsl(220 70% 50% / 0.25),
+            hsl(280 60% 50% / 0.25),
+            hsl(320 60% 50% / 0.25));
+}
+
+/* 深色模式下的渐变文字 */
+.dark .gradient-text {
+    background: linear-gradient(135deg,
+            hsl(220 80% 70%),
+            hsl(280 70% 70%),
+            hsl(320 70% 70%));
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* ========== View Transitions 页面过渡动画 ========== */
+
+/* 主内容区域过渡 - 纯淡入淡出，更丝滑 */
+::view-transition-old(root) {
+    animation: fade-out 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+::view-transition-new(root) {
+    animation: fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* 页面滑入动画 - 用于内容区域 */
+@keyframes page-slide-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-enter {
+    animation: page-slide-in 0.4s ease-out forwards;
+}
+
+/* ========== 额外实用动画类 ========== */
+
+/* 慢速弹跳 */
+@keyframes bounce-slow {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+.animate-bounce-slow {
+    animation: bounce-slow 2s ease-in-out infinite;
+}
+
+/* 慢速旋转 */
+@keyframes spin-slow {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin-slow {
+    animation: spin-slow 20s linear infinite;
+}
+
+/* 闪烁高亮 */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.animate-shimmer {
+    background: linear-gradient(90deg,
+            transparent 0%,
+            hsl(var(--primary) / 0.1) 50%,
+            transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+}
+
+/* 呼吸效果 */
+@keyframes breathe {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    50% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+}
+
+.animate-breathe {
+    animation: breathe 3s ease-in-out infinite;
+}
+
+/* 抖动效果 - 用于错误提示 */
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-4px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(4px);
+    }
+}
+
+.animate-shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* 淡入上滑 - 用于列表项 */
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fade-in-up 0.5s ease-out forwards;
+}
+
+/* 渐进延迟动画 - 用于列表 */
+.stagger-animation>*:nth-child(1) {
+    animation-delay: 0ms;
+}
+
+.stagger-animation>*:nth-child(2) {
+    animation-delay: 50ms;
+}
+
+.stagger-animation>*:nth-child(3) {
+    animation-delay: 100ms;
+}
+
+.stagger-animation>*:nth-child(4) {
+    animation-delay: 150ms;
+}
+
+.stagger-animation>*:nth-child(5) {
+    animation-delay: 200ms;
+}
+
+.stagger-animation>*:nth-child(6) {
+    animation-delay: 250ms;
+}
+
+.stagger-animation>*:nth-child(7) {
+    animation-delay: 300ms;
+}
+
+.stagger-animation>*:nth-child(8) {
+    animation-delay: 350ms;
+}
+
+/* ========== 减少动画偏好支持 ========== */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        animation: none !important;
+    }
 }

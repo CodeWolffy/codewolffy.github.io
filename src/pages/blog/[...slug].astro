@@ -4,6 +4,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import { TableOfContents } from '@/components/blog/TableOfContents';
 import { Comments } from '@/components/blog/Comments';
 import { BackButton } from '@/components/ui/BackButton';
+import { CopyCodeButton } from '@/components/blog/CopyCodeButton';
+import { ShareButtons } from '@/components/blog/ShareButtons';
 
 export const prerender = true;
 
@@ -13,13 +15,42 @@ export async function getStaticPaths() {
 	});
 	return posts.map((post) => ({
 		params: { slug: post.slug },
-		props: post,
+		props: { post, allPosts: posts },
 	}));
 }
-type Props = CollectionEntry<'blog'>;
 
-const post = Astro.props;
+interface Props {
+	post: CollectionEntry<'blog'>;
+	allPosts: CollectionEntry<'blog'>[];
+}
+
+const { post, allPosts } = Astro.props;
 const { Content, headings } = await render(post);
+
+// 计算阅读时间（中文按字数，假设300字/分钟）
+const content = post.body || '';
+const wordCount = content.length;
+const readingTime = Math.max(1, Math.ceil(wordCount / 300));
+
+// 获取相关文章（根据标签匹配）
+const currentTags = post.data.tags || [];
+const relatedPosts = allPosts
+	.filter(p => p.slug !== post.slug) // 排除当前文章
+	.filter(p => {
+		const tags = p.data.tags || [];
+		return tags.some(tag => currentTags.includes(tag));
+	})
+	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+	.slice(0, 3);
+
+// 获取上一篇和下一篇文章
+const sortedPosts = allPosts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const currentIndex = sortedPosts.findIndex(p => p.slug === post.slug);
+const prevPost = currentIndex < sortedPosts.length - 1 ? sortedPosts[currentIndex + 1] : null;
+const nextPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
+
+// 当前页面 URL
+const pageUrl = Astro.url.href;
 ---
 
 <BaseLayout title={post.data.title} description={post.data.description}>
@@ -49,6 +80,11 @@ const { Content, headings } = await render(post);
                             更新于 {post.data.updatedDate.toLocaleDateString()}
                         </time>
                     )}
+                    <!-- 阅读时间 -->
+                    <span class="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        约 {readingTime} 分钟
+                    </span>
                 </div>
                 {post.data.tags && post.data.tags.length > 0 && (
                     <div class="mb-6 flex flex-wrap items-center gap-2">
@@ -60,7 +96,7 @@ const { Content, headings } = await render(post);
                         ))}
                     </div>
                 )}
-                <div class="lg:hidden mb-4 py-1.5 px-4 bg-secondary rounded-xl sticky top-14 z-40 border border-border/50 w-full">
+                <div class="lg:hidden mb-4 px-4 bg-secondary rounded-xl sticky top-14 z-40 border border-border/50 w-full">
                     <TableOfContents headings={headings} client:load />
                 </div>
                 {(post.data.coverImage || post.data.heroImage) && (
@@ -77,6 +113,79 @@ const { Content, headings } = await render(post);
             <div class="prose dark:prose-invert max-w-none" data-pagefind-body>
                 <Content />
             </div>
+			
+			<!-- 代码复制按钮初始化 -->
+			<CopyCodeButton client:load />
+			
+			<!-- 分享按钮 -->
+			<div class="mt-12 pt-6 border-t border-border">
+				<ShareButtons title={post.data.title} url={pageUrl} client:load />
+			</div>
+			
+			<!-- 上一篇/下一篇导航 -->
+			{(prevPost || nextPost) && (
+				<div class="mt-8 grid gap-4 sm:grid-cols-2">
+					{prevPost ? (
+						<a 
+							href={`/blog/${prevPost.slug}`}
+							class="group flex flex-col p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all"
+						>
+							<span class="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:-translate-x-1 transition-transform"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+								上一篇
+							</span>
+							<span class="font-medium group-hover:text-primary transition-colors line-clamp-1">{prevPost.data.title}</span>
+						</a>
+					) : <div />}
+					{nextPost ? (
+						<a 
+							href={`/blog/${nextPost.slug}`}
+							class="group flex flex-col p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-right"
+						>
+							<span class="text-xs text-muted-foreground mb-1 flex items-center justify-end gap-1">
+								下一篇
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:translate-x-1 transition-transform"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+							</span>
+							<span class="font-medium group-hover:text-primary transition-colors line-clamp-1">{nextPost.data.title}</span>
+						</a>
+					) : <div />}
+				</div>
+			)}
+			
+			<!-- 相关文章推荐 -->
+			{relatedPosts.length > 0 && (
+				<div class="mt-12">
+					<h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+						相关文章
+					</h3>
+					<div class="grid gap-3">
+						{relatedPosts.map((relatedPost) => (
+							<a 
+								href={`/blog/${relatedPost.slug}`}
+								class="group flex items-center gap-4 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-secondary/30 transition-all"
+							>
+								{(relatedPost.data.coverImage || relatedPost.data.heroImage) && (
+									<img 
+										src={relatedPost.data.coverImage || relatedPost.data.heroImage}
+										alt={relatedPost.data.title}
+										class="w-16 h-12 object-cover rounded-md shrink-0"
+									/>
+								)}
+								<div class="min-w-0">
+									<h4 class="font-medium text-sm group-hover:text-primary transition-colors line-clamp-1">
+										{relatedPost.data.title}
+									</h4>
+									<p class="text-xs text-muted-foreground line-clamp-1">
+										{relatedPost.data.description}
+									</p>
+								</div>
+							</a>
+						))}
+					</div>
+				</div>
+			)}
+			
             <hr class="mt-12" />
             <Comments client:visible />
         </div>
@@ -88,4 +197,3 @@ const { Content, headings } = await render(post);
         </div>
 	</div>
 </BaseLayout>
-

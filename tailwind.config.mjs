@@ -68,6 +68,41 @@ export default {
                 'accordion-down': 'accordion-down 0.2s ease-out',
                 'accordion-up': 'accordion-up 0.2s ease-out',
             },
+            typography: {
+                DEFAULT: {
+                    css: {
+                        // 行内代码样式 - 移除反引号
+                        'code::before': {
+                            content: '""',
+                        },
+                        'code::after': {
+                            content: '""',
+                        },
+                        // 行内代码美化样式
+                        'code': {
+                            backgroundColor: 'hsl(var(--muted))',
+                            padding: '0.2em 0.4em',
+                            borderRadius: '0.25rem',
+                            fontWeight: '400',
+                            fontSize: '0.875em',
+                        },
+                        // 防止影响代码块中的 code 元素
+                        'pre code': {
+                            backgroundColor: 'transparent',
+                            padding: '0',
+                            borderRadius: '0',
+                            fontWeight: 'inherit',
+                            fontSize: 'inherit',
+                        },
+                        'pre code::before': {
+                            content: '""',
+                        },
+                        'pre code::after': {
+                            content: '""',
+                        },
+                    },
+                },
+            },
         },
     },
     plugins: [

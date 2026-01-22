@@ -9,7 +9,7 @@ const posts = (await getCollection("blog", ({ data }) => {
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 
-const latestPosts = posts.slice(0, 4);
+const latestPosts = posts.slice(0, 6);
 
 // 计算标签及其文章数量
 const allTags = posts.flatMap(post => post.data.tags || []);
