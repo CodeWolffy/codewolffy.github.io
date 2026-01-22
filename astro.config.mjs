@@ -6,18 +6,18 @@ import tailwindcss from '@tailwindcss/vite';
 import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import keystatic from '@keystatic/astro';
-
-const isProd = process.env.NODE_ENV === 'production' || process.argv.includes('build');
+import cloudflare from '@astrojs/cloudflare';
 
 // https://astro.build/config
 export default defineConfig({
-  // 只在开发环境启用 Keystatic，因为它需要 SSR，而 GitHub Pages 只支持静态站点
-  integrations: [react(), mdx(), sitemap(), ...(!isProd ? [keystatic()] : [])],
-  site: 'https://codewolffy.github.io',
+  // Cloudflare Pages 支持 SSR，所以 Keystatic 可以在生产环境运行
+  integrations: [react(), mdx(), sitemap(), keystatic()],
+  // 部署到 Cloudflare Pages 后，请更新为你的实际域名
+  site: 'https://codewolffy.pages.dev',
 
   vite: {
     plugins: [tailwindcss()]
   },
-  // 始终使用 static 模式以支持 GitHub Pages
-  output: 'static'
+  // Astro 5: static 模式默认支持混合渲染，Keystatic 页面会自动使用 SSR
+  adapter: cloudflare(),
 });
