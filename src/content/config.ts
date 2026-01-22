@@ -32,6 +32,16 @@ const pages = defineCollection({
                 icon: z.string().optional(),
             })
         ).default([]),
+        // Friends page specific fields
+        applyTitle: z.string().optional(),
+        applyDescription: z.string().optional(),
+        contactMethods: z.array(
+            z.object({
+                name: z.string(),
+                url: z.string(),
+                icon: z.string().optional(),
+            })
+        ).optional(),
     }),
 });
 

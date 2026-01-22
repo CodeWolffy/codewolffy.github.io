@@ -1,14 +1,62 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
-import { Github, Mail } from "lucide-react";
+import { 
+	Github, Mail, MessageCircle, Send, Link as LinkIcon,
+	Twitter, Instagram, Youtube, Phone, Globe,
+	Linkedin, MessageSquare, Radio, Tv, BookOpen, Bookmark, Flame, Music
+} from "lucide-react";
+import fs from 'node:fs';
+import path from 'node:path';
 
 import { getCollection } from 'astro:content';
 
 const friends = (await getCollection('friends')).map(item => item.data);
+
+// 读取友链页面配置
+const friendsPagePath = path.join(process.cwd(), 'src/content/pages/friends.json');
+let pageConfig = {
+	title: '友情链接',
+	description: '优质资源与友站推荐',
+	applyTitle: '申请友链',
+	applyDescription: '如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。',
+	contactMethods: [] as Array<{name: string; url: string; icon: string;}>
+};
+
+try {
+	const fileContent = fs.readFileSync(friendsPagePath, 'utf-8');
+	pageConfig = { ...pageConfig, ...JSON.parse(fileContent) };
+} catch (e) {
+	// 使用默认配置
+}
+
+// 图标映射函数
+const getIconComponent = (iconType: string) => {
+	switch(iconType) {
+		case 'github': return Github;
+		case 'mail': return Mail;
+		case 'wechat': return MessageCircle;
+		case 'qq': return Send;
+		case 'twitter': return Twitter;
+		case 'instagram': return Instagram;
+		case 'bilibili': return Tv;
+		case 'youtube': return Youtube;
+		case 'telegram': return Send;
+		case 'discord': return MessageSquare;
+		case 'linkedin': return Linkedin;
+		case 'weibo': return Radio;
+		case 'zhihu': return BookOpen;
+		case 'tiktok': return Music;
+		case 'xiaohongshu': return Bookmark;
+		case 'juejin': return Flame;
+		case 'phone': return Phone;
+		case 'globe': return Globe;
+		default: return LinkIcon;
+	}
+};
 ---
 
-<BaseLayout title="友情链接 | 狼码纪" description="友情链接与推荐资源">
+<BaseLayout title={`${pageConfig.title} | 狼码纪`} description={pageConfig.description}>
 	<!-- 装饰背景 -->
 	<div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
 		<div class="absolute top-1/4 -left-20 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]"></div>
@@ -19,10 +67,10 @@ const friends = (await getCollection('friends')).map(item => item.data);
         <!-- 页面标题 -->
 		<div class="space-y-4 mb-12 text-center">
             <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
-                友情链接
+                {pageConfig.title}
             </h1>
             <p class="text-xl text-muted-foreground">
-                优质资源与友站推荐
+                {pageConfig.description}
             </p>
         </div>
         
@@ -80,24 +128,24 @@ const friends = (await getCollection('friends')).map(item => item.data);
 			<!-- 装饰元素 -->
 			<div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-primary/50 rounded-full"></div>
 			
-            <h2 class="text-2xl font-bold mb-4 text-foreground">申请友链</h2>
+            <h2 class="text-2xl font-bold mb-4 text-foreground">{pageConfig.applyTitle}</h2>
             <p class="text-muted-foreground mb-6">
-                如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。
+                {pageConfig.applyDescription}
             </p>
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <a href="https://github.com/CodeWolffy" target="_blank" rel="noopener noreferrer">
-                    <Button size="lg" variant="outline" className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-                        <Github className="mr-2 h-5 w-5" />
-                        GitHub
-                    </Button>
-                </a>
-                <a href="mailto:2270617833@qq.com">
-                    <Button size="lg" variant="outline" className="rounded-full px-8 hover:scale-105 transition-all duration-300">
-                        <Mail className="mr-2 h-5 w-5" />
-                        2270617833@qq.com
-                    </Button>
-                </a>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
+                {pageConfig.contactMethods.map((contact) => {
+					const IconComponent = getIconComponent(contact.icon);
+					return (
+						<a href={contact.url} target="_blank" rel="noopener noreferrer">
+							<Button size="lg" variant="outline" className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+								<IconComponent className="mr-2 h-5 w-5" />
+								{contact.name}
+							</Button>
+						</a>
+					);
+				})}
             </div>
         </div>
     </div>
 </BaseLayout>
+

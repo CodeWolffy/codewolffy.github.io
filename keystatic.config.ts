@@ -6,7 +6,8 @@ export default config({
         brand: { name: '我的博客后台' },
         navigation: {
             '博客管理': ['posts'],
-            '页面管理': ['about', 'friends', 'projects'],
+            '页面管理': ['about', 'friendsPage', 'projects'],
+            '友链管理': ['friends'],
         },
     },
     storage: import.meta.env.PROD
@@ -46,11 +47,36 @@ export default config({
                     fields.object({
                         name: fields.text({ label: '名称' }),
                         url: fields.text({ label: '链接' }),
-                        icon: fields.text({ label: '图标 (Emoji)', defaultValue: '🔗' }),
+                        icon: fields.select({
+                            label: '图标类型',
+                            options: [
+                                { label: 'GitHub', value: 'github' },
+                                { label: '邮箱', value: 'mail' },
+                                { label: 'QQ', value: 'qq' },
+                                { label: '微信', value: 'wechat' },
+                                { label: 'Twitter/X', value: 'twitter' },
+                                { label: 'Instagram', value: 'instagram' },
+                                { label: 'Bilibili', value: 'bilibili' },
+                                { label: 'YouTube', value: 'youtube' },
+                                { label: 'Telegram', value: 'telegram' },
+                                { label: 'Discord', value: 'discord' },
+                                { label: 'LinkedIn', value: 'linkedin' },
+                                { label: '微博', value: 'weibo' },
+                                { label: '知乎', value: 'zhihu' },
+                                { label: '抖音/TikTok', value: 'tiktok' },
+                                { label: '小红书', value: 'xiaohongshu' },
+                                { label: '掘金', value: 'juejin' },
+                                { label: '电话', value: 'phone' },
+                                { label: '网站', value: 'globe' },
+                                { label: '其他', value: 'link' },
+                            ],
+                            defaultValue: 'link'
+                        }),
                     }),
                     {
-                        label: '社交链接',
-                        itemLabel: props => props.fields.name.value
+                        label: '联系方式',
+                        itemLabel: props => props.fields.name.value || '联系方式',
+                        description: '添加社交联系方式'
                     }
                 ),
                 content: fields.mdx({
@@ -62,6 +88,57 @@ export default config({
                         }
                     }
                 }),
+            },
+        }),
+        friendsPage: singleton({
+            label: '🔗 友链页面设置',
+            path: 'src/content/pages/friends',
+            format: { data: 'json' },
+            schema: {
+                title: fields.text({ label: '页面标题', defaultValue: '友情链接' }),
+                description: fields.text({ label: '页面描述', defaultValue: '优质资源与友站推荐' }),
+                applyTitle: fields.text({ label: '申请友链标题', defaultValue: '申请友链' }),
+                applyDescription: fields.text({
+                    label: '申请友链说明',
+                    multiline: true,
+                    defaultValue: '如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。'
+                }),
+                contactMethods: fields.array(
+                    fields.object({
+                        name: fields.text({ label: '名称' }),
+                        url: fields.text({ label: '链接' }),
+                        icon: fields.select({
+                            label: '图标类型',
+                            options: [
+                                { label: 'GitHub', value: 'github' },
+                                { label: '邮箱', value: 'mail' },
+                                { label: 'QQ', value: 'qq' },
+                                { label: '微信', value: 'wechat' },
+                                { label: 'Twitter/X', value: 'twitter' },
+                                { label: 'Instagram', value: 'instagram' },
+                                { label: 'Bilibili', value: 'bilibili' },
+                                { label: 'YouTube', value: 'youtube' },
+                                { label: 'Telegram', value: 'telegram' },
+                                { label: 'Discord', value: 'discord' },
+                                { label: 'LinkedIn', value: 'linkedin' },
+                                { label: '微博', value: 'weibo' },
+                                { label: '知乎', value: 'zhihu' },
+                                { label: '抖音/TikTok', value: 'tiktok' },
+                                { label: '小红书', value: 'xiaohongshu' },
+                                { label: '掘金', value: 'juejin' },
+                                { label: '电话', value: 'phone' },
+                                { label: '网站', value: 'globe' },
+                                { label: '其他', value: 'link' },
+                            ],
+                            defaultValue: 'link'
+                        }),
+                    }),
+                    {
+                        label: '联系方式',
+                        itemLabel: props => props.fields.name.value || '联系方式',
+                        description: '添加申请友链的联系方式'
+                    }
+                ),
             },
         }),
     },

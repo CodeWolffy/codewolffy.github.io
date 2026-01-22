@@ -1,0 +1,28 @@
+{
+  "title": "友情链接11",
+  "description": "优质资源与友站推荐11",
+  "applyTitle": "申请友链11",
+  "applyDescription": "如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。11",
+  "contactMethods": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/CodeWolffy",
+      "icon": "github"
+    },
+    {
+      "name": "2270617833@qq.com",
+      "url": "mailto:2270617833@qq.com",
+      "icon": "mail"
+    },
+    {
+      "name": "QQ",
+      "url": "https://wpa.qq.com/msgrd?v=3&uin=2270617833&site=qq&menu=yes",
+      "icon": "qq"
+    },
+    {
+      "name": "WeChat",
+      "url": "sdadasdas",
+      "icon": "bilibili"
+    }
+  ]
+}
