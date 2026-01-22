@@ -1,0 +1,136 @@
+---
+title: SQL中where条件后为什么写上1=1?
+description: |-
+  在 SQL 语句的 WHERE 条件后写上 1=1，通常是一种编程技巧，主要用于简化动态 SQL 的拼接逻辑。
+  以下是详细的解析，包括它的作用、代码对比、性能影响以及现代开发中的替代方案。
+pubDate: 2026-01-22
+coverImage: /images/posts/sql-where-1-1/coverImage.png
+draft: false
+category: MySQL
+tags:
+  - MySQL
+---
+### 1. 核心原因：简化动态 SQL 拼接
+
+这是最主要的原因。在开发应用程序（如 Java, C#, Python 等）时，经常需要根据用户输入的参数来动态构建 SQL 查询语句。\
+假设你有一个搜索框，用户可以输入“姓名”、“年龄”或“注册时间”进行查询，这些都是**可选**的。
+
+#### ❌ 不使用 `1=1` 的痛苦写法
+
+如果不使用 `1=1`，你在拼接 SQL 时必须非常小心地判断哪个是第一个条件，因为第一个条件前面不能加 `AND`，而后面的条件必须加 `AND`。
+
+```java
+String sql = "SELECT * FROM users WHERE ";
+// 这是一个伪代码逻辑
+boolean isFirst = true;
+if (name != null) {
+    sql += "name = '" + name + "'"; // 第一个条件，不加 AND
+    isFirst = false;
+}
+if (age != null) {
+    if (!isFirst) { // 如果不是第一个条件，需要手动加 AND
+        sql += " AND ";
+    }
+    sql += "age = " + age;
+    isFirst = false;
+}
+if (startDate != null) {
+    if (!isFirst) {
+        sql += " AND ";
+    }
+    sql += "create_time >= '" + startDate + "'";
+}
+// ... 逻辑非常繁琐，容易出错
+```
+
+#### ✅ 使用 `1=1` 的优雅写法
+
+如果我们在 `WHERE` 后面直接加上 `1=1`，那么后面的所有条件都可以统一加上 `AND`，不需要再判断是不是“第一个条件”了。
+
+```java
+String sql = "SELECT * FROM users WHERE 1=1";
+if (name != null) {
+    sql += " AND name = '" + name + "'";
+}
+if (age != null) {
+    sql += " AND age = " + age; // 统一加 AND，不用操心顺序
+}
+if (startDate != null) {
+    sql += " AND create_time >= '" + startDate + "'";
+}
+// 代码逻辑清晰，易于维护
+```
+
+---
+
+### 2. 辅助原因：方便调试与注释
+
+在某些临时查询或调试场景下，`1=1` 也能提供方便。
+
+* **注释掉特定条件：** 当你想测试 SQL 语句，临时屏蔽某个查询条件时，如果后面都有 `AND`，直接注释掉某一行不会破坏语法。
+
+```sql
+SELECT * FROM users WHERE 1=1
+-- AND status = 1  -- 直接注释掉这一行，上面不需要改动，SQL 依然合法
+AND age > 20;
+```
+
+如果没有 `1=1`，注释掉第一个条件后，第二个条件的 `AND` 就会导致语法错误。
+
+---
+
+### 3. 性能影响：几乎为零
+
+很多人担心加上 `1=1` 会不会影响数据库性能。\
+**结论是：不会。**\
+现代数据库的查询优化器非常智能。当优化器看到 `WHERE 1=1` 时，它会识别出这是一个永远为真的恒等式，并在生成执行计划时直接将其**忽略（优化掉）**。因此，它生成的执行计划和不加 `1=1` 是一模一样的。
+
+---
+
+### 4. 现代开发中的替代方案（最佳实践）
+
+虽然 `1=1` 在老项目或原生 JDBC 开发中很常见，但在现代开发框架中，通常有更好的解决方案，不需要手动拼接字符串。
+
+#### 1. 使用 MyBatis (推荐)
+
+MyBatis 提供了 `<where>` 标签，它会智能地处理 `AND` 前缀。如果里面没有任何条件，它不会生成 `WHERE` 子句；如果它生成的 `WHERE` 子句后面是以 `AND` 开头的，它会自动去掉这个 `AND`。
+
+```xml
+<select id="findUsers" resultType="User">
+    SELECT * FROM users
+    <where>
+        <if test="name != null">
+            AND name = #{name}
+        </if>
+        <if test="age != null">
+            AND age = #{age}
+        </if>
+    </where>
+</select>
+
+```
+
+*这里不需要写* `1=1`*，代码依然很干净。*
+
+#### 2. 使用 持久层框架 (Hibernate / JPA / Spring Data JPA)
+
+这些框架使用 Criteria API 或 JPQL 构建器，根本不需要手写 SQL 字符串。
+
+```java
+// Spring Data JPA Example
+ExampleMatcher matcher = ExampleMatcher.matching();
+User user = new User();
+user.setName("John");
+Example<User> example = Example.of(user, matcher);
+List<User> results = userRepository.findAll(example);
+```
+
+#### 3. 使用 预处理语句 (PreparedStatement) 占位符
+
+即使不使用框架，只使用原生 JDBC，也可以利用 `List` 来收集条件，最后统一拼接，避免 `1=1`。
+
+### 总结
+
+* **为什么写？** 为了在**手动拼接动态 SQL** 时，省去判断“是否是第一个条件”的繁琐逻辑，统一在每条条件前加 `AND`。
+* **性能有影响吗？** 没有，数据库优化器会忽略它。
+* **现在还用吗？** 在使用 MyBatis `<where>` 标签、Hibernate 或 ORM 框架时，**不需要**也不建议使用 `1=1`。但在纯字符串拼接 SQL 的简单脚本或旧代码维护中，依然非常常见。
