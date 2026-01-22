@@ -15,7 +15,7 @@ export default config({
             kind: 'github',
             repo: 'CodeWolffy/codewolffy.github.io',
             // @ts-ignore
-            clientId: 'Ov23liwH4UMYRee0g5mV',
+            clientId: 'Ov23li7ulApwNrZPmttF',
         }
         : {
             kind: 'local',
