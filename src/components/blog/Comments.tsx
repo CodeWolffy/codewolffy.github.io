@@ -24,16 +24,45 @@ export function Comments() {
 
     // 处理 GitHub 登录后自动滚动到评论区
     React.useEffect(() => {
+        const scrollToComments = () => {
+            const commentsDiv = document.getElementById('comments-container');
+            if (commentsDiv) {
+                // 使用 requestAnimationFrame 确保 DOM 渲染完成
+                requestAnimationFrame(() => {
+                    commentsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
+        };
+
         try {
             const referrer = document.referrer;
-            if (referrer && (referrer.includes('giscus.app') || referrer.includes('github.com'))) {
-                const commentsDiv = document.getElementById('comments-container');
-                if (commentsDiv) {
-                    // 给一点延时，确保页面布局稳定
-                    setTimeout(() => {
-                        commentsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 500);
-                }
+            const hash = window.location.hash;
+
+            // 检测是否从 GitHub/Giscus 登录返回，或者 URL 包含 #comments
+            const isFromAuth = referrer && (
+                referrer.includes('giscus.app') ||
+                referrer.includes('github.com') ||
+                referrer.includes('api.github.com')
+            );
+            const hasCommentsHash = hash === '#comments' || hash === '#comments-container';
+
+            if (isFromAuth || hasCommentsHash) {
+                // 增加延时，等待 Giscus iframe 加载
+                setTimeout(scrollToComments, 800);
+
+                // 备用：监听 Giscus iframe 加载完成
+                const observer = new MutationObserver((mutations, obs) => {
+                    const iframe = document.querySelector('.giscus-frame');
+                    if (iframe) {
+                        setTimeout(scrollToComments, 200);
+                        obs.disconnect();
+                    }
+                });
+
+                observer.observe(document.body, { childList: true, subtree: true });
+
+                // 5秒后停止监听，避免内存泄漏
+                setTimeout(() => observer.disconnect(), 5000);
             }
         } catch (e) {
             console.error('Failed to handle auto-scroll:', e);
