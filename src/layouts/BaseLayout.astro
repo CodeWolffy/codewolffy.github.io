@@ -13,7 +13,7 @@ const { title, description = "A modern tech blog." } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="description" content={description} />
@@ -95,9 +95,13 @@ const { title, description = "A modern tech blog." } = Astro.props;
         )}
 	</head>
 	<body class="min-h-screen bg-background font-sans antialiased">
+		<!-- 跳过导航链接 - 改进可访问性 -->
+		<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none">
+			跳过导航
+		</a>
 		<div class="relative flex min-h-screen flex-col">
 			<Header client:load />
-			<main class="flex-1">
+			<main id="main-content" class="flex-1">
 				<slot />
 			</main>
 			

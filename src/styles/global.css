@@ -871,7 +871,9 @@
     aside,
     .sticky,
     button,
-    .no-print {
+    .no-print,
+    #comments-container,
+    .share-buttons {
         display: none !important;
     }
 
@@ -882,5 +884,42 @@
 
     .prose {
         max-width: 100% !important;
+    }
+
+    /* 标题分页控制 - 避免标题在页面底部单独出现 */
+    .prose h1,
+    .prose h2,
+    .prose h3,
+    .prose h4 {
+        page-break-after: avoid;
+        break-after: avoid;
+    }
+
+    /* 代码块不分页 */
+    .prose pre {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* 图片不分页 */
+    .prose img {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        max-height: 400px !important;
+    }
+
+    /* 链接显示完整 URL */
+    .prose a[href^="http"]::after {
+        content: " (" attr(href) ")";
+        font-size: 0.75em;
+        color: #666;
+        word-break: break-all;
+    }
+
+    /* 隐藏装饰性元素 */
+    .animate-float,
+    .animate-pulse,
+    .bg-primary\/10 {
+        display: none !important;
     }
 }

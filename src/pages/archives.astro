@@ -8,6 +8,10 @@ const allPosts = (await getCollection("blog", ({ data }) => {
     (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 
+// 获取所有标签
+const allTags = await getCollection('tags');
+const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
+
 // 按年份分组
 const postsByYear = allPosts.reduce((acc, post) => {
     const year = post.data.pubDate.getFullYear();
@@ -78,9 +82,9 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
                                     </div>
                                     {post.data.tags && post.data.tags.length > 0 && (
                                         <div class="flex flex-wrap gap-2 mt-3">
-                                            {post.data.tags.map((tag: string) => (
+                                            {post.data.tags.map((tagRef) => (
                                                 <span class="text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground font-medium">
-                                                    {tag}
+                                                    {tagMap.get(tagRef.id) || tagRef.id}
                                                 </span>
                                             ))}
                                         </div>

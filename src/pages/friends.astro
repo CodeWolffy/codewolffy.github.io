@@ -1,11 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
-import { 
-	Github, Mail, MessageCircle, Send, Link as LinkIcon,
-	Twitter, Instagram, Youtube, Phone, Globe,
-	Linkedin, MessageSquare, Radio, Tv, BookOpen, Bookmark, Flame, Music
-} from "lucide-react";
+import { getIconComponent } from '@/lib/icons';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -29,31 +25,6 @@ try {
 } catch (e) {
 	// 使用默认配置
 }
-
-// 图标映射函数
-const getIconComponent = (iconType: string) => {
-	switch(iconType) {
-		case 'github': return Github;
-		case 'mail': return Mail;
-		case 'wechat': return MessageCircle;
-		case 'qq': return Send;
-		case 'twitter': return Twitter;
-		case 'instagram': return Instagram;
-		case 'bilibili': return Tv;
-		case 'youtube': return Youtube;
-		case 'telegram': return Send;
-		case 'discord': return MessageSquare;
-		case 'linkedin': return Linkedin;
-		case 'weibo': return Radio;
-		case 'zhihu': return BookOpen;
-		case 'tiktok': return Music;
-		case 'xiaohongshu': return Bookmark;
-		case 'juejin': return Flame;
-		case 'phone': return Phone;
-		case 'globe': return Globe;
-		default: return LinkIcon;
-	}
-};
 ---
 
 <BaseLayout title={`${pageConfig.title} | 狼码纪`} description={pageConfig.description}>

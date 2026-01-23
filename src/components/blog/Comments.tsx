@@ -72,7 +72,7 @@ export function Comments() {
     }, []);
 
     return (
-        <div id="comments-container" className="w-full mt-10 scroll-mt-20">
+        <div id="comments-container" className="w-full mt-2 scroll-mt-20">
             <Giscus
                 id="comments"
                 repo="CodeWolffy/codewolffy.github.io"
