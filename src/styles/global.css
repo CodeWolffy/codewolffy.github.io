@@ -395,12 +395,41 @@
         max-width: calc(100vw - 2rem);
     }
 
-    .prose img,
-    .prose table,
-    .prose iframe,
-    .prose video {
+    .prose video,
+    .prose iframe {
         max-width: 100%;
     }
+}
+
+/* ========== 图片样式优化 ========== */
+
+/* 文章图片限制高度，居中显示 */
+.prose img {
+    margin: 2rem auto;
+    max-height: 650px;
+    width: auto;
+    max-width: 100%;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    cursor: zoom-in;
+    /* 提示可点击放大 */
+}
+
+/* Medium Zoom 样式覆盖 - 确保在顶层 */
+.medium-zoom-overlay {
+    z-index: 100 !important;
+    background-color: var(--background) !important;
+    /* 使用主题背景色 */
+}
+
+.medium-zoom-image--opened {
+    z-index: 101 !important;
+    border-radius: 0 !important;
+    /* 放大时移除圆角 */
+    box-shadow: none !important;
+    /* 放大时移除阴影 */
+    margin: 0 !important;
+    /* 放大时重置边距 */
 }
 
 /* ========== 美化动画效果 ========== */
@@ -830,5 +859,28 @@
     ::view-transition-old(root),
     ::view-transition-new(root) {
         animation: none !important;
+    }
+}
+
+/* Print styles */
+@media print {
+
+    header,
+    footer,
+    nav,
+    aside,
+    .sticky,
+    button,
+    .no-print {
+        display: none !important;
+    }
+
+    body {
+        background: white;
+        color: black;
+    }
+
+    .prose {
+        max-width: 100% !important;
     }
 }

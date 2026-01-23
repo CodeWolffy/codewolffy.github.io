@@ -182,7 +182,10 @@ export default config({
                     label: '发布日期',
                     defaultValue: { kind: 'today' }
                 }),
-                updatedDate: fields.date({ label: '更新日期' }),
+                updatedDate: fields.date({
+                    label: '更新日期',
+                    description: '修改文章后，如需显示“最近修改时间”，请手动更新此日期。'
+                }),
                 coverImage: fields.image({
                     label: '封面图片 (上传)',
                     directory: 'public/images/posts',

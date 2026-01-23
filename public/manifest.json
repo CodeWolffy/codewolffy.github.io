@@ -1,0 +1,16 @@
+{
+    "name": "狼码纪 - 专注技术分享",
+    "short_name": "狼码纪",
+    "description": "CodeWolffy的个人技术博客，分享前端开发、Astro、React等技术。",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "icons": [
+        {
+            "src": "/favicon.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        }
+    ]
+}

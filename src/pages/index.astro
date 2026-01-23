@@ -15,7 +15,7 @@ const allTags = await getCollection('tags');
 const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
 const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
 
-const latestPosts = posts.slice(0, 6);
+const latestPosts = posts.slice(0, 12);
 
 // Calculate Tag Counts
 const tagCounts: Record<string, { name: string, count: number, id: string }> = {};
@@ -132,7 +132,7 @@ const topTags = sortedTags.slice(0, 8);
                     <div class="flex-1 space-y-2 relative z-10">
                         <div class="flex items-center gap-2 text-sm text-muted-foreground">
                             <time datetime={post.data.pubDate.toISOString()}>
-                                {post.data.pubDate.toLocaleDateString('zh-CN')}
+                                {post.data.pubDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
                             </time>
                             {post.data.tags && post.data.tags.length > 0 && (
                                 <>

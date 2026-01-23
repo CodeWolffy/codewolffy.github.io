@@ -22,8 +22,26 @@ export function Comments() {
         return () => observer.disconnect();
     }, []);
 
+    // 处理 GitHub 登录后自动滚动到评论区
+    React.useEffect(() => {
+        try {
+            const referrer = document.referrer;
+            if (referrer && (referrer.includes('giscus.app') || referrer.includes('github.com'))) {
+                const commentsDiv = document.getElementById('comments-container');
+                if (commentsDiv) {
+                    // 给一点延时，确保页面布局稳定
+                    setTimeout(() => {
+                        commentsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 500);
+                }
+            }
+        } catch (e) {
+            console.error('Failed to handle auto-scroll:', e);
+        }
+    }, []);
+
     return (
-        <div className="w-full mt-10">
+        <div id="comments-container" className="w-full mt-10 scroll-mt-20">
             <Giscus
                 id="comments"
                 repo="CodeWolffy/codewolffy.github.io"
@@ -39,7 +57,6 @@ export function Comments() {
                 lang="zh-CN"
                 loading="eager"
             />
-
         </div>
     );
 }

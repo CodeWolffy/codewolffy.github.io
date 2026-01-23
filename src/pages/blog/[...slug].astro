@@ -6,6 +6,10 @@ import { Comments } from '@/components/blog/Comments';
 import { BackButton } from '@/components/ui/BackButton';
 import { CopyCodeButton } from '@/components/blog/CopyCodeButton';
 import { ShareButtons } from '@/components/blog/ShareButtons';
+import { ExportButton } from '@/components/blog/ExportButton';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { Copyright } from '@/components/blog/Copyright';
+
 
 export const prerender = true;
 
@@ -29,7 +33,7 @@ const { Content, headings } = await render(post);
 const { getEntry, getEntries } = await import('astro:content');
 
 const categoryEntry = post.data.category ? await getEntry('categories', post.data.category.id) : null;
-const tagEntries = post.data.tags ? await getEntries(post.data.tags) : [];
+const tagEntries = (post.data.tags ? await getEntries(post.data.tags) : []).filter(Boolean);
 const categoryName = categoryEntry ? categoryEntry.data.name : null;
 const tagNames = tagEntries.map(tag => tag.data.name);
 
@@ -62,7 +66,15 @@ const pageUrl = Astro.url.href;
 <BaseLayout title={post.data.title} description={post.data.description}>
 	<div class="container mx-auto relative py-6 lg:py-10 max-w-5xl lg:gap-12 lg:grid lg:grid-cols-[1fr_300px]">
         <div class="w-full min-w-0">
-            <BackButton client:load />
+            <div class="mb-4">
+                <Breadcrumbs 
+                    items={[
+                         { label: '文章列表', href: '/archives' },
+                         ...(categoryName ? [{ label: categoryName, href: `/categories/${post.data.category.id}` }] : []),
+                         { label: post.data.title }
+                    ]} 
+                />
+            </div>
 
                 <h1 class="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
                     {post.data.title}
@@ -78,12 +90,12 @@ const pageUrl = Astro.url.href;
                     )}
                     {post.data.pubDate && (
                         <time datetime={post.data.pubDate.toISOString()}>
-                            发布于 {post.data.pubDate.toLocaleDateString()}
+                            发布于 {post.data.pubDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
                         </time>
                     )}
                     {post.data.updatedDate && (
                         <time datetime={post.data.updatedDate.toISOString()}>
-                            更新于 {post.data.updatedDate.toLocaleDateString()}
+                            更新于 {post.data.updatedDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
                         </time>
                     )}
                     <!-- 阅读时间 -->
@@ -111,7 +123,7 @@ const pageUrl = Astro.url.href;
                         alt={post.data.title}
                         width={720}
                         height={405}
-                        class="mb-8 rounded-md border bg-muted transition-colors w-full"
+                        class="mb-8 rounded-md border bg-muted transition-colors w-auto max-w-full max-h-[650px] mx-auto cursor-zoom-in cover-image"
                     />
                 )}
 
@@ -123,9 +135,10 @@ const pageUrl = Astro.url.href;
 			<!-- 代码复制按钮初始化 -->
 			<CopyCodeButton client:load />
 			
-			<!-- 分享按钮 -->
-			<div class="mt-6 pt-6 border-t border-border">
+			<!-- 分享与导出按钮 -->
+			<div class="mt-6 pt-6 border-t border-border flex flex-wrap items-center justify-between gap-4">
 				<ShareButtons title={post.data.title} description={post.data.description} url={pageUrl} client:load />
+				<ExportButton title={post.data.title} content={post.body || ''} frontmatter={post.data} client:load />
 			</div>
 			
 			<!-- 上一篇/下一篇导航 -->
@@ -192,9 +205,102 @@ const pageUrl = Astro.url.href;
 				</div>
 			)}
 			
+            <Copyright title={post.data.title} url={pageUrl} />
+
             <hr class="mt-8" />
             <Comments client:load />
         </div>
+
+        <script>
+            import mediumZoom from 'medium-zoom';
+            
+            // Function to initialize zoom and lightbox
+            const initZoom = () => {
+                // Initialize medium-zoom for article images ONLY
+                mediumZoom('.prose img', {
+                    margin: 24,
+                    background: 'rgba(0,0,0,0.8)',
+                    scrollOffset: 0,
+                });
+
+                // Custom Lightbox for Cover Image
+                const coverImage = document.querySelector('.cover-image') as HTMLImageElement;
+                if (coverImage) {
+                    // Remove any existing listeners to prevent duplicates on view transitions
+                    const newCoverImage = coverImage.cloneNode(true) as HTMLImageElement;
+                    if (coverImage.parentNode) {
+                        coverImage.parentNode.replaceChild(newCoverImage, coverImage);
+                    }
+                    
+                    newCoverImage.addEventListener('click', () => {
+                        // Create overlay
+                        const overlay = document.createElement('div');
+                        overlay.style.cssText = `
+                            position: fixed;
+                            top: 0; left: 0; width: 100vw; height: 100vh;
+                            background: rgba(0,0,0,0.9);
+                            z-index: 99999;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            cursor: zoom-out;
+                            opacity: 0;
+                            transition: opacity 0.3s;
+                        `;
+                        
+                        const img = document.createElement('img');
+                        img.src = newCoverImage.src;
+                        img.style.cssText = `
+                            max-width: 95vw;
+                            max-height: 95vh;
+                            object-fit: contain;
+                            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+                            transform: scale(0.9);
+                            transition: transform 0.3s;
+                        `;
+                        
+                        overlay.appendChild(img);
+                        document.body.appendChild(overlay);
+                        
+                        // Prevent scrolling
+                        document.body.style.overflow = 'hidden';
+                        
+                        // Animate in
+                        requestAnimationFrame(() => {
+                            overlay.style.opacity = '1';
+                            img.style.transform = 'scale(1)';
+                        });
+                        
+                        // Close logic
+                        const close = () => {
+                            overlay.style.opacity = '0';
+                            img.style.transform = 'scale(0.9)';
+                            document.body.style.overflow = ''; // Restore scrolling
+                            setTimeout(() => {
+                                if (overlay.parentNode) overlay.remove();
+                            }, 300);
+                        };
+
+                        overlay.onclick = close;
+                        
+                        // Close on Escape key
+                        const onEsc = (e: KeyboardEvent) => {
+                            if (e.key === 'Escape') {
+                                close();
+                                document.removeEventListener('keydown', onEsc);
+                            }
+                        };
+                        document.addEventListener('keydown', onEsc);
+                    });
+                }
+            };
+
+            // Run on initial load
+            initZoom();
+
+            // Re-run on View Transitions navigation
+            document.addEventListener('astro:page-load', initZoom);
+        </script>
         
         <div class="hidden lg:block">
             <div class="sticky top-32 mt-32 pl-4 border-l">
