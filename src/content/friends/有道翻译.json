@@ -2,5 +2,6 @@
   "name": "有道翻译",
   "description": "翻译网站、多打点",
   "avatarUrl": "https://th.bing.com/th/id/ODF.bztZoVsh1IinE6Baro0NAw?w=32&h=32&qlt=90&pcl=fffffa&o=6&pid=1.2",
-  "url": "https://fanyi.youdao.com/?msclkid=7b2dd97e0f4e1a49da44b12152f2078f#/TextTranslate"
+  "url": "https://fanyi.youdao.com/?msclkid=7b2dd97e0f4e1a49da44b12152f2078f#/TextTranslate",
+  "priority": 10
 }

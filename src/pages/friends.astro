@@ -7,7 +7,9 @@ import path from 'node:path';
 
 import { getCollection } from 'astro:content';
 
-const friends = (await getCollection('friends')).map(item => item.data);
+const friends = (await getCollection('friends'))
+    .map(item => item.data)
+    .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
 
 // 读取友链页面配置
 const friendsPagePath = path.join(process.cwd(), 'src/content/pages/friends.json');

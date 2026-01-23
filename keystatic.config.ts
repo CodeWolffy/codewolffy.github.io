@@ -254,6 +254,11 @@ export default config({
                     description: '如果未上传图片，将显示此链接'
                 }),
                 url: fields.text({ label: '网站地址' }),
+                priority: fields.number({
+                    label: '排序优先级',
+                    defaultValue: 0,
+                    description: '数字越大越靠前显示'
+                }),
             },
         }),
         projects: collection({

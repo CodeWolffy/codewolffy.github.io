@@ -67,6 +67,7 @@ const friends = defineCollection({
         avatar: z.string().optional(),
         avatarUrl: z.string().optional(),
         url: z.string(),
+        priority: z.number().default(0),
     }),
 });
 
