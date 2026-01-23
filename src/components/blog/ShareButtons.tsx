@@ -36,7 +36,7 @@ export function ShareButtons({ title, url, description = '' }: ShareButtonsProps
                 await navigator.share({
                     title: title,
                     // 原生分享: 标题换行描述，描述后双换行接链接
-                    text: `${title}\n${description || ''}\n\n`,
+                    text: `${title}\n${description || ''}\n`,
                     url: shareUrl,
                 });
             } catch (err) {
