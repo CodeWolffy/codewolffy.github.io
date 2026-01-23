@@ -22,51 +22,53 @@ export function Comments() {
         return () => observer.disconnect();
     }, []);
 
-    // 处理 GitHub 登录后自动滚动到评论区
+    // 处理 GitHub 登录后保持在评论区位置
+    // 原理：当用户在评论区可见时离开页面（去 GitHub 登录），保存位置标记
+    // 返回后检测标记并恢复位置
     React.useEffect(() => {
-        const scrollToComments = () => {
-            const commentsDiv = document.getElementById('comments-container');
-            if (commentsDiv) {
-                // 使用 requestAnimationFrame 确保 DOM 渲染完成
-                requestAnimationFrame(() => {
-                    commentsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        let isCommentsVisible = false;
+        const STORAGE_KEY = 'giscus-scroll-position';
+
+        // 监听评论区是否在视口中
+        const commentsDiv = document.getElementById('comments-container');
+
+        const intersectionObserver = new IntersectionObserver(
+            (entries) => {
+                isCommentsVisible = entries[0]?.isIntersecting || false;
+            },
+            { threshold: 0.1 }
+        );
+
+        if (commentsDiv) {
+            intersectionObserver.observe(commentsDiv);
+        }
+
+        // 页面加载时检查是否需要恢复位置
+        const savedPosition = sessionStorage.getItem(STORAGE_KEY);
+        if (savedPosition) {
+            sessionStorage.removeItem(STORAGE_KEY);
+            // 等待页面布局稳定后滚动
+            requestAnimationFrame(() => {
+                window.scrollTo({
+                    top: parseInt(savedPosition, 10),
+                    behavior: 'instant'
                 });
+            });
+        }
+
+        // 页面隐藏时（用户跳转到 GitHub 登录），保存滚动位置
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden' && isCommentsVisible) {
+                sessionStorage.setItem(STORAGE_KEY, String(window.scrollY));
             }
         };
 
-        try {
-            const referrer = document.referrer;
-            const hash = window.location.hash;
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
-            // 检测是否从 GitHub/Giscus 登录返回，或者 URL 包含 #comments
-            const isFromAuth = referrer && (
-                referrer.includes('giscus.app') ||
-                referrer.includes('github.com') ||
-                referrer.includes('api.github.com')
-            );
-            const hasCommentsHash = hash === '#comments' || hash === '#comments-container';
-
-            if (isFromAuth || hasCommentsHash) {
-                // 增加延时，等待 Giscus iframe 加载
-                setTimeout(scrollToComments, 800);
-
-                // 备用：监听 Giscus iframe 加载完成
-                const observer = new MutationObserver((mutations, obs) => {
-                    const iframe = document.querySelector('.giscus-frame');
-                    if (iframe) {
-                        setTimeout(scrollToComments, 200);
-                        obs.disconnect();
-                    }
-                });
-
-                observer.observe(document.body, { childList: true, subtree: true });
-
-                // 5秒后停止监听，避免内存泄漏
-                setTimeout(() => observer.disconnect(), 5000);
-            }
-        } catch (e) {
-            console.error('Failed to handle auto-scroll:', e);
-        }
+        return () => {
+            intersectionObserver.disconnect();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     return (
