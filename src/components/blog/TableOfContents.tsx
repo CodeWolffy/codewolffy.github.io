@@ -80,7 +80,7 @@ export function TableOfContents({ headings }: TocProps) {
                                 // Manually set active since intersection observer might lag during smooth scroll
                                 setActiveId(heading.slug);
                                 // Update URL hash without jumping
-                                history.pushState(null, '', `#${heading.slug}`);
+                                // history.pushState(null, '', `#${heading.slug}`);
                                 // Close menu on mobile after selection
                                 setIsOpen(false);
                             }}
