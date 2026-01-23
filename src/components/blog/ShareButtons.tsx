@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link2, Twitter, Mail, Facebook } from 'lucide-react';
+import { Link2, Twitter, Mail, Facebook, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ShareButtonsProps {
@@ -23,6 +23,24 @@ export function ShareButtons({ title, url }: ShareButtonsProps) {
         email: `mailto:?subject=${encodedTitle}&body=${url}`,
     };
 
+    const handleNativeShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: title,
+                    text: title,
+                    url: url,
+                });
+            } catch (err) {
+                if ((err as Error).name !== 'AbortError') {
+                    console.error('Share failed:', err);
+                }
+            }
+        } else {
+            alert('您的浏览器不支持系统分享');
+        }
+    };
+
     const copyLink = async () => {
         try {
             await navigator.clipboard.writeText(url);
@@ -36,6 +54,18 @@ export function ShareButtons({ title, url }: ShareButtonsProps) {
     return (
         <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-muted-foreground mr-2">分享：</span>
+
+            {/* 系统原生分享 (移动端体验最佳) */}
+            <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full hover:bg-zinc-500/10 hover:text-zinc-500"
+                onClick={handleNativeShare}
+                title="系统分享"
+            >
+                <Share2 className="h-4 w-4" />
+            </Button>
+
 
             {/* 微信分享 - 跳转到二维码页面 */}
             <a href={shareLinks.wechat} target="_blank" rel="noopener noreferrer">
