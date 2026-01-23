@@ -119,7 +119,7 @@ const pageUrl = Astro.url.href;
 			
 			<!-- 分享按钮 -->
 			<div class="mt-12 pt-6 border-t border-border">
-				<ShareButtons title={post.data.title} url={pageUrl} client:load />
+				<ShareButtons title={post.data.title} description={post.data.description} url={pageUrl} client:load />
 			</div>
 			
 			<!-- 上一篇/下一篇导航 -->
