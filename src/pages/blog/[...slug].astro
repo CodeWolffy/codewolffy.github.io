@@ -69,7 +69,6 @@ const pageUrl = Astro.url.href;
             <div class="mb-4">
                 <Breadcrumbs 
                     items={[
-                         { label: '文章列表', href: '/archives' },
                          ...(categoryName ? [{ label: categoryName, href: `/categories/${post.data.category.id}` }] : []),
                          { label: post.data.title }
                     ]} 

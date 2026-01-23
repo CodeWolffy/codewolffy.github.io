@@ -1,4 +1,4 @@
-// @ts-check
+// Astro 配置文件
 import { defineConfig } from 'astro/config';
 
 import react from '@astrojs/react';
@@ -12,7 +12,50 @@ import cloudflare from '@astrojs/cloudflare';
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 export default defineConfig({
   // Cloudflare Pages 支持 SSR，所以 Keystatic 可以在生产环境运行
-  integrations: [react(), mdx(), sitemap(), keystatic()],
+  integrations: [
+    react(),
+    mdx(),
+    sitemap({
+      // 过滤掉不需要索引的页面
+      filter: (page) =>
+        !page.includes('/keystatic') &&
+        !page.includes('/api/') &&
+        !page.includes('/search'),
+      // 自定义 sitemap 条目
+      serialize(item) {
+        const url = item.url;
+        // 获取路径部分（去除域名）
+        const path = new URL(url).pathname;
+
+        // 首页：最高优先级（只匹配根路径 /）
+        if (path === '/') {
+          item.priority = 1.0;
+          item.changefreq = 'daily';
+          return item;
+        }
+
+        // 博客文章：高优先级
+        if (path.startsWith('/blog/')) {
+          item.priority = 0.8;
+          item.changefreq = 'weekly';
+          return item;
+        }
+
+        // 分类和标签页：中等优先级
+        if (path.startsWith('/categories/') || path.startsWith('/tags/')) {
+          item.priority = 0.6;
+          item.changefreq = 'weekly';
+          return item;
+        }
+
+        // 其他页面（关于、归档、友链等）
+        item.priority = 0.5;
+        item.changefreq = 'monthly';
+        return item;
+      },
+    }),
+    keystatic()
+  ],
   // 部署到 Cloudflare Pages 后，请更新为你的实际域名
   site: isGitHubActions ? 'https://codewolffy.github.io' : 'https://codewolffy.pages.dev',
 

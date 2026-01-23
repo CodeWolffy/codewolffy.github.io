@@ -1,0 +1,55 @@
+# ===========================================
+# Robots.txt for CodeWolffy Blog
+# ===========================================
+
+# 允许所有搜索引擎爬取
+User-agent: *
+Allow: /
+
+# 禁止爬取管理后台
+Disallow: /keystatic/
+Disallow: /api/keystatic/
+
+# 禁止爬取系统文件和资源目录
+Disallow: /_astro/
+Disallow: /_image
+
+# 禁止爬取搜索页面（避免重复内容）
+Disallow: /search
+
+# ===========================================
+# 针对特定爬虫的优化规则
+# ===========================================
+
+# Google 爬虫
+User-agent: Googlebot
+Allow: /
+Disallow: /keystatic/
+Disallow: /api/keystatic/
+
+# 百度爬虫
+User-agent: Baiduspider
+Allow: /
+Disallow: /keystatic/
+Disallow: /api/keystatic/
+
+# 必应爬虫
+User-agent: Bingbot
+Allow: /
+Disallow: /keystatic/
+Disallow: /api/keystatic/
+
+# ===========================================
+# Sitemap 位置（搜索引擎会自动读取）
+# ===========================================
+# 注意：根据部署环境，sitemap URL 会有所不同
+# GitHub Pages: https://codewolffy.github.io/sitemap-index.xml
+# Cloudflare Pages: https://codewolffy.pages.dev/sitemap-index.xml
+
+Sitemap: https://codewolffy.github.io/sitemap-index.xml
+Sitemap: https://codewolffy.pages.dev/sitemap-index.xml
+
+# ===========================================
+# 爬取延迟（可选，避免服务器压力）
+# ===========================================
+# Crawl-delay: 1
