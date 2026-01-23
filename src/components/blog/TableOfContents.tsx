@@ -43,7 +43,7 @@ export function TableOfContents({ headings }: TocProps) {
     if (headings.length === 0) return null;
 
     return (
-        <nav>
+        <nav className="relative">
             <div
                 className="flex items-center justify-between gap-1 cursor-pointer lg:cursor-default min-h-[36px]"
                 onClick={() => setIsOpen(!isOpen)}
@@ -57,10 +57,12 @@ export function TableOfContents({ headings }: TocProps) {
                 />
             </div>
             <ul className={cn(
-                "space-y-2 text-sm pt-2 border-t mt-2 lg:pt-0 lg:border-none lg:mt-2",
-                isOpen ? "block" : "hidden lg:block",
-                // Add max-height and overflow for mobile sticky handling
-                isOpen && "lg:hidden max-h-[60vh] overflow-y-auto"
+                "space-y-2 text-sm",
+                // Mobile: Absolute Overlay
+                isOpen ? "block" : "hidden",
+                isOpen && "lg:hidden absolute left-[-1rem] right-[-1rem] top-full mt-2 bg-secondary border-t border-b border-border/50 shadow-xl max-h-[60vh] overflow-y-auto z-50 px-4 py-3",
+                // Desktop: Static Flow
+                "lg:block lg:static lg:border-none lg:mt-2 lg:bg-transparent lg:shadow-none lg:max-h-none lg:overflow-visible lg:p-0"
             )}>
                 {headings.map((heading) => (
                     <li key={heading.slug} style={{ paddingLeft: `${(heading.depth - 1) * 1}rem` }}>
