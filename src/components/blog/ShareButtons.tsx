@@ -61,8 +61,8 @@ export function ShareButtons({ title, url, description = '' }: ShareButtonsProps
     };
 
     return (
-        <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground mr-2">分享：</span>
+        <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-sm text-muted-foreground">分享：</span>
 
             {/* 系统原生分享 (移动端体验最佳) */}
             <Button
