@@ -1,6 +1,8 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
+import PostCard from "@/components/blog/PostCard.astro";
 import { getCollection } from "astro:content";
 
 const posts = (await getCollection("blog", ({ data }) => {
@@ -15,7 +17,7 @@ const allTags = await getCollection('tags');
 const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
 const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
 
-const latestPosts = posts.slice(0, 12);
+const latestPosts = posts.slice(0, 8);
 
 // Calculate Tag Counts
 const tagCounts: Record<string, { name: string, count: number, id: string }> = {};
@@ -103,57 +105,20 @@ const topTags = sortedTags.slice(0, 8);
 
 	<!-- 最新文章区域 -->
     <section class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6">
-        <div class="flex items-center justify-between mb-6">
-            <h2 class="text-3xl font-bold tracking-tight text-foreground">最新文章</h2>
-            <a href="/archives" class="text-muted-foreground hover:text-primary transition-colors group flex items-center gap-1">
-                查看全部 <span class="group-hover:translate-x-1 transition-transform inline-flex"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-bold tracking-tight text-foreground">最新文章</h2>
+            <a href="/archives" class="text-muted-foreground hover:text-primary transition-colors group flex items-center gap-1 text-sm">
+                查看全部 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </a>
         </div>
         
-		<div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+		<div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
 			{latestPosts.map((post, index) => (
-				<article 
-					class="group relative flex flex-col space-y-3 rounded-xl p-6 bg-card border border-border hover:border-primary/30 transition-all duration-500 hover:-translate-y-2 hover:shadow-xl"
-					style={`animation-delay: ${index * 100}ms;`}
-				>
-					
-					{(post.data.coverImage || post.data.heroImage) && (
-                        <div class="aspect-video overflow-hidden rounded-lg bg-muted relative">
-							<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"></div>
-                            <img
-                                src={post.data.coverImage || post.data.heroImage}
-                                alt={post.data.title}
-                                width={804}
-                                height={452}
-                                class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
-                            />
-                        </div>
-					)}
-                    <div class="flex-1 space-y-2 relative z-10">
-                        <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                            <time datetime={post.data.pubDate.toISOString()}>
-                                {post.data.pubDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                            </time>
-                            {post.data.tags && post.data.tags.length > 0 && (
-                                <>
-                                    <span>•</span>
-                                    <span class="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">{tagMap.get(post.data.tags[0].id)}</span>
-                                </>
-                            )}
-                        </div>
-                        <h3 class="text-xl font-bold leading-tight group-hover:text-primary transition-colors duration-300">
-                            <a href={`/blog/${post.slug}`}>
-                                {post.data.title}
-                            </a>
-                        </h3>
-                        <p class="text-muted-foreground line-clamp-2 text-sm leading-relaxed">
-                            {post.data.description}
-                        </p>
-                    </div>
-					<a href={`/blog/${post.slug}`} class="absolute inset-0 z-20">
-						<span class="sr-only">阅读 {post.data.title}</span>
-					</a>
-				</article>
+				<PostCard 
+					post={post}
+					index={index}
+					mainTagLabel={post.data.tags && post.data.tags.length > 0 ? tagMap.get(post.data.tags[0].id) : undefined}
+				/>
 			))}
 		</div>
         {posts.length === 0 && (
@@ -168,7 +133,7 @@ const topTags = sortedTags.slice(0, 8);
         <div class="flex items-center justify-between mb-8">
             <h2 class="text-3xl font-bold tracking-tight text-foreground">热门话题</h2>
             <a href="/categories" class="text-muted-foreground hover:text-primary transition-colors group flex items-center gap-1">
-                更多 <span class="group-hover:translate-x-1 transition-transform inline-flex"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+                更多 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </a>
         </div>
         
@@ -220,5 +185,3 @@ const topTags = sortedTags.slice(0, 8);
         </div>
     </section>
 </BaseLayout>
-
-

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getCollection } from "astro:content";
+import PostCard from "@/components/blog/PostCard.astro";
 
 export const prerender = true;
 
@@ -21,37 +22,30 @@ export async function getStaticPaths() {
 
 const { tag } = Astro.params;
 const { posts, tagName } = Astro.props;
+
+// Get tags for the card labels
+const allTags = await getCollection('tags');
+const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
 ---
 
 <BaseLayout title={`包含标签 #${tagName} 的文章`}>
-    <div class="container mx-auto max-w-4xl py-8 md:py-12 lg:py-24">
-        <h1 class="mb-10 text-3xl font-bold">包含标签 <span class="text-primary">#{tagName}</span> 的文章</h1>
+    <div class="container mx-auto py-8 lg:py-12">
+        <div class="mb-12 text-center space-y-4">
+             <h1 class="text-3xl font-bold tracking-tight lg:text-5xl">
+                标签: <span class="text-primary">#{tagName}</span>
+            </h1>
+            <p class="text-muted-foreground text-lg">
+                共 {posts.length} 篇相关文章
+            </p>
+        </div>
         
-        <div class="grid gap-10 sm:grid-cols-2">
-            {posts.map((post) => (
-                <article class="group relative flex flex-col space-y-2">
-                    {(post.data.coverImage || post.data.heroImage) && (
-                        <img
-                            src={post.data.coverImage || post.data.heroImage}
-                            alt={post.data.title}
-                            width={804}
-                            height={452}
-                            class="rounded-md border bg-muted transition-colors"
-                        />
-                    )}
-                    <h2 class="text-2xl font-extrabold pb-2">
-                        <a href={`/blog/${post.slug}`} class="block transition-colors hover:text-primary">
-                            {post.data.title}
-                        </a>
-                    </h2>
-                    <p class="text-muted-foreground pb-2">{post.data.description}</p>
-                    <p class="text-sm text-muted-foreground">
-                        {post.data.pubDate.toLocaleDateString()}
-                    </p>
-                    <a href={`/blog/${post.slug}`} class="absolute inset-0">
-                        <span class="sr-only">阅读文章</span>
-                    </a>
-                </article>
+        <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {posts.map((post, index) => (
+                <PostCard 
+                    post={post}
+                    index={index}
+                    mainTagLabel={post.data.tags && post.data.tags.length > 0 ? tagMap.get(post.data.tags[0].id) : undefined}
+                />
             ))}
         </div>
     </div>

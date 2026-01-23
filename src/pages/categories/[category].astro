@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import PostCard from '@/components/blog/PostCard.astro';
 
 export const prerender = true;
 
@@ -21,47 +22,30 @@ export async function getStaticPaths() {
 
 const { category } = Astro.params;
 const { posts, categoryName } = Astro.props;
+
+// Get tags for the card labels
+const allTags = await getCollection('tags');
+const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
 ---
 
 <BaseLayout title={`分类: ${categoryName}`}>
-    <div class="container mx-auto max-w-4xl py-6 lg:py-10">
-        <div class="flex flex-col items-start gap-4 md:flex-row md:justify-between md:gap-8">
-            <div class="flex-1 space-y-4">
-                <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">
-                    分类: {categoryName}
-                </h1>
-            </div>
+    <div class="container mx-auto py-8 lg:py-12">
+        <div class="mb-12 text-center space-y-4">
+            <h1 class="text-3xl font-bold tracking-tight lg:text-5xl">
+                分类: <span class="text-primary">{categoryName}</span>
+            </h1>
+            <p class="text-muted-foreground text-lg">
+                共 {posts.length} 篇相关文章
+            </p>
         </div>
-        <hr class="my-8" />
-        <div class="grid gap-10 sm:grid-cols-2">
-            {posts.map((post) => (
-                <article class="group relative flex flex-col space-y-2">
-                    {(post.data.coverImage || post.data.heroImage) && (
-                        <img
-                            src={post.data.coverImage || post.data.heroImage}
-                            alt={post.data.title}
-                            width={804}
-                            height={452}
-                            class="rounded-md border bg-muted transition-colors"
-                        />
-                    )}
-                    <h2 class="text-2xl font-extrabold tracking-tight">
-                        <a href={`/blog/${post.slug}/`}>{post.data.title}</a>
-                    </h2>
-                    {post.data.description && (
-                        <p class="text-muted-foreground">
-                            {post.data.description}
-                        </p>
-                    )}
-                    {post.data.pubDate && (
-                        <p class="text-sm text-muted-foreground">
-                            {post.data.pubDate.toLocaleDateString()}
-                        </p>
-                    )}
-                    <a href={`/blog/${post.slug}/`} class="absolute inset-0">
-                        <span class="sr-only">View Article</span>
-                    </a>
-                </article>
+        
+        <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {posts.map((post, index) => (
+                <PostCard 
+                    post={post}
+                    index={index}
+                    mainTagLabel={post.data.tags && post.data.tags.length > 0 ? tagMap.get(post.data.tags[0].id) : undefined}
+                />
             ))}
         </div>
     </div>

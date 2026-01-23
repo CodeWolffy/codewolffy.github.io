@@ -1,0 +1,54 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  post: CollectionEntry<'blog'>;
+  mainTagLabel?: string;
+  index?: number;
+}
+
+const { post, mainTagLabel, index = 0 } = Astro.props;
+---
+
+<article 
+    class="group relative flex flex-col space-y-2 rounded-xl p-3 bg-card border border-border hover:border-primary/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-md"
+    style={`animation-delay: ${index * 50}ms;`}
+>
+    
+    {(post.data.coverImage || post.data.heroImage) && (
+        <div class="aspect-video overflow-hidden rounded-lg bg-muted relative">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"></div>
+            <img
+                src={post.data.coverImage || post.data.heroImage}
+                alt={post.data.title}
+                width={804}
+                height={452}
+                class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
+            />
+        </div>
+    )}
+    <div class="flex-1 space-y-1 relative z-10">
+        <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <time datetime={post.data.pubDate.toISOString()}>
+                {post.data.pubDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric' })}
+            </time>
+            {mainTagLabel && (
+                <>
+                    <span>•</span>
+                    <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary">{mainTagLabel}</span>
+                </>
+            )}
+        </div>
+        <h3 class="text-base font-bold leading-tight group-hover:text-primary transition-colors duration-300 line-clamp-2">
+            <a href={`/blog/${post.slug}/`}>
+                {post.data.title}
+            </a>
+        </h3>
+        <p class="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
+            {post.data.description}
+        </p>
+    </div>
+    <a href={`/blog/${post.slug}/`} class="absolute inset-0 z-20">
+        <span class="sr-only">阅读 {post.data.title}</span>
+    </a>
+</article>

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Download, FileText, FileCode, ChevronDown } from 'lucide-react';
+import { Download, FileText, FileCode, Printer, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ExportButtonProps {
@@ -18,7 +18,7 @@ interface ExportButtonProps {
     };
 }
 
-type ExportFormat = 'markdown' | 'html';
+type ExportFormat = 'markdown' | 'html' | 'pdf';
 
 export function ExportButton({ title, content, frontmatter }: ExportButtonProps) {
     const [isOpen, setIsOpen] = React.useState(false);
@@ -260,6 +260,11 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         downloadBlob(blob, getFileName('html'));
     };
 
+    // 导出为 PDF (调用浏览器打印)
+    const exportPdf = () => {
+        window.print();
+    };
+
 
 
     // 下载 Blob 文件
@@ -284,12 +289,16 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             case 'html':
                 exportHtml();
                 break;
+            case 'pdf':
+                exportPdf();
+                break;
         }
     };
 
     const formatOptions = [
         { value: 'markdown' as ExportFormat, label: 'Markdown', icon: FileText, desc: '原始格式' },
         { value: 'html' as ExportFormat, label: 'HTML', icon: FileCode, desc: '网页格式' },
+        { value: 'pdf' as ExportFormat, label: 'PDF', icon: Printer, desc: '打印/另存为PDF' },
     ];
 
     return (

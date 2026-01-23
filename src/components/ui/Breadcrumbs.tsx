@@ -13,7 +13,7 @@ interface BreadcrumbsProps {
 export function Breadcrumbs({ items, className = '' }: BreadcrumbsProps) {
     return (
         <nav className={`flex items-center text-sm text-muted-foreground ${className}`} aria-label="Breadcrumb">
-            <ol className="flex items-center flex-wrap gap-1">
+            <ol className="flex items-center flex-wrap">
                 <li>
                     <a href="/" className="hover:text-primary transition-colors flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
