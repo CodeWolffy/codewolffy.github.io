@@ -141,6 +141,24 @@ export default config({
         }),
     },
     collections: {
+        categories: collection({
+            label: '🏷️ 分类管理',
+            slugField: 'name',
+            path: 'src/content/categories/*',
+            format: { data: 'json' },
+            schema: {
+                name: fields.slug({ name: { label: '分类名称' } }),
+            },
+        }),
+        tags: collection({
+            label: '🔖 标签管理',
+            slugField: 'name',
+            path: 'src/content/tags/*',
+            format: { data: 'json' },
+            schema: {
+                name: fields.slug({ name: { label: '标签名称' } }),
+            },
+        }),
         posts: collection({
             label: '✍️ 博客文章',
             slugField: 'title',
@@ -181,12 +199,18 @@ export default config({
                     description: '勾选后，文章将不会在生产环境中显示',
                     defaultValue: false,
                 }),
-                category: fields.text({ label: '分类 (Category)' }),
+                category: fields.relationship({
+                    label: '分类',
+                    collection: 'categories',
+                }),
                 tags: fields.array(
-                    fields.text({ label: '标签' }),
+                    fields.relationship({
+                        label: '标签',
+                        collection: 'tags',
+                    }),
                     {
-                        label: '标签列表 (Tags)',
-                        itemLabel: props => props.value || '标签',
+                        label: '标签列表',
+                        itemLabel: props => props.value || '选择标签',
                         description: '点击 "添加" 按钮增加多个标签'
                     }
                 ),

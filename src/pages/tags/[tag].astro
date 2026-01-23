@@ -8,24 +8,24 @@ export async function getStaticPaths() {
   const allPosts = await getCollection("blog", ({ data }) => {
     return import.meta.env.PROD ? data.draft !== true : true;
   });
-  const uniqueTags = [...new Set(allPosts.map((post) => post.data.tags).flat())];
+  const allTags = await getCollection('tags');
 
-  return uniqueTags.map((tag) => {
-    const filteredPosts = allPosts.filter((post) => post.data.tags.includes(tag));
+  return allTags.map((tag) => {
+    const filteredPosts = allPosts.filter((post) => post.data.tags?.map((t) => t.id).includes(tag.id));
     return {
-      params: { tag },
-      props: { posts: filteredPosts },
+      params: { tag: tag.id },
+      props: { posts: filteredPosts, tagName: tag.data.name },
     };
   });
 }
 
 const { tag } = Astro.params;
-const { posts } = Astro.props;
+const { posts, tagName } = Astro.props;
 ---
 
-<BaseLayout title={`包含标签 #${tag} 的文章`}>
+<BaseLayout title={`包含标签 #${tagName} 的文章`}>
     <div class="container mx-auto max-w-4xl py-8 md:py-12 lg:py-24">
-        <h1 class="mb-10 text-3xl font-bold">包含标签 <span class="text-primary">#{tag}</span> 的文章</h1>
+        <h1 class="mb-10 text-3xl font-bold">包含标签 <span class="text-primary">#{tagName}</span> 的文章</h1>
         
         <div class="grid gap-10 sm:grid-cols-2">
             {posts.map((post) => (

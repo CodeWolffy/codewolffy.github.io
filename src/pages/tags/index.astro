@@ -5,14 +5,17 @@ import { getCollection } from "astro:content";
 const allPosts = await getCollection("blog", ({ data }) => {
     return import.meta.env.PROD ? data.draft !== true : true;
 });
+const allTags = await getCollection('tags');
 
 // 计算标签及其文章数量
-const allTags = allPosts.flatMap(post => post.data.tags || []);
-const tagCounts: Record<string, number> = {};
+const tagCounts: Record<string, { name: string, count: number, id: string }> = {};
 allTags.forEach(tag => {
-    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    const count = allPosts.filter(post => post.data.tags?.map(t => t.id).includes(tag.id)).length;
+    if (count > 0) {
+        tagCounts[tag.id] = { name: tag.data.name, count, id: tag.id };
+    }
 });
-const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
+const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
 ---
 
 <BaseLayout title="所有标签 | 狼码纪" description="浏览博客的所有标签">
@@ -29,16 +32,16 @@ const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
         
         <!-- 标签云 -->
         <div class="flex flex-wrap gap-4 justify-center">
-            {sortedTags.map(([tag, count], index) => {
+            {sortedTags.map((tag, index) => {
                 // 根据文章数量计算标签大小
-                const maxCount = sortedTags[0][1];
+                const maxCount = sortedTags[0].count;
                 const minSize = 0.875; // 最小 text-sm
                 const maxSize = 1.5;   // 最大 text-2xl
-                const size = minSize + (count / maxCount) * (maxSize - minSize);
+                const size = minSize + (tag.count / maxCount) * (maxSize - minSize);
                 
                 return (
                     <a 
-                        href={`/tags/${tag}`}
+                        href={`/tags/${tag.id}`}
                         class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden"
                         style={`animation-delay: ${index * 30}ms;`}
                     >
@@ -48,10 +51,10 @@ const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
                             class="font-medium relative z-10 group-hover:text-primary transition-colors"
                             style={`font-size: ${size}rem;`}
                         >
-                            #{tag}
+                            #{tag.name}
                         </span>
                         <span class="ml-2 text-xs text-muted-foreground relative z-10 bg-secondary px-2 py-0.5 rounded-full">
-                            {count}
+                            {tag.count}
                         </span>
                     </a>
                 );

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link2, Twitter, Mail, Facebook, Share2 } from 'lucide-react';
+import { Link2, Mail, Facebook, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ShareButtonsProps {
@@ -10,11 +10,17 @@ interface ShareButtonsProps {
 
 export function ShareButtons({ title, url, description = '' }: ShareButtonsProps) {
     const [copied, setCopied] = React.useState(false);
+    const [shareUrl, setShareUrl] = React.useState(url);
+
+    React.useEffect(() => {
+        setShareUrl(window.location.href);
+    }, []);
 
     const encodedTitle = encodeURIComponent(title);
-    const encodedUrl = encodeURIComponent(url);
+    const encodedUrl = encodeURIComponent(shareUrl);
     const encodedDesc = encodeURIComponent(description || '');
-    const combinedText = encodeURIComponent(`${title}\n${description}`);
+    // 使用双换行符 (\n\n) 来增加间隔，让显示更舒服
+    const combinedText = encodeURIComponent(`${title}\n\n${description || ''}`);
 
     const shareLinks = {
         twitter: `https://twitter.com/intent/tweet?text=${combinedText}&url=${encodedUrl}`,
@@ -29,8 +35,9 @@ export function ShareButtons({ title, url, description = '' }: ShareButtonsProps
             try {
                 await navigator.share({
                     title: title,
-                    text: description || title,
-                    url: url,
+                    // 原生分享的 text 字段显式包含标题和描述，并换行
+                    text: `${title}\n\n${description || ''}`,
+                    url: shareUrl,
                 });
             } catch (err) {
                 if ((err as Error).name !== 'AbortError') {
@@ -45,7 +52,7 @@ export function ShareButtons({ title, url, description = '' }: ShareButtonsProps
 
     const copyLink = async () => {
         try {
-            await navigator.clipboard.writeText(url);
+            await navigator.clipboard.writeText(shareUrl);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
@@ -88,10 +95,12 @@ export function ShareButtons({ title, url, description = '' }: ShareButtonsProps
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 rounded-full hover:bg-sky-500/10 hover:text-sky-500"
-                    title="分享到 Twitter"
+                    className="h-9 w-9 rounded-full hover:bg-black/10 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+                    title="分享到 X"
                 >
-                    <Twitter className="h-4 w-4" />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
+                    </svg>
                 </Button>
             </a>
 

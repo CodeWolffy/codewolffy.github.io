@@ -37,7 +37,7 @@ export function Comments() {
                 inputPosition="bottom"
                 theme={theme}
                 lang="zh-CN"
-                loading="lazy"
+                loading="eager"
             />
 
         </div>

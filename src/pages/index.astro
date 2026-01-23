@@ -9,27 +9,45 @@ const posts = (await getCollection("blog", ({ data }) => {
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 
+const allCategories = await getCollection('categories');
+const allTags = await getCollection('tags');
+
+const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
+const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
+
 const latestPosts = posts.slice(0, 6);
 
-// 计算标签及其文章数量
-const allTags = posts.flatMap(post => post.data.tags || []);
-const tagCounts: Record<string, number> = {};
-allTags.forEach(tag => {
-    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+// Calculate Tag Counts
+const tagCounts: Record<string, { name: string, count: number, id: string }> = {};
+posts.forEach(post => {
+    post.data.tags?.forEach(tagRef => {
+        const tagId = tagRef.id;
+        const tagName = tagMap.get(tagId);
+        if (tagName) {
+             if (!tagCounts[tagId]) {
+                 tagCounts[tagId] = { name: tagName, count: 0, id: tagId };
+             }
+             tagCounts[tagId].count++;
+        }
+    });
 });
-const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
+const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
 
-// Get Categories
-const categories = [...new Set(posts.map((post) => post.data.category).filter(Boolean))];
-// Get Categories and sort by count
-const allCategories = posts.map((post) => post.data.category).filter(Boolean);
-const categoryCounts: Record<string, number> = {};
-allCategories.forEach(cat => {
-    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+// Calculate Category Counts
+const categoryCounts: Record<string, { name: string, count: number, id: string }> = {};
+posts.forEach(post => {
+    if (post.data.category) {
+        const catId = post.data.category.id;
+        const catName = categoryMap.get(catId);
+        if (catName) {
+            if (!categoryCounts[catId]) {
+                categoryCounts[catId] = { name: catName, count: 0, id: catId };
+            }
+            categoryCounts[catId].count++;
+        }
+    }
 });
-const sortedCategories = Object.entries(categoryCounts)
-    .sort((a, b) => b[1] - a[1]) // Sort by count desc
-    .map(([cat]) => cat);
+const sortedCategories = Object.values(categoryCounts).sort((a, b) => b.count - a.count);
 
 // Limit items for homepage (Preview)
 const topCategories = sortedCategories.slice(0, 3);
@@ -119,7 +137,7 @@ const topTags = sortedTags.slice(0, 8);
                             {post.data.tags && post.data.tags.length > 0 && (
                                 <>
                                     <span>•</span>
-                                    <span class="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">{post.data.tags[0]}</span>
+                                    <span class="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">{tagMap.get(post.data.tags[0].id)}</span>
                                 </>
                             )}
                         </div>
@@ -163,14 +181,13 @@ const topTags = sortedTags.slice(0, 8);
                 </h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {topCategories.map((category) => {
-                         const count = categoryCounts[category];
                          return (
                             <a 
-                                href={`/categories/${category}`}
+                                href={`/categories/${category.id}`}
                                 class="group flex items-center justify-between p-4 rounded-xl bg-card border border-border/50 hover:border-primary/50 hover:shadow-md transition-all duration-300"
                             >
-                                <span class="font-medium group-hover:text-primary transition-colors">{category}</span>
-                                <span class="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full">{count}</span>
+                                <span class="font-medium group-hover:text-primary transition-colors">{category.name}</span>
+                                <span class="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full">{category.count}</span>
                             </a>
                          )
                     })}
@@ -184,17 +201,17 @@ const topTags = sortedTags.slice(0, 8);
                     热门标签
                 </h3>
                 <div class="flex flex-wrap gap-3">
-                    {topTags.map(([tag, count], index) => (
+                    {topTags.map((tag, index) => (
                         <a 
-                            href={`/tags/${tag}`}
+                            href={`/tags/${tag.id}`}
                             class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden"
                             style={`animation-delay: ${index * 50}ms;`}
                         >
                             <!-- 悬停渐变背景 -->
                             <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            <span class="font-medium relative z-10 group-hover:text-primary transition-colors">{tag}</span>
+                            <span class="font-medium relative z-10 group-hover:text-primary transition-colors">{tag.name}</span>
                             <span class="ml-2 text-xs text-muted-foreground relative z-10">
-                                ({count})
+                                ({tag.count})
                             </span>
                         </a>
                     ))}
