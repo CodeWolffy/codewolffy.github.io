@@ -1,0 +1,99 @@
+---
+title: java静态方法和实例方法有何不同
+description: >-
+  静态方法与实例方法是Java编程语言中的两个核心概念，它们在类的设计和实现中扮演着重要的角色。下面，我们将深入探讨静态方法与实例方法的定义、特性、区别以及应用场景。
+pubDate: 2026-01-24
+coverImage: /images/posts/java-static-method/coverImage.png
+draft: false
+category:
+  discriminant: custom
+  value: Java！
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: existing
+    value: 后端开发
+  - discriminant: custom
+    value: Android
+---
+## 静态方法
+
+### 1. 静态方法的定义
+
+静态方法使用`static`关键字修饰，定义在类中，但不属于类的实例。这意味着静态方法与对象实例无关，可以直接通过类名调用。
+
+```java
+public class MathUtils {
+    // 静态方法
+    public static int add(int a, int b) {
+        return a + b;
+    }
+}
+```
+
+### 2. 静态方法的特性
+
+* **无需实例化**：可以直接通过类名调用静态方法，无需创建类的实例。
+* **访问限制**：静态方法只能访问类的静态成员（静态变量和静态方法），不能直接访问实例成员（实例变量和实例方法）。
+
+```java
+public class MathUtils {
+    private static int staticVar = 10; // 静态变量
+    private int instanceVar = 5; // 实例变量
+
+    public static int getStaticVar() {
+        return staticVar; // 可以访问静态变量
+    }
+
+    public static void cannotAccessInstanceVar() {
+        // 不能直接访问实例变量
+    }
+}
+```
+
+### 3. 应用场景
+
+* **工具类**：如MathUtils类，提供一些通用的数学计算方法。
+* **资源管理**：如数据库连接池，通常使用静态方法来获取连接。
+
+## 实例方法
+
+### 1. 实例方法的定义
+
+实例方法不属于类本身，属于类的实例。每个实例都有自己的实例方法副本。
+
+```java
+public class MyClass {
+    public void instanceMethod() {
+        // 实例方法
+    }
+}
+```
+
+### 2. 实例方法的特性
+
+* **生命周期**：与对象实例的生命周期相同，当对象被回收时，实例方法也随之消失。
+* **调用方式**：必须通过类的实例来调用。
+* **访问限制**：实例方法可以访问实例成员和静态成员。
+
+```java
+public class MyClass {
+    private int instanceVar = 5; // 实例变量
+    private static int staticVar = 10; // 静态变量
+
+    public void instanceMethod() {
+        // 可以访问实例变量和静态变量
+        System.out.println(instanceVar);
+        System.out.println(staticVar);
+    }
+}
+```
+
+### 3. 应用场景
+
+* **业务逻辑**：实现具体的业务逻辑。
+* **对象操作**：操作对象的属性和行为。
+
+## 总结
+
+静态方法与实例方法是Java编程中的两个重要概念，它们在类的设计和实现中起着至关重要的作用。静态方法适合用于工具类、资源管理等场景，而实例方法适合用于业务逻辑、对象操作等场景。理解这两者的区别和应用场景对于编写高效、可维护的Java代码至关重要。

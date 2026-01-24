@@ -162,7 +162,7 @@ export default config({
         posts: collection({
             label: '✍️ 博客文章',
             slugField: 'title',
-            columns: ['title', 'category', 'pubDate', 'draft'],
+            columns: ['title', 'pubDate', 'draft'],
             path: 'src/content/blog/*',
             format: { contentField: 'content' },
             schema: {
@@ -202,19 +202,56 @@ export default config({
                     description: '勾选后，文章将不会在生产环境中显示',
                     defaultValue: false,
                 }),
-                category: fields.relationship({
-                    label: '分类',
-                    description: '选择文章分类',
-                    collection: 'categories',
-                }),
-                tags: fields.array(
-                    fields.relationship({
-                        label: '标签',
-                        collection: 'tags',
+                category: fields.conditional(
+                    fields.select({
+                        label: '分类模式',
+                        options: [
+                            { label: '选择现有分类', value: 'existing' },
+                            { label: '输入新分类', value: 'custom' },
+                        ],
+                        defaultValue: 'existing',
                     }),
                     {
+                        existing: fields.relationship({
+                            label: '选择分类',
+                            collection: 'categories',
+                        }),
+                        custom: fields.text({
+                            label: '输入分类名称',
+                            description: '输入一个新的分类名称',
+                        }),
+                    }
+                ),
+                tags: fields.array(
+                    fields.conditional(
+                        fields.select({
+                            label: '标签模式',
+                            options: [
+                                { label: '选择现有标签', value: 'existing' },
+                                { label: '输入新标签', value: 'custom' },
+                            ],
+                            defaultValue: 'existing',
+                        }),
+                        {
+                            existing: fields.relationship({
+                                label: '选择标签',
+                                collection: 'tags',
+                            }),
+                            custom: fields.text({
+                                label: '输入标签名称',
+                            }),
+                        }
+                    ),
+                    {
                         label: '标签列表',
-                        itemLabel: props => props.value || '选择标签',
+                        itemLabel: props => {
+                            const val = props.value as any;
+                            // Helper to extract label for the list item
+                            if (val?.value) return val.value;
+                            if (val?.discriminant === 'existing') return '选择标签';
+                            if (val?.discriminant === 'custom') return '输入标签';
+                            return '标签';
+                        },
                         description: '点击 "添加" 按钮增加多个标签'
                     }
                 ),

@@ -2,6 +2,8 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getCollection } from "astro:content";
 
+
+
 const allPosts = await getCollection("blog", ({ data }) => {
     return import.meta.env.PROD ? data.draft !== true : true;
 });
@@ -26,6 +28,7 @@ allPosts.forEach(post => {
 });
 
 const sortedTags = Object.values(tagCountMap).sort((a, b) => b.count - a.count);
+
 ---
 
 <BaseLayout title="所有标签 | 狼码纪" description="浏览博客的所有标签">

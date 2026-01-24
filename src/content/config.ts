@@ -25,8 +25,33 @@ const blog = defineCollection({
         updatedDate: z.coerce.date().optional(),
         heroImage: z.string().optional(),
         coverImage: z.string().optional(),
-        category: z.string().optional(),
-        tags: z.array(z.string()).default([]),
+        category: z.union([
+            z.string(),
+            z.object({
+                discriminant: z.string(),
+                value: z.any()
+            })
+        ]).optional().transform(val => {
+            if (!val) return undefined;
+            if (typeof val === 'string') return val;
+            if (typeof val === 'object' && 'value' in val) return val.value;
+            return undefined;
+        }),
+        tags: z.array(
+            z.union([
+                z.string(),
+                z.object({
+                    discriminant: z.string(),
+                    value: z.any()
+                })
+            ])
+        ).default([]).transform(tags => {
+            return tags.map(t => {
+                if (typeof t === 'string') return t;
+                if (t && typeof t === 'object' && 'value' in t) return t.value;
+                return null;
+            }).filter((t): t is string => typeof t === 'string');
+        }),
         draft: z.boolean().default(false),
     }),
 });

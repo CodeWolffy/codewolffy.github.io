@@ -1,5 +1,6 @@
 // Astro 配置文件
 import { defineConfig } from 'astro/config';
+import path from 'path';
 
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
@@ -7,6 +8,40 @@ import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import keystatic from '@keystatic/astro';
 import cloudflare from '@astrojs/cloudflare';
+
+// Import sync utility
+import { syncContent } from './src/utils/content-sync.js';
+
+// Auto-sync plugin
+const autoSyncContent = () => {
+  return {
+    name: 'auto-sync-content',
+    configureServer(server) {
+      server.watcher.on('change', async (file) => {
+        // Normalize path separators for Windows support
+        const normalizedFile = file.split(path.sep).join('/');
+        if (normalizedFile.includes('src/content/blog') && normalizedFile.endsWith('.mdx')) {
+          console.log(`[AutoSync] Detected change in ${file}`);
+          await syncContent(process.cwd());
+        }
+      });
+      server.watcher.on('add', async (file) => {
+        const normalizedFile = file.split(path.sep).join('/');
+        if (normalizedFile.includes('src/content/blog') && normalizedFile.endsWith('.mdx')) {
+          console.log(`[AutoSync] Detected new file ${file}`);
+          await syncContent(process.cwd());
+        }
+      });
+      server.watcher.on('unlink', async (file) => {
+        const normalizedFile = file.split(path.sep).join('/');
+        if (normalizedFile.includes('src/content/blog') && normalizedFile.endsWith('.mdx')) {
+          console.log(`[AutoSync] Detected deleted file ${file}`);
+          await syncContent(process.cwd());
+        }
+      });
+    }
+  }
+};
 
 // https://astro.build/config
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
@@ -82,7 +117,10 @@ export default defineConfig({
   },
 
   vite: {
-    plugins: [tailwindcss()],
+    plugins: [
+      tailwindcss(),
+      autoSyncContent() // Register the plugin
+    ],
     build: {
       // 使用 esbuild 压缩（比 terser 快 20-40 倍）
       minify: 'esbuild',
