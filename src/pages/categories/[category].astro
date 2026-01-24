@@ -10,12 +10,17 @@ export async function getStaticPaths() {
     return import.meta.env.PROD ? data.draft !== true : true;
   });
   const allCategories = await getCollection('categories');
+  const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
 
-  return allCategories.map((category) => {
-    const filteredPosts = allPosts.filter((post) => post.data.category?.id === category.id);
+  // Get unique categories from posts
+  const uniqueCategories = [...new Set(allPosts.map(post => post.data.category).filter(Boolean))];
+
+  return uniqueCategories.map((categoryId) => {
+    const filteredPosts = allPosts.filter((post) => post.data.category === categoryId);
+    const categoryName = categoryMap.get(categoryId) || categoryId;
     return {
-      params: { category: category.id },
-      props: { posts: filteredPosts, categoryName: category.data.name },
+      params: { category: categoryId },
+      props: { posts: filteredPosts, categoryName },
     };
   });
 }
@@ -44,7 +49,7 @@ const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
                 <PostCard 
                     post={post}
                     index={index}
-                    mainTagLabel={post.data.tags && post.data.tags.length > 0 ? tagMap.get(post.data.tags[0].id) : undefined}
+                    mainTagLabel={post.data.tags && post.data.tags.length > 0 ? (tagMap.get(post.data.tags[0]) || post.data.tags[0]) : undefined}
                 />
             ))}
         </div>

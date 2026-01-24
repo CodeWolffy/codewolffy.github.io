@@ -162,7 +162,7 @@ export default config({
         posts: collection({
             label: '✍️ 博客文章',
             slugField: 'title',
-            columns: ['title', 'pubDate', 'category', 'draft'],
+            columns: ['title', 'category', 'pubDate', 'draft'],
             path: 'src/content/blog/*',
             format: { contentField: 'content' },
             schema: {
@@ -204,6 +204,7 @@ export default config({
                 }),
                 category: fields.relationship({
                     label: '分类',
+                    description: '选择文章分类',
                     collection: 'categories',
                 }),
                 tags: fields.array(
@@ -231,7 +232,7 @@ export default config({
         friends: collection({
             label: '🔗 友情链接',
             slugField: 'name',
-            columns: ['name', 'url', 'description'],
+            columns: ['name', 'priority', 'url', 'description'],
             path: 'src/content/friends/*',
             format: { data: 'json' },
             schema: {

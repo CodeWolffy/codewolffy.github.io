@@ -30,12 +30,19 @@ interface Props {
 
 const { post, allPosts } = Astro.props;
 const { Content, headings } = await render(post);
-const { getEntry, getEntries } = await import('astro:content');
 
-const categoryEntry = post.data.category ? await getEntry('categories', post.data.category.id) : null;
-const tagEntries = (post.data.tags ? await getEntries(post.data.tags) : []).filter(Boolean);
-const categoryName = categoryEntry ? categoryEntry.data.name : null;
-const tagNames = tagEntries.map(tag => tag.data.name);
+
+// Resolve Category
+const allCategories = await getCollection('categories');
+const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
+const categoryId = post.data.category;
+const categoryName = categoryId ? (categoryMap.get(categoryId) || categoryId) : null;
+
+// Resolve Tags
+const allTags = await getCollection('tags');
+const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
+const tagIds = post.data.tags || [];
+const tagNames = tagIds.map(tagId => tagMap.get(tagId) || tagId); // Used for SEO
 
 // 计算阅读时间（中文按字数，假设300字/分钟）
 const content = post.body || '';
@@ -43,12 +50,11 @@ const wordCount = content.length;
 const readingTime = Math.max(1, Math.ceil(wordCount / 300));
 
 // 获取相关文章（根据标签匹配）
-const currentTagIds = post.data.tags.map(tag => tag.id);
 const relatedPosts = allPosts
 	.filter(p => p.slug !== post.slug) // 排除当前文章
 	.filter(p => {
-		const tags = p.data.tags || [];
-		return tags.some(tag => currentTagIds.includes(tag.id));
+		const pTags = p.data.tags || [];
+		return pTags.some(tag => tagIds.includes(tag));
 	})
 	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
 	.slice(0, 3);
@@ -97,7 +103,7 @@ const pageUrl = Astro.url.href;
             <div class="mb-1">
                 <Breadcrumbs 
                     items={[
-                         ...(categoryName ? [{ label: categoryName, href: `/categories/${post.data.category.id}` }] : []),
+                         ...(categoryName ? [{ label: categoryName, href: `/categories/${categoryId}` }] : []),
                          { label: post.data.title }
                     ]} 
                 />
@@ -107,14 +113,7 @@ const pageUrl = Astro.url.href;
                     {post.data.title}
                 </h1>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-1">
-                    {categoryName && (
-                        <span class="flex items-center gap-1">
-                            <span>分类：</span>
-                            <a href={`/categories/${categoryEntry.id}`} class="font-medium text-primary hover:underline">
-                                {categoryName}
-                            </a>
-                        </span>
-                    )}
+
                     {post.data.pubDate && (
                         <time datetime={post.data.pubDate.toISOString()}>
                             发布于 {post.data.pubDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -131,12 +130,12 @@ const pageUrl = Astro.url.href;
                         约 {readingTime} 分钟
                     </span>
                 </div>
-                {tagEntries.length > 0 && (
+                {tagIds.length > 0 && (
                     <div class="mb-1 flex flex-wrap items-center gap-2">
                         <span class="text-sm text-muted-foreground">标签：</span>
-                        {tagEntries.map((tag) => (
-                            <a href={`/tags/${tag.id}`} class="text-sm font-medium text-primary hover:underline">
-                                #{tag.data.name}
+                        {tagIds.map((tagId) => (
+                            <a href={`/tags/${tagId}`} class="text-sm font-medium text-primary hover:underline">
+                                #{tagMap.get(tagId) || tagId}
                             </a>
                         ))}
                     </div>

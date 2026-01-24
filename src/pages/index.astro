@@ -22,15 +22,13 @@ const latestPosts = posts.slice(0, 8);
 // Calculate Tag Counts
 const tagCounts: Record<string, { name: string, count: number, id: string }> = {};
 posts.forEach(post => {
-    post.data.tags?.forEach(tagRef => {
-        const tagId = tagRef.id;
-        const tagName = tagMap.get(tagId);
-        if (tagName) {
-             if (!tagCounts[tagId]) {
-                 tagCounts[tagId] = { name: tagName, count: 0, id: tagId };
-             }
-             tagCounts[tagId].count++;
+    post.data.tags?.forEach(tagId => {
+        // Tag is now a string
+        const tagName = tagMap.get(tagId) || tagId;
+        if (!tagCounts[tagId]) {
+             tagCounts[tagId] = { name: tagName, count: 0, id: tagId };
         }
+        tagCounts[tagId].count++;
     });
 });
 const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
@@ -39,20 +37,18 @@ const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
 const categoryCounts: Record<string, { name: string, count: number, id: string }> = {};
 posts.forEach(post => {
     if (post.data.category) {
-        const catId = post.data.category.id;
-        const catName = categoryMap.get(catId);
-        if (catName) {
-            if (!categoryCounts[catId]) {
-                categoryCounts[catId] = { name: catName, count: 0, id: catId };
-            }
-            categoryCounts[catId].count++;
+        const catId = post.data.category; // Category is now a string
+        const catName = categoryMap.get(catId) || catId;
+        if (!categoryCounts[catId]) {
+            categoryCounts[catId] = { name: catName, count: 0, id: catId };
         }
+        categoryCounts[catId].count++;
     }
 });
 const sortedCategories = Object.values(categoryCounts).sort((a, b) => b.count - a.count);
 
 // Limit items for homepage (Preview)
-const topCategories = sortedCategories.slice(0, 3);
+const topCategories = sortedCategories.slice(0, 4);
 const topTags = sortedTags.slice(0, 8);
 ---
 
@@ -117,7 +113,7 @@ const topTags = sortedTags.slice(0, 8);
 				<PostCard 
 					post={post}
 					index={index}
-					mainTagLabel={post.data.tags && post.data.tags.length > 0 ? tagMap.get(post.data.tags[0].id) : undefined}
+					mainTagLabel={post.data.tags && post.data.tags.length > 0 ? (tagMap.get(post.data.tags[0]) || post.data.tags[0]) : undefined}
 				/>
 			))}
 		</div>

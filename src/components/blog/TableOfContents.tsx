@@ -42,6 +42,8 @@ export function TableOfContents({ headings }: TocProps) {
 
     if (headings.length === 0) return null;
 
+    const minDepth = headings.length > 0 ? Math.min(...headings.map(h => h.depth)) : 0;
+
     return (
         <nav className="relative">
             <div
@@ -65,12 +67,12 @@ export function TableOfContents({ headings }: TocProps) {
                 "lg:block lg:static lg:border-none lg:mt-2 lg:bg-transparent lg:shadow-none lg:max-h-none lg:overflow-visible lg:p-0"
             )}>
                 {headings.map((heading) => (
-                    <li key={heading.slug} style={{ paddingLeft: `${(heading.depth - 1) * 1}rem` }}>
+                    <li key={heading.slug} style={{ paddingLeft: `${(heading.depth - minDepth) * 1}rem` }}>
                         <a
                             href={`#${heading.slug}`}
                             className={cn(
-                                "block text-muted-foreground transition-all hover:text-foreground",
-                                activeId === heading.slug && "font-medium text-primary"
+                                "block text-muted-foreground transition-all hover:text-foreground line-clamp-2",
+                                activeId === heading.slug && "font-bold text-primary border-l-2 border-primary pl-2 -ml-2"
                             )}
                             onClick={(e) => {
                                 e.preventDefault();

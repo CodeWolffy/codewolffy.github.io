@@ -10,12 +10,18 @@ export async function getStaticPaths() {
     return import.meta.env.PROD ? data.draft !== true : true;
   });
   const allTags = await getCollection('tags');
+  const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
 
-  return allTags.map((tag) => {
-    const filteredPosts = allPosts.filter((post) => post.data.tags?.map((t) => t.id).includes(tag.id));
+  // Get unique tags from all posts
+  const uniqueTags = [...new Set(allPosts.flatMap(post => post.data.tags || []))];
+
+  return uniqueTags.map((tagId) => {
+    // Filter posts that include this tag string
+    const filteredPosts = allPosts.filter((post) => post.data.tags?.includes(tagId));
+    const tagName = tagMap.get(tagId) || tagId;
     return {
-      params: { tag: tag.id },
-      props: { posts: filteredPosts, tagName: tag.data.name },
+      params: { tag: tagId },
+      props: { posts: filteredPosts, tagName },
     };
   });
 }
@@ -44,7 +50,7 @@ const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
                 <PostCard 
                     post={post}
                     index={index}
-                    mainTagLabel={post.data.tags && post.data.tags.length > 0 ? tagMap.get(post.data.tags[0].id) : undefined}
+                    mainTagLabel={post.data.tags && post.data.tags.length > 0 ? (tagMap.get(post.data.tags[0]) || post.data.tags[0]) : undefined}
                 />
             ))}
         </div>

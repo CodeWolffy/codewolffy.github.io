@@ -1,57 +1,59 @@
 ---
-title: 使用 TypeScript 构建类型安全的 React 应用
-description: 探索如何在 React 项目中充分利用 TypeScript 的类型系统，提高代码质量和开发体验。
+title: for和foreach区别？
+description: 在Java编程中，for循环（传统循环）和foreach循环（增强型循环，Introduced in Java 5）是遍历数组和集合的两种主要方式。
 pubDate: 2024-01-18
-heroImage: >-
-  https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80
+coverImage: /images/posts/typescript-react/coverImage.png
 draft: false
 category: 前端技术
 tags:
   - typescript
   - react
-  - 前端开发
+  - frontend-dev
 ---
-# 为什么选择 TypeScript？
+编译器会将其转换为使用 **迭代器 (Iterator)**。
 
-TypeScript 已经成为现代前端开发的标配。它不仅提供了静态类型检查，还带来了更好的 IDE 支持和代码可维护性。
+**源代码：**
 
-## 核心优势
+Java
 
-1. **类型安全** - 在编译时捕获类型错误
-2. **智能提示** - 更好的自动补全和重构支持
-3. **文档化** - 类型即文档
-
-## 实战示例
-
-下面是一个简单的类型安全组件：
-
-```typescript
-interface ButtonProps {
-  label: string;
-  onClick: () => void;
-  variant?: 'primary' | 'secondary';
-}
-
-const Button: React.FC<ButtonProps> = ({ 
-  label, 
-  onClick, 
-  variant = 'primary' 
-}) => {
-  return (
-    <button 
-      className={`btn btn-${variant}`}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-};
+```
+List<String> list = ...;
+for (String s : list) { ... }
 ```
 
-## 最佳实践
+**编译后等价于：**
 
-* 使用 `interface` 定义组件 props
-* 避免使用 `any` 类型
-* 利用泛型提高代码复用性
+Java
 
-希望这篇文章对你有帮助！
+```
+Iterator<String> iterator = list.iterator();
+while (iterator.hasNext()) {
+    String s = iterator.next();
+    ...
+}
+```
+
+**这就是为什么不能在 `foreach` 中直接 remove 元素的原因**：迭代器内部维护了一个修改计数器，如果你绕过迭代器直接调用 `list.remove()`，计数器不匹配，迭代器就会报错。
+
+### 总结对比表
+
+| **特性**     | **传统 for 循环**      | **foreach (增强型) 循环**        |
+| ---------- | ------------------ | --------------------------- |
+| **可读性**    | 较低（代码冗长）           | 高（语义清晰）                     |
+| **获取下标**   | **直接支持**           | 不支持                         |
+| **遍历方向**   | 任意（正序、逆序、跳跃）       | 只能正序逐个遍历                    |
+| **修改集合结构** | 支持（需小心下标回溯）        | 不支持 (会抛异常)                  |
+| **适用范围**   | 数组、支持下标访问的List     | 数组、所有 Iterable (List, Set等) |
+| **性能**     | 数组稍快；LinkedList 极慢 | 整体性能优秀；LinkedList 极快        |
+
+### 最佳实践场景
+
+1. **首选 `foreach`：** 当你只是想从头到尾读取列表中的每一个元素，而不关心它的位置（索引）时，总是优先使用 `foreach`。这符合 "Effective Java" 的建议。
+2. **使用传统 `for`：** 当你需要：
+
+1) 1) 逆序遍历。
+   2) 需要知道当前索引（例如：打印 "Item 1: Apple"）。
+   3) 需要跳步遍历（每隔一个取一个）。
+   4) 需要在遍历数组时修改数组内的值（`arr[i] = x`）。
+
+3. **使用 `Iterator` 或 `removeIf`：** 当你需要在遍历过程中**删除**元素时，`for` 和 `foreach` 都不完美。请使用迭代器的 `remove()` 方法或 Java 8 的 `list.removeIf(...)`。

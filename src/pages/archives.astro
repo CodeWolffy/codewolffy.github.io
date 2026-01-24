@@ -82,9 +82,9 @@ const years = Object.keys(postsByYear).sort((a, b) => Number(b) - Number(a));
                                     </div>
                                     {post.data.tags && post.data.tags.length > 0 && (
                                         <div class="flex flex-wrap gap-2 mt-3">
-                                            {post.data.tags.map((tagRef) => (
+                                            {post.data.tags.map((tagId) => (
                                                 <span class="text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground font-medium">
-                                                    {tagMap.get(tagRef.id) || tagRef.id}
+                                                    {tagMap.get(tagId) || tagId}
                                                 </span>
                                             ))}
                                         </div>
