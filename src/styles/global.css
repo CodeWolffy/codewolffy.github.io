@@ -126,6 +126,8 @@
         /* overflow-y: scroll;  <-- Removed to let browser handle native viewport scroll */
         overflow-x: hidden;
         /* Changed from clip to hidden for better mobile support */
+        -webkit-overflow-scrolling: touch;
+        /* Enforce native smooth scrolling on iOS */
     }
 
     body {

@@ -74,23 +74,38 @@ export function Comments() {
         };
     }, []);
 
+    // "Smart Eager" Loading: 
+    // Wait for the main thread to settle (useEffect runs after paint), then trigger "eager" loading.
+    // This prevents the heavy iframe setup from blocking the initial page scroll/interaction.
+    const [shouldLoad, setShouldLoad] = React.useState(false);
+    React.useEffect(() => {
+        const timer = setTimeout(() => setShouldLoad(true), 100);
+        return () => clearTimeout(timer);
+    }, []);
+
     return (
-        <div id="comments-container" className="w-full mt-2 scroll-mt-20">
-            <Giscus
-                id="comments"
-                repo="CodeWolffy/codewolffy.github.io"
-                repoId="R_kgDOQ9k4Jg"
-                category="Announcements"
-                categoryId="DIC_kwDOQ9k4Js4C1Mb7"
-                mapping="pathname"
-                term="Welcome to my blog!"
-                reactionsEnabled="1"
-                emitMetadata="0"
-                inputPosition="bottom"
-                theme={theme}
-                lang="zh-CN"
-                loading="eager"
-            />
+        <div
+            id="comments-container"
+            className="w-full mt-2 scroll-mt-20 min-h-[300px]"
+            style={{ contain: 'content' }} // CSS Isolation: isolates layout calculations
+        >
+            {shouldLoad && (
+                <Giscus
+                    id="comments"
+                    repo="CodeWolffy/codewolffy.github.io"
+                    repoId="R_kgDOQ9k4Jg"
+                    category="Announcements"
+                    categoryId="DIC_kwDOQ9k4Js4C1Mb7"
+                    mapping="pathname"
+                    term="Welcome to my blog!"
+                    reactionsEnabled="1"
+                    emitMetadata="0"
+                    inputPosition="bottom"
+                    theme={theme}
+                    lang="zh-CN"
+                    loading="eager" // Load immediately once component is mounted
+                />
+            )}
         </div>
     );
 }
