@@ -130,10 +130,7 @@
         /* Enforce native smooth scrolling on iOS */
     }
 
-    body {
-        overflow-x: hidden;
-        /* Changed from clip to hidden */
-    }
+
 
     /* 自定义滚动条样式 - 更窄更美观 */
     ::-webkit-scrollbar {
@@ -270,8 +267,25 @@
     border: 1px solid hsl(240 5.9% 90%);
     padding: 1.5rem 1rem 0.25rem 0;
     overflow-x: hidden;
-    font-size: 0.875rem;
-    line-height: 1.7;
+    font-size: 0.97rem;
+    line-height: 1.5;
+}
+
+/* Continuous vertical line for code blocks */
+.prose pre::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(3rem - 1px);
+    /* 0.5rem padding + 2.5rem width - 1px border */
+    width: 1px;
+    background-color: hsl(215 15% 85%);
+    pointer-events: none;
+}
+
+.dark .prose pre::after {
+    background-color: hsl(240 3.7% 25%);
 }
 
 .dark .prose pre {
@@ -295,7 +309,8 @@
 .prose pre code .line {
     display: inline-block;
     width: 100%;
-    padding: 0 1rem;
+    padding: 0 0.5rem;
+    /* Reduced padding */
     position: relative;
 }
 
@@ -303,14 +318,20 @@
     content: counter(line);
     counter-increment: line;
     display: inline-block;
-    width: 2rem;
+    width: 2.5rem;
+    /* Increased width for spacing */
     margin-right: 0.75rem;
-    margin-left: 0.5rem;
-    text-align: left;
-    color: hsl(240 3.8% 66%);
+    margin-left: 0;
+    padding-right: 0.75rem;
+    border-right: none;
+    /* Visible separator moved to .prose pre::after */
+    text-align: right;
+    /* Align numbers to right */
+    color: hsl(215 20% 65%);
+    /* Darker number color */
     user-select: none;
-    font-size: 0.8em;
-    opacity: 0.6;
+    font-size: 0.85em;
+    opacity: 0.8;
 }
 
 /* 高亮行样式 */
@@ -339,7 +360,7 @@
 
 /* 亮色模式代码块背景 */
 .prose pre {
-    background: hsl(220 20% 98%) !important;
+    background: #ecf4fa !important;
 }
 
 /* 深色模式代码块背景 */

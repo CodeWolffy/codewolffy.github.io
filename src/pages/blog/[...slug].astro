@@ -92,7 +92,7 @@ const pageUrl = Astro.url.href;
 		"wordCount": wordCount,
 		"timeRequired": `PT${readingTime}M`
 	})} />
-	<div class="container ml-auto mr-4 lg:mr-2 relative pt-2 pb-2 lg:pt-2 lg:pb-2 max-w-5xl lg:gap-8 lg:grid lg:grid-cols-[1fr_460px]">
+	<div class="container ml-auto mr-4 lg:mr-2 relative pt-2 pb-2 lg:pt-2 lg:pb-2 max-w-5xl lg:gap-8 lg:grid lg:grid-cols-[1fr_360px]">
         <div class="w-full min-w-0">
             <div class="mb-1">
                 <Breadcrumbs 
@@ -141,7 +141,7 @@ const pageUrl = Astro.url.href;
                         ))}
                     </div>
                 )}
-                <div class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-14 z-40 border border-border/50 w-full">
+                <div class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-16 z-40 border border-border/50 w-full">
                     <TableOfContents headings={headings} client:load />
                 </div>
                 {(post.data.coverImage || post.data.heroImage) && (
@@ -343,7 +343,7 @@ const pageUrl = Astro.url.href;
         </script>
         
         <div class="hidden lg:block">
-            <div class="sticky top-32 mt-32 pl-4 border-l">
+            <div class="sticky top-24 pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto">
                 <TableOfContents headings={headings} client:visible />
             </div>
         </div>
