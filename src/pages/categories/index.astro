@@ -34,10 +34,11 @@ const pageTitle = "分类与标签";
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {categories.map((category) => {
                     const count = allPosts.filter((post) => post.data.category?.id === category.id).length;
-                    // 只显示有文章的分类，或者显示全部? 用户界面显示全部可能更好
-                    if (count === 0) return null; // 保持一致，只显示有的？
-                    
-                    return (
+                    return { ...category, count };
+                })
+                .filter(cat => cat.count > 0)
+                .sort((a, b) => b.count - a.count)
+                .map((category) => (
                         <a
                             href={`/categories/${category.id}`}
                             class="group relative flex flex-col justify-between space-y-2 rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300"
@@ -47,16 +48,15 @@ const pageTitle = "分类与标签";
                                     {category.data.name}
                                 </h3>
                                 <span class="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                    {count} 篇
+                                    {category.count} 篇
                                 </span>
                             </div>
                             <p class="text-sm text-muted-foreground group-hover:text-muted-foreground/80">
                                 查看所有 "{category.data.name}" 相关的文章
                             </p>
                         </a>
-                    );
-                }).filter(Boolean)}
-                    {categories.length === 0 && (
+                    ))}
+                    {categories.filter(c => allPosts.filter(p => p.data.category?.id === c.id).length > 0).length === 0 && (
                          <p class="text-muted-foreground">暂无分类。</p>
                     )}
                 </div>
@@ -72,9 +72,11 @@ const pageTitle = "分类与标签";
                  <div class="flex flex-wrap gap-3">
                     {tags.map((tag) => {
                         const count = allPosts.filter((post) => post.data.tags?.map(t => t.id).includes(tag.id)).length;
-                        if (count === 0) return null;
-
-                        return (
+                        return { ...tag, count };
+                    })
+                    .filter(tag => tag.count > 0)
+                    .sort((a, b) => b.count - a.count)
+                    .map((tag) => (
                             <a
                                 href={`/tags/${tag.id}`}
                                 class="group inline-flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm"
@@ -82,12 +84,11 @@ const pageTitle = "分类与标签";
                                 <span class="text-muted-foreground group-hover:text-primary/70">#</span>
                                 {tag.data.name}
                                 <span class="ml-1 text-xs text-muted-foreground/50 group-hover:text-primary/50">
-                                    {count}
+                                    {tag.count}
                                 </span>
                             </a>
-                        );
-                    }).filter(Boolean)}
-                    {tags.length === 0 && (
+                        ))}
+                    {tags.filter(t => allPosts.filter(p => p.data.tags?.map(tid => tid.id).includes(t.id)).length > 0).length === 0 && (
                          <p class="text-muted-foreground">暂无标签。</p>
                     )}
                  </div>

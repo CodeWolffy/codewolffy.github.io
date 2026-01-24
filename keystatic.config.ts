@@ -26,7 +26,7 @@ export default config({
             schema: {
                 title: fields.text({ label: '页面标题', defaultValue: '关于我' }),
                 subtitle: fields.text({ label: '页面副标题', defaultValue: '软件工程师 & 技术爱好者' }),
-                description: fields.text({ label: '页面描述', multiline: true }),
+
                 avatar: fields.image({
                     label: '头像',
                     directory: 'public/images/pages',

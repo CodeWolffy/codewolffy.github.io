@@ -48,12 +48,15 @@ export function Comments() {
         if (savedPosition) {
             sessionStorage.removeItem(STORAGE_KEY);
             // 等待页面布局稳定后滚动
-            requestAnimationFrame(() => {
-                window.scrollTo({
-                    top: parseInt(savedPosition, 10),
-                    behavior: 'instant'
+            // 等待页面布局稳定后滚动 - 增加延时以避免移动端渲染冲突导致卡死
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    window.scrollTo({
+                        top: parseInt(savedPosition, 10),
+                        behavior: 'instant'
+                    });
                 });
-            });
+            }, 300);
         }
 
         // 页面隐藏时（用户跳转到 GitHub 登录），保存滚动位置

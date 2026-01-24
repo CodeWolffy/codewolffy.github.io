@@ -36,7 +36,7 @@ const pages = defineCollection({
     schema: z.object({
         title: z.string(),
         subtitle: z.string().optional(),
-        description: z.string().optional(),
+
         avatar: z.string().optional(),
         skills: z.array(z.string()).default([]),
         socialLinks: z.array(

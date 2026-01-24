@@ -8,7 +8,7 @@ const aboutPage = await getEntry('pages', 'about');
 const { Content } = await render(aboutPage);
 ---
 
-<BaseLayout title={`${aboutPage.data.title} | 狼码纪`} description={aboutPage.data.description}>
+<BaseLayout title={`${aboutPage.data.title} | 狼码纪`} description={aboutPage.data.subtitle}>
 	<div class="container mx-auto max-w-4xl py-8 lg:py-12">
 		<!-- 头部区域 - 左右布局 -->
 		<div class="flex flex-col md:flex-row items-start gap-8 md:gap-12 mb-16">

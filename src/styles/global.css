@@ -123,12 +123,14 @@
     }
 
     html {
-        overflow-y: scroll;
-        overflow-x: clip;
+        /* overflow-y: scroll;  <-- Removed to let browser handle native viewport scroll */
+        overflow-x: hidden;
+        /* Changed from clip to hidden for better mobile support */
     }
 
     body {
-        overflow-x: clip;
+        overflow-x: hidden;
+        /* Changed from clip to hidden */
     }
 
     /* 自定义滚动条样式 - 更窄更美观 */
