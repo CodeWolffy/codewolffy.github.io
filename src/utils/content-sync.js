@@ -106,15 +106,32 @@ export async function syncContent(rootDir) {
         categories.forEach(c => allCategories.add(c));
     }
 
-    // Helper to check existing files
-    const existsInDir = async (dir, name) => {
+    // Helper to check existing files with robust case handling
+    const existsInDir = async (dir, tagName) => {
         try {
             const files = await fs.readdir(dir);
             for (const file of files) {
                 if (!file.endsWith('.json')) continue;
                 try {
-                    const content = JSON.parse(await fs.readFile(path.join(dir, file), 'utf-8'));
-                    if (content.name === name) return true;
+                    const filePath = path.join(dir, file);
+                    const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+
+                    // 1. Check if the 'name' field matches exactly (Case Sensitive verification)
+                    if (content.name === tagName) return true;
+
+                    // 2. Check if the filename matches the sanitized tag name (Case Insensitive collision check)
+                    // If we have 'Tag' but 'tag.json' exists, we consider it "found" to avoid overwriting/duplicating
+                    // This relies on the assumption that we don't want 'Tag' and 'tag' to coexist as separate files on Windows
+                    const safeTagName = tagName.replace(/[\\/:*?"<>|]/g, '_');
+                    const fileBase = file.replace('.json', '');
+
+                    if (fileBase.toLowerCase() === safeTagName.toLowerCase()) {
+                        // Collision or Case-diff found. 
+                        // We return true to say "it basically exists, don't create a new one".
+                        // This implies we prefer the existing definition over the new variation.
+                        return true;
+                    }
+
                 } catch (e) { }
             }
         } catch (e) { console.error(e); }
