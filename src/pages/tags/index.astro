@@ -7,15 +7,25 @@ const allPosts = await getCollection("blog", ({ data }) => {
 });
 const allTags = await getCollection('tags');
 
-// 计算标签及其文章数量
-const tagCounts: Record<string, { name: string, count: number, id: string }> = {};
-allTags.forEach(tag => {
-    const count = allPosts.filter(post => post.data.tags?.map(t => t.id).includes(tag.id)).length;
-    if (count > 0) {
-        tagCounts[tag.id] = { name: tag.data.name, count, id: tag.id };
+// Calculate tag counts from all posts in Frontmatter
+const tagMap = new Map();
+allTags.forEach(t => tagMap.set(t.id, t.data.name));
+
+const tagCountMap: Record<string, { name: string, count: number, id: string }> = {};
+
+allPosts.forEach(post => {
+    if (post.data.tags) {
+        post.data.tags.forEach(tagId => {
+            const tagName = tagMap.get(tagId) || tagId;
+            if (!tagCountMap[tagId]) {
+                tagCountMap[tagId] = { name: tagName, count: 0, id: tagId };
+            }
+            tagCountMap[tagId].count++;
+        });
     }
 });
-const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
+
+const sortedTags = Object.values(tagCountMap).sort((a, b) => b.count - a.count);
 ---
 
 <BaseLayout title="所有标签 | 狼码纪" description="浏览博客的所有标签">
@@ -32,75 +42,40 @@ const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
         
         <!-- 标签云 -->
         <div class="flex flex-wrap gap-4 justify-center">
-            {
-                (() => {
-                    const tagMap = new Map();
-                    // Map legacy tags from collection
-                    allTags.forEach(t => tagMap.set(t.id, t.data.name));
-
-                    // Calculate tag counts from all posts
-                    const tagCounts: Record<string, { name: string, count: number, id: string }> = {};
+            {sortedTags.length === 0 ? (
+                <div class="text-center py-20 text-muted-foreground w-full">
+                    <p>暂无标签。</p>
+                </div>
+            ) : (
+                sortedTags.map((tag, index) => {
+                    // 根据文章数量计算标签大小
+                    const maxCount = sortedTags[0].count;
+                    const minSize = 0.875; // 最小 text-sm
+                    const maxSize = 1.5;   // 最大 text-2xl
+                    const size = minSize + (tag.count / maxCount) * (maxSize - minSize);
                     
-                    allPosts.forEach(post => {
-                        if (post.data.tags) {
-                           post.data.tags.forEach(tagId => {
-                               // If tag is a string (new schema), use it. If it was reference, it's already a string in Frontmatter? 
-                               // Actually post.data.tags is now z.array(z.string()).
-                               const tagName = tagMap.get(tagId) || tagId;
-                               if (!tagCounts[tagId]) {
-                                   tagCounts[tagId] = { name: tagName, count: 0, id: tagId };
-                               }
-                               tagCounts[tagId].count++;
-                           });
-                        }
-                    });
-
-                    const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
-
-                    if (sortedTags.length === 0) {
-                         return (
-                            <div class="text-center py-20 text-muted-foreground w-full">
-                                <p>暂无标签。</p>
-                            </div>
-                        );
-                    }
-
-                    return sortedTags.map((tag, index) => {
-                        // 根据文章数量计算标签大小
-                        const maxCount = sortedTags[0].count;
-                        const minSize = 0.875; // 最小 text-sm
-                        const maxSize = 1.5;   // 最大 text-2xl
-                        const size = minSize + (tag.count / maxCount) * (maxSize - minSize);
-                        
-                        return (
-                            <a 
-                                href={`/tags/${tag.id}`}
-                                class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden"
-                                style={`animation-delay: ${index * 30}ms;`}
+                    return (
+                        <a 
+                            href={`/tags/${tag.id}`}
+                            class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden"
+                            style={`animation-delay: ${index * 30}ms;`}
+                        >
+                            <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <span 
+                                class="font-medium relative z-10 group-hover:text-primary transition-colors"
+                                style={`font-size: ${size}rem;`}
                             >
-                                <!-- 悬停渐变背景 -->
-                                <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <span 
-                                    class="font-medium relative z-10 group-hover:text-primary transition-colors"
-                                    style={`font-size: ${size}rem;`}
-                                >
-                                    #{tag.name}
-                                </span>
-                                <span class="ml-2 text-xs text-muted-foreground relative z-10 bg-secondary px-2 py-0.5 rounded-full">
-                                    {tag.count}
-                                </span>
-                            </a>
-                        );
-                    });
-                })()
-            }
+                                #{tag.name}
+                            </span>
+                            <span class="ml-2 text-xs text-muted-foreground relative z-10 bg-secondary px-2 py-0.5 rounded-full">
+                                {tag.count}
+                            </span>
+                        </a>
+                    );
+                })
+            )}
         </div>
-        
-        {sortedTags.length === 0 && (
-            <div class="text-center py-20 text-muted-foreground">
-                <p>暂无标签。</p>
-            </div>
-        )}
+
         
         <!-- 返回按钮 -->
         <div class="mt-12 text-center">
