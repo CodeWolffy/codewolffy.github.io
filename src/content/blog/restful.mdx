@@ -1,0 +1,199 @@
+---
+title: RESTful接口是什么
+description: 设计一套优秀的 Spring Boot RESTful 接口，不仅仅是能跑通代码，更重要的是遵循行业通用规范，具备可读性、扩展性和易用性。
+pubDate: 2026-01-25
+draft: false
+category:
+  discriminant: custom
+  value: RESTFUL API
+tags:
+  - discriminant: custom
+    value: REST
+  - discriminant: custom
+    value: RESTful
+  - discriminant: custom
+    value: 接口规范
+  - discriminant: existing
+    value: 项目规范
+---
+REST (Representational State Transfer) 是一种架构风格。在 Spring Boot 中实现 RESTful 接口，通常涉及 URI 设计、HTTP 动词使用、状态码管理、统一响应结构以及异常处理等方面。
+
+以下是详细的 Spring Boot RESTful 接口规范指南：
+
+---
+
+### 核心原则：资源与动词分离
+
+REST 的核心思想是将\*\*资源（Resources）**与**操作（Verbs）\*\*分离开来。
+
+* **资源（URI）：** 必须是名词，尽量使用复数，且字母小写。
+* **操作（HTTP Method）：** 使用 HTTP 动词来表示对资源的操作。
+
+- Shutterstock
+- 探索
+
+#### ❌ 错误示范 (RPC 风格)
+
+* `GET /api/getAllUsers`
+* `POST /api/createUser`
+* `POST /api/deleteUser?id=1`
+
+#### ✅ 正确示范 (RESTful 风格)
+
+* `GET /api/users` (获取用户列表)
+* `POST /api/users` (创建用户)
+* `DELETE /api/users/1` (删除 ID 为 1 的用户)
+
+### HTTP 动词与 Spring 注解映射
+
+在 Spring Boot 中，使用 `Controller` 层注解来对应标准的 HTTP 动词：
+
+| **HTTP 动词** | **Spring 注解**  | **语义 (CRUD)** | **幂等性** | **典型用途**    |
+| ----------- | -------------- | ------------- | ------- | ----------- |
+| **GET**     | @GetMapping    | Read (查询)     | 是       | 获取单个资源或资源列表 |
+| **POST**    | @PostMapping   | Create (创建)   | 否       | 新增一项资源      |
+| **PUT**     | @PutMapping    | Update (全量)   | 是       | 更新资源的全部属性   |
+| **PATCH**   | @PatchMapping  | Update (增量)   | 否/是\*   | 仅更新资源的部分属性  |
+| **DELETE**  | @DeleteMapping | Delete (删除)   | 是       | 移除资源        |
+
+**注意：**`PUT` 通常用于完全替换一个资源对象，而 `PATCH` 用于只修改对象中的某几个字段（例如只修改用户的 `email` 而不修改 `username`）。
+
+### URI 路径参数规范
+
+在 Spring Boot 中，参数传递主要有三种方式，应根据场景严格区分：
+
+#### A. 路径参数 (`@PathVariable`)
+
+用于定位具体的资源。
+
+```
+// 获取 ID 为 1 的订单
+// GET /orders/1
+@GetMapping("/orders/{id}")
+public Order getOrder(@PathVariable Long id) { ... }
+```
+
+#### B. 查询参数 (`@RequestParam`)
+
+用于过滤、分页、排序。
+
+```
+// 获取第 1 页，每页 10 条数据
+// GET /users?page=1&size=10
+@GetMapping("/users")
+public List<User> getUsers(
+    @RequestParam(defaultValue = "1") int page,
+    @RequestParam(defaultValue = "10") int size) { ... }
+```
+
+#### C. 请求体 (`@RequestBody`)
+
+用于传输复杂的对象数据（通常用于 POST/PUT）。
+
+```
+// POST /users
+// Body: { "name": "Gemini", "age": 3 }
+@PostMapping("/users")
+public User createUser(@RequestBody UserDTO userDto) { ... }
+```
+
+### HTTP 状态码规范
+
+不要总是返回 `200 OK`，应利用 HTTP 状态码表达请求的结果。
+
+* **2xx (成功):**
+
+- - `200 OK`: 请求成功（GET, PUT, PATCH）。
+  - `201 Created`: 资源创建成功（POST）。
+  - `204 No Content`: 请求成功但无返回内容（DELETE）。
+
+* **4xx (客户端错误):**
+
+- - `400 Bad Request`: 参数校验失败、格式错误。
+  - `401 Unauthorized`: 未登录/Token 过期。
+  - `403 Forbidden`: 已登录但无权限访问。
+  - `404 Not Found`: 资源不存在。
+
+* **5xx (服务端错误):**
+
+- - `500 Internal Server Error`: 代码抛出未捕获异常。
+
+---
+
+### 统一响应结构 (Wrapper)
+
+在企业级开发中，直接返回 `List<User>` 或 `String` 是不规范的。通常需要封装一个统一的 `Result` 对象，包含状态码、消息和数据。
+
+#### 定义统一响应类
+
+Java
+
+```
+public class Result<T> {
+    private Integer code;   // 业务状态码 (如: 20000, 50001)private String message; // 提示信息private T data;         // 实际数据// 静态工厂方法示例public static <T> Result<T> success(T data) {
+        return new Result<>(200, "Success", data);
+    }
+    
+    public static <T> Result<T> error(Integer code, String msg) {
+        return new Result<>(code, msg, null);
+    }
+    // Getters/Setters/Constructors...
+}
+```
+
+#### Controller 使用示例
+
+Java
+
+```
+@GetMapping("/{id}")public Result<User> getUser(@PathVariable Long id) {
+    User user = userService.findById(id);
+    if (user == null) {
+        // 也可以抛出自定义异常，由全局异常处理器接管return Result.error(404, "用户不存在");
+    }
+    return Result.success(user);
+}
+```
+
+### 全局异常处理 (Global Exception Handling)
+
+不要在每个 Controller 里写 `try-catch`。使用 Spring 的 `@RestControllerAdvice` 进行统一拦截。
+
+Java
+
+```
+@RestControllerAdvicepublic class GlobalExceptionHandler {
+
+    // 处理自定义业务异常@ExceptionHandler(BusinessException.class)public Result<Void> handleBusinessException(BusinessException e) {
+        return Result.error(e.getCode(), e.getMessage());
+    }
+
+    // 处理参数校验异常 (Spring Validation)@ExceptionHandler(MethodArgumentNotValidException.class)public Result<Void> handleValidationException(MethodArgumentNotValidException e) {
+        String msg = e.getBindingResult().getFieldError().getDefaultMessage();
+        return Result.error(400, msg);
+    }
+
+    // 处理兜底异常@ExceptionHandler(Exception.class)public Result<Void> handleException(Exception e) {
+        // 记录日志 log.error(...)return Result.error(500, "系统内部错误，请联系管理员");
+    }
+}
+```
+
+### 版本控制 (Versioning)
+
+随着业务迭代，接口可能会发生不兼容的变化。常见的版本控制方式是在 URL 中加入版本号。
+
+* **规范：**`/api/v{版本号}/资源`
+* **示例：**
+
+- - `GET /api/v1/users`
+  - `GET /api/v2/users`
+
+---
+
+### 总结：最佳实践清单
+
+1. **URI 使用连字符 (-)**：推荐 `/api/user-profiles` 而不是 `/api/userProfiles` 或 `/api/user_profiles`。
+2. **避免尾部斜杠**：使用 `/api/users` 而不是 `/api/users/`。
+3. **使用 DTO (Data Transfer Object)**：不要直接将数据库实体 (`@Entity`) 返回给前端，应使用 DTO 进行数据隔离，避免暴露敏感字段（如密码、盐值）。
+4. **接口文档自动化**：引入 **SpringDoc (OpenAPI 3)** 或 **Swagger**，通过注解自动生成接口文档，减少沟通成本。
