@@ -1,6 +1,8 @@
 import * as React from 'react';
-import { Download, FileText, FileCode, Printer, ChevronDown } from 'lucide-react';
+import { Download, FileText, FileCode, Printer, ChevronDown, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import JSZip from 'jszip';
+import FileSaver from 'file-saver';
 
 interface ExportButtonProps {
     title: string;
@@ -18,7 +20,7 @@ interface ExportButtonProps {
     };
 }
 
-type ExportFormat = 'markdown' | 'html' | 'pdf';
+type ExportFormat = 'markdown' | 'html' | 'pdf' | 'zip';
 
 export function ExportButton({ title, content, frontmatter }: ExportButtonProps) {
     const [isOpen, setIsOpen] = React.useState(false);
@@ -42,12 +44,119 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         return `${safeName}.${ext}`;
     };
 
-    // 生成 frontmatter 字符串（与原始 MDX 格式一致）
-    const generateFrontmatter = () => {
+    // 辅助：获取图片 Blob
+    const fetchImageBlob = async (url: string): Promise<Blob | null> => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch image: ${url}`);
+            return await response.blob();
+        } catch (e) {
+            console.warn('Image fetch failed:', url, e);
+            return null;
+        }
+    };
+
+    // 辅助：压缩图片 (Resize + JPEG)
+    const compressImageBlob = async (blob: Blob): Promise<Blob> => {
+        // 如果是 SVG 或非图片，不压缩
+        if (blob.type === 'image/svg+xml') return blob;
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            const url = URL.createObjectURL(blob);
+
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 1200; // 限制最大长宽，减少数据量
+
+                if (width > maxDim || height > maxDim) {
+                    const ratio = width / height;
+                    if (width > height) {
+                        width = maxDim;
+                        height = width / ratio;
+                    } else {
+                        height = maxDim;
+                        width = height * ratio;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    // 填充白色背景 (处理 PNG 透明)
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 转换为 JPEG，质量 0.75
+                    canvas.toBlob((b) => {
+                        resolve(b || blob); // 失败则返回原图
+                    }, 'image/jpeg', 0.75);
+                } else {
+                    resolve(blob);
+                }
+                URL.revokeObjectURL(url);
+            };
+
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve(blob);
+            };
+
+            img.src = url;
+        });
+    };
+
+    // 辅助：Blob 转 Base64
+    const blobToBase64 = async (blob: Blob): Promise<string> => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+    };
+
+    // 辅助：URL 转 Base64 (支持可选压缩)
+    const urlToBase64 = async (url: string, shouldCompress: boolean = false): Promise<string> => {
+        try {
+            if (url.startsWith('data:')) return url;
+
+            let blob = await fetchImageBlob(url);
+            if (!blob) return url;
+
+            if (shouldCompress) {
+                try {
+                    blob = await compressImageBlob(blob);
+                } catch (err) {
+                    console.warn('Compression failed, using original', err);
+                }
+            }
+
+            return await blobToBase64(blob);
+        } catch (e) {
+            return url;
+        }
+    };
+
+    // 辅助：解析完整的图片 URL
+    const resolveImageUrl = (src: string) => {
+        if (!src) return '';
+        if (src.startsWith('http') || src.startsWith('data:')) return src;
+        try {
+            return new URL(src, window.location.href).href;
+        } catch {
+            return src;
+        }
+    };
+
+    // 生成 frontmatter 字符串
+    const generateFrontmatter = (customCoverImage?: string) => {
         const lines = ['---'];
         lines.push(`title: ${frontmatter.title}`);
         if (frontmatter.description) {
-            // 处理多行描述
             if (frontmatter.description.includes('\n')) {
                 lines.push(`description: |-`);
                 frontmatter.description.split('\n').forEach(line => lines.push(`  ${line}`));
@@ -57,8 +166,18 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         }
         if (frontmatter.pubDate) lines.push(`pubDate: ${frontmatter.pubDate.toISOString().split('T')[0]}`);
         if (frontmatter.updatedDate) lines.push(`updatedDate: ${frontmatter.updatedDate.toISOString().split('T')[0]}`);
-        if (frontmatter.coverImage) lines.push(`coverImage: ${frontmatter.coverImage}`);
-        if (frontmatter.heroImage) lines.push(`heroImage: ${frontmatter.heroImage}`);
+
+        // 封面图处理
+        if (customCoverImage) {
+            lines.push(`coverImage: ${customCoverImage}`);
+        } else {
+            const originalCover = frontmatter.coverImage || frontmatter.heroImage;
+            // 严格检查：如果 originalCover 是 Base64，则忽略
+            if (originalCover && !originalCover.trim().startsWith('data:')) {
+                lines.push(`coverImage: ${originalCover}`);
+            }
+        }
+
         if (frontmatter.draft !== undefined) lines.push(`draft: ${frontmatter.draft}`);
         if (frontmatter.category) lines.push(`category: ${typeof frontmatter.category === 'object' ? frontmatter.category.id : frontmatter.category}`);
         if (frontmatter.tags?.length) {
@@ -72,194 +191,149 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         return lines.join('\n');
     };
 
-    // 为视频链接添加禁止自动播放参数
-    const disableAutoplay = (url: string) => {
-        try {
-            // 处理 Bilibili 和 YouTube
-            if (url.includes('bilibili.com') || url.includes('youtube.com')) {
-                const separator = url.includes('?') ? '&' : '?';
-                if (!url.includes('autoplay=0')) {
-                    // 如果已经有 autoplay=1，则替换
-                    if (url.includes('autoplay=1')) {
-                        return url.replace('autoplay=1', 'autoplay=0');
-                    }
-                    return `${url}${separator}autoplay=0`;
-                }
-            }
-            return url;
-        } catch (e) {
-            return url;
-        }
-    };
+    // 辅助：生成 Markdown 可见头部
+    const generateMarkdownHeader = (coverImageSrc?: string, isBase64Mode: boolean = false) => {
+        const parts = [];
+        parts.push(`# ${title}`);
 
-    // 导出为 Markdown
-    const exportMarkdown = () => {
-        // 构建可见的头部信息（类似于页面显示效果）
-        const headerParts = [];
-
-        // 1. 标题
-        headerParts.push(`# ${title}`);
-
-        // 2. 元数据（发布时间、分类、标签）
         const metaParts = [];
         if (frontmatter.pubDate) {
             metaParts.push(`发布于 ${new Date(frontmatter.pubDate).toLocaleDateString('zh-CN')}`);
         }
         if (frontmatter.category) {
+            // @ts-ignore
             const catName = typeof frontmatter.category === 'object' ? frontmatter.category.id : frontmatter.category;
             metaParts.push(`分类: ${catName}`);
         }
         if (frontmatter.tags && frontmatter.tags.length > 0) {
+            // @ts-ignore
             const tagNames = frontmatter.tags.map(t => typeof t === 'object' ? t.id : t).join(', ');
             metaParts.push(`标签: ${tagNames}`);
         }
         if (metaParts.length > 0) {
-            headerParts.push(`> ${metaParts.join(' | ')}`);
+            parts.push(`> ${metaParts.join(' | ')}`);
         }
 
-
-
-        // 4. 封面图
-        const image = frontmatter.coverImage || frontmatter.heroImage;
-        if (image) {
-            // 确保图片链接是绝对路径
-            let fullImageUrl = image;
-            if (image && !image.startsWith('http')) {
-                try {
-                    fullImageUrl = new URL(image, window.location.href).href;
-                } catch (e) {
-                    console.warn('Failed to resolve cover image URL:', image);
-                }
+        if (coverImageSrc) {
+            if (isBase64Mode) {
+                // Base64 模式下：使用引用式链接 ![封面图][cover-image]
+                parts.push(`![封面图][cover-image]`);
+            } else {
+                // Zip/Assets 模式下：使用 HTML 以获得更好的布局控制（圆角等）
+                parts.push(`<img src="${coverImageSrc}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;" />`);
             }
-            headerParts.push(`<img src="${fullImageUrl}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px;" />`);
         }
 
-        // 处理内容中的视频 iframe，使其在 Markdown 预览中也有正确的高度
-        let processedContent = content;
-        try {
-            // 查找 iframe 标签并包裹在响应式容器中 (添加 inline styles)
-            processedContent = processedContent.replace(
-                /<iframe\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>(?:<\/iframe>)?/gi,
-                (match, beforeSrc, src, afterSrc) => {
-                    // 提取 title
-                    const fullAttributes = beforeSrc + ' ' + afterSrc;
-                    const titleMatch = fullAttributes.match(/title=["']([^"']+)["']/);
-                    const title = titleMatch ? titleMatch[1] : '';
-
-                    // 移除可能导致闭合问题的尾部斜杠
-                    const cleanBefore = beforeSrc.replace(/\/$/, '');
-                    const cleanAfter = afterSrc.replace(/\/$/, '');
-
-                    // 处理协议相对路径，确保在本地预览时能加载
-                    let finalSrc = src;
-                    if (finalSrc.startsWith('//')) {
-                        finalSrc = 'https:' + finalSrc;
-                    }
-
-                    // 禁止自动播放
-                    finalSrc = disableAutoplay(finalSrc);
-
-                    // 使用更简单的 iframe 结构，Typora 等编辑器支持更好
-                    // 设置固定高度 450px，宽度 100%
-                    return `
-<iframe src="${finalSrc}" ${cleanBefore.trim()} ${cleanAfter.trim()} width="100%" height="450" frameborder="0" style="border:0;"></iframe>
-${title ? `<div style="text-align: center; margin-bottom: 20px; color: #475569; font-size: 13px;">${title}</div>` : ''}
-`;
-                }
-            );
-        } catch (e) {
-            console.error('Error processing markdown content:', e);
-            processedContent = content; // Fallback
-        }
-
-        // 组合完整内容：Frontmatter + 可见头部 + 原始内容
-        const visibleHeader = headerParts.join('\n\n');
-        const fullContent = `${generateFrontmatter()}\n\n${visibleHeader}\n\n${processedContent}`;
-
-        const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
-        downloadBlob(blob, getFileName('md'));
+        return parts.join('\n\n');
     };
 
-    // 导出为 HTML
-    const exportHtml = () => {
+    // 导出 Markdown (单文件，内嵌 Base64，带压缩)
+    const exportMarkdown = async () => {
+        const shouldCompress = true; // 启用压缩
+        const image = frontmatter.coverImage || frontmatter.heroImage;
+        let base64Cover = '';
+        if (image) {
+            base64Cover = await urlToBase64(resolveImageUrl(image), shouldCompress);
+        }
+
+        let processedContent = content;
+        const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+        const replacements = [];
+        let match;
+
+        // 收集所有图片
+        while ((match = imageRegex.exec(content)) !== null) {
+            replacements.push({
+                full: match[0],
+                alt: match[1],
+                src: match[2]
+            });
+        }
+
+        const references: string[] = [];
+
+        // 转换 Base64
+        const processedImages = await Promise.all(replacements.map(async (item, index) => {
+            const fullSrc = resolveImageUrl(item.src);
+            const base64 = await urlToBase64(fullSrc, shouldCompress);
+            const refId = `image-${index + 1}`;
+            return { ...item, newSrc: base64, refId };
+        }));
+
+        // 替换内容为引用形式 ![alt][ref-id]
+        processedImages.forEach(item => {
+            if (processedContent.includes(item.full)) {
+                processedContent = processedContent.split(item.full).join(`![${item.alt}][${item.refId}]`);
+                references.push(`[${item.refId}]: ${item.newSrc}`);
+            }
+        });
+
+        // 1. Frontmatter (无 Base64)
+        const frontmatterStr = generateFrontmatter();
+        // 2. Header (Base64 使用引用语法: ![封面图][cover-image])
+        //    传入 'placeholder' 只是为了告诉 header 函数生成 image 标签，真正的 Ref 定义在 footer
+        const headerStr = generateMarkdownHeader(base64Cover ? 'placeholder' : undefined, true);
+
+        // 3. 构建完整内容
+        let fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
+
+        // 4. 追加引用定义 (Footer)
+        const footerParts = [];
+        if (base64Cover) {
+            footerParts.push(`[cover-image]: ${base64Cover}`);
+        }
+        if (references.length > 0) {
+            footerParts.push(references.join('\n'));
+        }
+
+        if (footerParts.length > 0) {
+            fullContent += `\n\n\n${footerParts.join('\n')}`;
+        }
+
+        const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
+        FileSaver.saveAs(blob, getFileName('md'));
+    };
+
+    // 导出 HTML (单文件，内嵌 Base64)
+    const exportHtml = async () => {
         const proseElement = document.querySelector('.prose');
         if (!proseElement) {
             alert('无法获取文章内容');
             return;
         }
 
-        // 克隆内容以进行处理，避免修改页面显示
         const clone = proseElement.cloneNode(true) as HTMLElement;
 
-        // 1. 处理图片链接：将相对路径转换为绝对路径
-        const images = clone.querySelectorAll('img');
-        images.forEach(img => {
+        // 处理图片
+        const images = Array.from(clone.querySelectorAll('img'));
+        await Promise.all(images.map(async (img) => {
             const src = img.getAttribute('src');
-            if (src && !src.startsWith('http')) {
-                try {
-                    img.src = new URL(src, window.location.href).href;
-                } catch (e) {
-                    console.warn('Failed to resolve image URL:', src);
-                }
+            if (src) {
+                const fullSrc = resolveImageUrl(src);
+                // HTML 导出也启用压缩
+                const base64 = await urlToBase64(fullSrc, true);
+                img.src = base64;
+                img.removeAttribute('srcset');
             }
-        });
+        }));
 
-        // 2. 处理超链接：将相对路径转换为绝对路径
+        // 处理链接
         const links = clone.querySelectorAll('a');
         links.forEach(link => {
             const href = link.getAttribute('href');
             if (href && !href.startsWith('http') && !href.startsWith('#')) {
                 try {
                     link.href = new URL(href, window.location.href).href;
-                } catch (e) {
-                    console.warn('Failed to resolve link URL:', href);
-                }
+                } catch { /* ignore */ }
             }
         });
 
-        // 3. 处理 iframe (视频)：确保可见性和路径正确
-        const iframes = clone.querySelectorAll('iframe');
-        iframes.forEach(iframe => {
-            // 处理 src
-            let src = iframe.getAttribute('src');
-            if (src) {
-                if (src.startsWith('//')) {
-                    src = 'https:' + src;
-                }
-                // 禁止自动播放
-                src = disableAutoplay(src);
-                iframe.src = src;
-            }
-
-            // 移除可能导致布局问题的 class 和 style
-            iframe.removeAttribute('class');
-
-            // 强制设置样式和尺寸，确保在无外部 CSS 时可见
-            iframe.style.width = '100%';
-            iframe.style.height = '450px';
-            iframe.style.border = '0';
-            iframe.style.display = 'block';
-            iframe.style.marginBottom = '20px'; // 增加一点底部间距
-            iframe.setAttribute('width', '100%');
-            iframe.setAttribute('height', '450');
-            iframe.setAttribute('frameborder', '0');
-
-            // 如果父元素是专门的 wrapper (可能因为 CSS 缺失导致高度为 0)，尝试解除或修复
-            // 这里简单处理：如果父节点是 div 且看起来像是一个 wrapper，
-            // 我们可以尝试把父节点的样式重置，或者直接把 iframe 移出来（略复杂）。
-            // 最简单的方式是将父节点的可能导致的 hidden/height:0 样式清空。
-            if (iframe.parentElement && iframe.parentElement.tagName === 'DIV') {
-                iframe.parentElement.style.height = 'auto';
-                iframe.parentElement.style.paddingBottom = '0';
-                iframe.parentElement.style.overflow = 'visible';
-                iframe.parentElement.style.position = 'static';
-            }
-        });
-
-        // 4. 移除不必要的 UI 元素（如复制按钮等，如果有的话）
-        // 假设复制按钮有特定类名，这里举例移除 .copy-btn
-        const trash = clone.querySelectorAll('.copy-btn, .hidden-print');
-        trash.forEach(el => el.remove());
+        // 封面图
+        const coverImage = frontmatter.coverImage || frontmatter.heroImage;
+        let coverImageBase64 = '';
+        if (coverImage) {
+            coverImageBase64 = await urlToBase64(resolveImageUrl(coverImage), true);
+        }
 
         const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -268,106 +342,26 @@ ${title ? `<div style="text-align: center; margin-bottom: 20px; color: #475569; 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
     <style>
-        body { 
-            max-width: 800px; 
-            margin: 0 auto; 
-            padding: 40px 20px; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.75;
-            color: #374151;
-            background-color: #fff;
-        }
-        h1 { font-size: 2.25em; font-weight: 700; margin-bottom: 0.5em; color: #111827; }
-        h2 { font-size: 1.5em; font-weight: 600; margin-top: 2em; margin-bottom: 1em; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
-        h3 { font-size: 1.25em; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.75em; color: #374151; }
-        p { margin-bottom: 1.25em; }
-        a { color: #2563eb; text-decoration: none; }
-        a:hover { text-decoration: underline; }
+        body { max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: system-ui, sans-serif; line-height: 1.6; color: #374151; }
         img { max-width: 100%; height: auto; border-radius: 8px; margin: 1.5em 0; }
-        blockquote { border-left: 4px solid #e5e7eb; margin: 1.5em 0; padding-left: 1em; color: #6b7280; font-style: italic; }
-        ul, ol { margin-bottom: 1.25em; padding-left: 1.5em; }
-        li { margin-bottom: 0.5em; }
-        hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2em 0; }
-        
-        /* 代码块样式 */
-        pre { 
-            background: #f3f4f6; 
-            padding: 1em; 
-            border-radius: 6px; 
-            overflow-x: auto; 
-            margin-bottom: 1.5em;
-            font-size: 0.9em;
-            border: 1px solid #e5e7eb;
-        }
-        code { 
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            background: #f3f4f6; 
-            padding: 0.2em 0.4em; 
-            border-radius: 4px; 
-            font-size: 0.9em;
-            color: #ec4899;
-        }
-        pre code { 
-            background: none; 
-            padding: 0; 
-            color: inherit;
-            font-size: inherit;
-        }
-
-        /* 表格样式 */
+        pre { background: #f3f4f6; padding: 1em; border-radius: 6px; overflow-x: auto; }
+        code { font-family: monospace; background: #f3f4f6; padding: 0.2em 0.4em; border-radius: 4px; }
+        pre code { background: none; padding: 0; }
+        blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; font-style: italic; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 1.5em; }
         th, td { border: 1px solid #e5e7eb; padding: 0.75em; text-align: left; }
-        th { background-color: #f9fafb; font-weight: 600; }
-
-        /* 视频容器响应式样式 */
-        .video-wrapper {
-            position: relative;
-            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
-            height: 0;
-            overflow: hidden;
-            margin-bottom: 1.5em;
-            border-radius: 8px;
-            background: #f1f5f9;
-        }
-        .video-wrapper iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: 0;
-        }
-        figure { margin: 1.5em 0; }
-        figcaption { text-align: center; color: #6b7280; font-size: 0.875em; margin-top: 0.5em; }
-
-        .meta { margin-bottom: 2em; color: #6b7280; font-size: 0.9em; border-bottom: 1px solid #e5e7eb; padding-bottom: 1em; }
-        .meta span { margin-right: 1em; }
-        .cover-image { width: 100%; max-height: 400px; object-fit: cover; margin-bottom: 2em; border-radius: 8px; }
-        .description { font-size: 1.1em; color: #4b5563; margin-bottom: 1.5em; }
+        a { color: #2563eb; text-decoration: none; }
+        h1 { font-size: 2.25em; margin-bottom: 0.5em; color: #111827; }
+        .meta { color: #6b7280; margin-bottom: 2em; border-bottom: 1px solid #e5e7eb; padding-bottom: 1em; }
+        .cover-img { width: 100%; max-height: 400px; object-fit: cover; margin-bottom: 2em; border-radius: 8px; }
     </style>
 </head>
 <body>
     <h1>${title}</h1>
-    
     <div class="meta">
         ${frontmatter.pubDate ? `<span>发布于 ${new Date(frontmatter.pubDate).toLocaleDateString('zh-CN')}</span>` : ''}
-        ${frontmatter.category ? `<span>分类: ${typeof frontmatter.category === 'object' ? frontmatter.category.id : frontmatter.category}</span>` : ''}
     </div>
-
-    ${(() => {
-                const image = frontmatter.coverImage || frontmatter.heroImage;
-                if (image) {
-                    let fullImageUrl = image;
-                    if (!image.startsWith('http')) {
-                        try {
-                            fullImageUrl = new URL(image, window.location.href).href;
-                        } catch (e) { /* ignore */ }
-                    }
-                    return `<img src="${fullImageUrl}" alt="${title}" class="cover-image">`;
-                }
-                return '';
-            })()}
-
+    ${coverImageBase64 ? `<img src="${coverImageBase64}" class="cover-img" alt="${title}" />` : ''}
     <article>
         ${clone.innerHTML}
     </article>
@@ -375,48 +369,91 @@ ${title ? `<div style="text-align: center; margin-bottom: 20px; color: #475569; 
 </html>`;
 
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        downloadBlob(blob, getFileName('html'));
+        FileSaver.saveAs(blob, getFileName('html'));
     };
 
-    // 导出为 PDF (调用浏览器打印)
-    const exportPdf = () => {
-        window.print();
+    // 导出 ZIP 包 (Markdown + Assets)
+    const exportZip = async () => {
+        const zip = new JSZip();
+        // 创建: /post-title/index.md, /post-title/assets/
+        const assetsFolder = zip.folder('assets');
+
+        let processedContent = content;
+
+        // 1. 处理文内图片
+        const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+        const replacements = [];
+        let match;
+        while ((match = imageRegex.exec(content)) !== null) {
+            replacements.push({ full: match[0], alt: match[1], src: match[2] });
+        }
+
+        // 2. 并行下载普通图片
+        await Promise.all(replacements.map(async (item, index) => {
+            const fullSrc = resolveImageUrl(item.src);
+            const blob = await fetchImageBlob(fullSrc); // ZIP 模式不压缩，保持原画质? 或者也压缩? 通常 ZIP 偏向归档，保持原图更好。
+            if (blob) {
+                // 使用时间戳避免同名覆盖
+                const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
+                const fileName = `img-${index}-${Date.now()}.${ext}`;
+                assetsFolder?.file(fileName, blob);
+
+                // 替换 Markdown 中的链接 (Global replace via split/join check)
+                processedContent = processedContent.split(item.src).join(`assets/${fileName}`);
+            }
+        }));
+
+        // 3. 处理封面图
+        let coverImageName = '';
+        const coverImage = frontmatter.coverImage || frontmatter.heroImage;
+        if (coverImage) {
+            const fullSrc = resolveImageUrl(coverImage);
+            const blob = await fetchImageBlob(fullSrc);
+            if (blob) {
+                const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
+                coverImageName = `cover-${Date.now()}.${ext}`;
+                assetsFolder?.file(coverImageName, blob);
+            }
+        }
+
+        // 4. 生成 Frontmatter
+        const frontmatterStr = coverImageName
+            ? generateFrontmatter(`assets/${coverImageName}`)
+            : generateFrontmatter();
+
+        // 5. 生成 Header (使用 HTML <img> 获得更好样式)
+        const headerStr = generateMarkdownHeader(coverImageName ? `assets/${coverImageName}` : undefined, false);
+
+        const fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
+        zip.file('index.md', fullContent);
+
+        const contentBlob = await zip.generateAsync({ type: 'blob' });
+        FileSaver.saveAs(contentBlob, getFileName('zip'));
     };
 
-
-
-    // 下载 Blob 文件
-    const downloadBlob = (blob: Blob, fileName: string) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-    // 处理导出
     const handleExport = async (format: ExportFormat) => {
         setIsOpen(false);
-        switch (format) {
-            case 'markdown':
-                exportMarkdown();
-                break;
-            case 'html':
-                exportHtml();
-                break;
-            case 'pdf':
-                exportPdf();
-                break;
+        setIsExporting(true);
+        try {
+            switch (format) {
+                case 'markdown': await exportMarkdown(); break;
+                case 'zip': await exportZip(); break;
+                case 'html': await exportHtml(); break;
+                case 'pdf': window.print(); break;
+            }
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('导出过程中发生错误');
+        } finally {
+            setIsExporting(false);
         }
     };
 
     const formatOptions = [
-        { value: 'markdown' as ExportFormat, label: 'Markdown', icon: FileText, desc: '原始格式' },
-        { value: 'html' as ExportFormat, label: 'HTML', icon: FileCode, desc: '网页格式' },
-        { value: 'pdf' as ExportFormat, label: 'PDF', icon: Printer, desc: '打印/另存为PDF' },
+        { value: 'markdown' as ExportFormat, label: 'Markdown', icon: FileText, desc: '内嵌图片 (单文件)' },
+        { value: 'zip' as ExportFormat, label: 'Markdown 压缩包', icon: Package, desc: '分离素材 (完美版)' },
+        { value: 'html' as ExportFormat, label: 'HTML', icon: FileCode, desc: '离线网页 (单文件)' },
+        { value: 'pdf' as ExportFormat, label: 'PDF', icon: Printer, desc: '打印预览' },
     ];
 
     return (
@@ -429,12 +466,12 @@ ${title ? `<div style="text-align: center; margin-bottom: 20px; color: #475569; 
                 disabled={isExporting}
             >
                 <Download className="h-4 w-4" />
-                {isExporting ? '导出中...' : '导出文章'}
+                {isExporting ? '处理中...' : '导出'}
                 <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </Button>
 
             {isOpen && (
-                <div className="absolute left-0 top-full mt-2 w-48 rounded-lg border border-border bg-background shadow-lg z-50">
+                <div className="absolute left-0 top-full mt-2 w-56 rounded-lg border border-border bg-background shadow-lg z-50">
                     {formatOptions.map((option) => (
                         <button
                             key={option.value}
