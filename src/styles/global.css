@@ -432,8 +432,9 @@
         border-radius: 0.5rem;
     }
 
-    /* 视频响应式容器 (16:9) */
-    .video-container {
+    /* 视频响应式容器 (16:9) - 支持 video-wrapper 和 video-container */
+    .video-container,
+    .video-wrapper {
         position: relative;
         width: 100%;
         padding-bottom: 56.25%;
@@ -441,19 +442,22 @@
         height: 0;
         margin: 1.5rem 0;
         border-radius: 0.5rem;
-        overflow: hidden;
+        /* 移除 overflow:hidden 以允许全屏功能正常工作 */
+        overflow: visible;
         background: var(--muted);
         /* 确保移动端触摸交互正常 */
         touch-action: manipulation;
     }
 
-    .video-container iframe {
+    .video-container iframe,
+    .video-wrapper iframe {
         position: absolute;
         top: 0;
         left: 0;
         width: 100% !important;
         height: 100% !important;
         border: 0;
+        border-radius: 0.5rem;
         /* 确保 iframe 可以接收所有触摸事件 */
         touch-action: auto;
         pointer-events: auto;

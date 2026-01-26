@@ -359,8 +359,21 @@ const pageUrl = Astro.url.href;
             const initVideos = () => {
                 const iframes = document.querySelectorAll('.prose iframe');
                 iframes.forEach(oldIframe => {
-                    // Check if already processed
-                    if (oldIframe.parentElement.classList.contains('video-container')) return;
+                    // Check if already processed (支持 rehype 插件的 video-wrapper 和 JS 的 video-container)
+                    const parent = oldIframe.parentElement;
+                    if (parent && (parent.classList.contains('video-container') || parent.classList.contains('video-wrapper'))) {
+                        // 如果是 video-wrapper，需要添加必要的属性确保全屏工作
+                        if (parent.classList.contains('video-wrapper')) {
+                            parent.classList.add('video-container');
+                            // 更新 iframe 属性
+                            oldIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation');
+                            oldIframe.setAttribute('allowfullscreen', 'true');
+                            oldIframe.setAttribute('webkitallowfullscreen', 'true');
+                            oldIframe.setAttribute('mozallowfullscreen', 'true');
+                            oldIframe.removeAttribute('sandbox');
+                        }
+                        return;
+                    }
 
                     // Create new Iframe (Cloning/Rebuilding ensures attributes apply correctly from start)
                     const newIframe = document.createElement('iframe');
@@ -453,27 +466,31 @@ const pageUrl = Astro.url.href;
 </BaseLayout>
 
 <style is:global>
-    /* Force Critical Video Styles */
-    .video-container {
+    /* Force Critical Video Styles - 支持 video-wrapper 和 video-container */
+    .video-container,
+    .video-wrapper {
         position: relative;
         width: 100%;
         padding-bottom: 56.25%; /* 16:9 */
         height: 0;
         margin: 1.5rem 0;
         border-radius: 0.5rem;
-        overflow: hidden;
+        /* 移除 overflow:hidden 以允许全屏功能正常工作 */
+        overflow: visible;
         background: var(--muted);
         /* 确保移动端触摸交互正常 */
         touch-action: manipulation;
     }
 
-    .video-container iframe {
+    .video-container iframe,
+    .video-wrapper iframe {
         position: absolute;
         top: 0;
         left: 0;
         width: 100% !important;
         height: 100% !important;
         border: 0;
+        border-radius: 0.5rem;
         /* 确保 iframe 可以接收所有触摸事件 */
         touch-action: auto;
         pointer-events: auto;
