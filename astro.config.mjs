@@ -134,17 +134,14 @@ export default defineConfig({
       // 手动分包优化
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom'],
-            icons: ['lucide-react'],
-          }
+          // manualChunks: {
+          //   vendor: ['react', 'react-dom'],
+          //   icons: ['lucide-react'],
+          // }
         }
       }
     },
-    // 预构建常用依赖，加速开发服务器启动
-    optimizeDeps: {
-      include: ['react', 'react-dom', 'lucide-react', '@giscus/react']
-    }
+
   },
   // Astro 5: static 模式默认支持混合渲染，Keystatic 页面会自动使用 SSR
   adapter: cloudflare(),
