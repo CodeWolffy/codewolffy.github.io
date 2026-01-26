@@ -378,21 +378,26 @@ const pageUrl = Astro.url.href;
                                 // 处理协议
                                 if (src.startsWith('//')) src = 'https:' + src;
                                 
-                                // 确保 autoplay=0
-                                const separator = src.includes('?') ? '&' : '?';
-                                if (!src.includes('autoplay=0')) {
-                                    if (src.includes('autoplay=1')) {
-                                        src = src.replace('autoplay=1', 'autoplay=0');
-                                    } else {
-                                        src = `${src}${separator}autoplay=0`;
-                                    }
-                                }
-                                
-                                // 移动端播放器替换
+                                // 检测是否为移动设备
                                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                
+                                // 移动端播放器替换 - 解决移动端全屏问题
                                 if (isMobile && src.includes('player.bilibili.com/player.html')) {
                                     src = src.replace('player.bilibili.com/player.html', 'www.bilibili.com/blackboard/html5mobileplayer.html');
                                 }
+                                
+                                // 确保 autoplay=0 和其他禁用自动播放参数
+                                if (!src.includes('autoplay=')) {
+                                    src += (src.includes('?') ? '&' : '?') + 'autoplay=0';
+                                } else if (src.includes('autoplay=1')) {
+                                    src = src.replace('autoplay=1', 'autoplay=0');
+                                }
+                                
+                                // 添加额外参数确保不自动播放
+                                if (!src.includes('as_wide=')) src += '&as_wide=1';
+                                if (!src.includes('high_quality=')) src += '&high_quality=1';
+                                if (!src.includes('danmaku=')) src += '&danmaku=0';
+                                
                                 oldIframe.setAttribute('src', src);
                             }
                         }
@@ -413,23 +418,32 @@ const pageUrl = Astro.url.href;
                          // Handle protocol relative URLs
                          if (src.startsWith('//')) src = 'https:' + src;
                          
-                         const separator = src.includes('?') ? '&' : '?';
-                         if (!src.includes('autoplay=0')) {
-                             if (src.includes('autoplay=1')) {
-                                 src = src.replace('autoplay=1', 'autoplay=0');
-                             } else {
-                                 src = `${src}${separator}autoplay=0`;
-                             }
-                         }
-                         
-                         // B站移动端播放器替换 - 解决移动端全屏问题
-                         // PC播放器: player.bilibili.com/player.html
-                         // 移动端播放器: www.bilibili.com/blackboard/html5mobileplayer.html
                          if (src.includes('bilibili.com')) {
                              // 检测是否为移动设备
                              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                             
+                             // 移动端播放器替换 - 解决移动端全屏问题
                              if (isMobile && src.includes('player.bilibili.com/player.html')) {
                                  src = src.replace('player.bilibili.com/player.html', 'www.bilibili.com/blackboard/html5mobileplayer.html');
+                             }
+                             
+                             // 确保 autoplay=0 和其他禁用自动播放参数
+                             if (!src.includes('autoplay=')) {
+                                 src += (src.includes('?') ? '&' : '?') + 'autoplay=0';
+                             } else if (src.includes('autoplay=1')) {
+                                 src = src.replace('autoplay=1', 'autoplay=0');
+                             }
+                             
+                             // 添加额外参数确保不自动播放
+                             if (!src.includes('as_wide=')) src += '&as_wide=1';
+                             if (!src.includes('high_quality=')) src += '&high_quality=1';
+                             if (!src.includes('danmaku=')) src += '&danmaku=0';
+                         } else if (src.includes('youtube.com')) {
+                             // YouTube 禁用自动播放
+                             if (!src.includes('autoplay=')) {
+                                 src += (src.includes('?') ? '&' : '?') + 'autoplay=0';
+                             } else if (src.includes('autoplay=1')) {
+                                 src = src.replace('autoplay=1', 'autoplay=0');
                              }
                          }
                          newIframe.setAttribute('src', src);
