@@ -58,7 +58,6 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
 
     // 辅助：压缩图片 (Resize + JPEG)
     const compressImageBlob = async (blob: Blob): Promise<Blob> => {
-        // 如果是 SVG 或非图片，不压缩
         if (blob.type === 'image/svg+xml') return blob;
 
         return new Promise((resolve) => {
@@ -69,7 +68,7 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                const maxDim = 1200; // 限制最大长宽，减少数据量
+                const maxDim = 1200; // 限制最大长宽
 
                 if (width > maxDim || height > maxDim) {
                     const ratio = width / height;
@@ -86,14 +85,14 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    // 填充白色背景 (处理 PNG 透明)
+                    // 填充白色背景
                     ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // 转换为 JPEG，质量 0.75
+                    // 转换为 JPEG 0.75
                     canvas.toBlob((b) => {
-                        resolve(b || blob); // 失败则返回原图
+                        resolve(b || blob);
                     }, 'image/jpeg', 0.75);
                 } else {
                     resolve(blob);
@@ -119,7 +118,7 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         });
     };
 
-    // 辅助：URL 转 Base64 (支持可选压缩)
+    // 辅助：URL 转 Base64
     const urlToBase64 = async (url: string, shouldCompress: boolean = false): Promise<string> => {
         try {
             if (url.startsWith('data:')) return url;
@@ -167,12 +166,10 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         if (frontmatter.pubDate) lines.push(`pubDate: ${frontmatter.pubDate.toISOString().split('T')[0]}`);
         if (frontmatter.updatedDate) lines.push(`updatedDate: ${frontmatter.updatedDate.toISOString().split('T')[0]}`);
 
-        // 封面图处理
         if (customCoverImage) {
             lines.push(`coverImage: ${customCoverImage}`);
         } else {
             const originalCover = frontmatter.coverImage || frontmatter.heroImage;
-            // 严格检查：如果 originalCover 是 Base64，则忽略
             if (originalCover && !originalCover.trim().startsWith('data:')) {
                 lines.push(`coverImage: ${originalCover}`);
             }
@@ -216,10 +213,10 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
 
         if (coverImageSrc) {
             if (isBase64Mode) {
-                // Base64 模式下：使用引用式链接 ![封面图][cover-image]
-                parts.push(`![封面图][cover-image]`);
+                // 回归内联，但在 Header 中我们也使用 ![]() 形式，如果需要样式可能得用 HTML
+                // 为了兼容 Typora，标准语法最稳妥。Lag 已经被压缩解决。
+                parts.push(`![封面图](${coverImageSrc})`);
             } else {
-                // Zip/Assets 模式下：使用 HTML 以获得更好的布局控制（圆角等）
                 parts.push(`<img src="${coverImageSrc}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;" />`);
             }
         }
@@ -227,9 +224,9 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         return parts.join('\n\n');
     };
 
-    // 导出 Markdown (单文件，内嵌 Base64，带压缩)
+    // 导出 Markdown (单文件，内嵌 Base64)
     const exportMarkdown = async () => {
-        const shouldCompress = true; // 启用压缩
+        const shouldCompress = true;
         const image = frontmatter.coverImage || frontmatter.heroImage;
         let base64Cover = '';
         if (image) {
@@ -241,7 +238,6 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         const replacements = [];
         let match;
 
-        // 收集所有图片
         while ((match = imageRegex.exec(content)) !== null) {
             replacements.push({
                 full: match[0],
@@ -250,45 +246,28 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             });
         }
 
-        const references: string[] = [];
-
         // 转换 Base64
-        const processedImages = await Promise.all(replacements.map(async (item, index) => {
+        const processedImages = await Promise.all(replacements.map(async (item) => {
             const fullSrc = resolveImageUrl(item.src);
             const base64 = await urlToBase64(fullSrc, shouldCompress);
-            const refId = `image-${index + 1}`;
-            return { ...item, newSrc: base64, refId };
+            return { ...item, newSrc: base64 };
         }));
 
-        // 替换内容为引用形式 ![alt][ref-id]
+        // 替换 (使用内联替换，放弃引用式链接以避免 Footer 也显示)
         processedImages.forEach(item => {
             if (processedContent.includes(item.full)) {
-                processedContent = processedContent.split(item.full).join(`![${item.alt}][${item.refId}]`);
-                references.push(`[${item.refId}]: ${item.newSrc}`);
+                // 使用 split/join 确保只替换内容中的 URL，保持内联结构
+                processedContent = processedContent.split(item.full).join(`![${item.alt}](${item.newSrc})`);
             }
         });
 
-        // 1. Frontmatter (无 Base64)
+        // 1. Frontmatter
         const frontmatterStr = generateFrontmatter();
-        // 2. Header (Base64 使用引用语法: ![封面图][cover-image])
-        //    传入 'placeholder' 只是为了告诉 header 函数生成 image 标签，真正的 Ref 定义在 footer
-        const headerStr = generateMarkdownHeader(base64Cover ? 'placeholder' : undefined, true);
+        // 2. Header
+        const headerStr = generateMarkdownHeader(base64Cover || undefined, true);
 
-        // 3. 构建完整内容
-        let fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
-
-        // 4. 追加引用定义 (Footer)
-        const footerParts = [];
-        if (base64Cover) {
-            footerParts.push(`[cover-image]: ${base64Cover}`);
-        }
-        if (references.length > 0) {
-            footerParts.push(references.join('\n'));
-        }
-
-        if (footerParts.length > 0) {
-            fullContent += `\n\n\n${footerParts.join('\n')}`;
-        }
+        // 3. 构建完整内容 (无 Footer References)
+        const fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
 
         const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
         FileSaver.saveAs(blob, getFileName('md'));
@@ -304,20 +283,17 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
 
         const clone = proseElement.cloneNode(true) as HTMLElement;
 
-        // 处理图片
         const images = Array.from(clone.querySelectorAll('img'));
         await Promise.all(images.map(async (img) => {
             const src = img.getAttribute('src');
             if (src) {
                 const fullSrc = resolveImageUrl(src);
-                // HTML 导出也启用压缩
                 const base64 = await urlToBase64(fullSrc, true);
                 img.src = base64;
                 img.removeAttribute('srcset');
             }
         }));
 
-        // 处理链接
         const links = clone.querySelectorAll('a');
         links.forEach(link => {
             const href = link.getAttribute('href');
@@ -328,7 +304,6 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             }
         });
 
-        // 封面图
         const coverImage = frontmatter.coverImage || frontmatter.heroImage;
         let coverImageBase64 = '';
         if (coverImage) {
@@ -375,12 +350,10 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
     // 导出 ZIP 包 (Markdown + Assets)
     const exportZip = async () => {
         const zip = new JSZip();
-        // 创建: /post-title/index.md, /post-title/assets/
         const assetsFolder = zip.folder('assets');
 
         let processedContent = content;
 
-        // 1. 处理文内图片
         const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
         const replacements = [];
         let match;
@@ -388,22 +361,17 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             replacements.push({ full: match[0], alt: match[1], src: match[2] });
         }
 
-        // 2. 并行下载普通图片
         await Promise.all(replacements.map(async (item, index) => {
             const fullSrc = resolveImageUrl(item.src);
-            const blob = await fetchImageBlob(fullSrc); // ZIP 模式不压缩，保持原画质? 或者也压缩? 通常 ZIP 偏向归档，保持原图更好。
+            const blob = await fetchImageBlob(fullSrc);
             if (blob) {
-                // 使用时间戳避免同名覆盖
                 const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
                 const fileName = `img-${index}-${Date.now()}.${ext}`;
                 assetsFolder?.file(fileName, blob);
-
-                // 替换 Markdown 中的链接 (Global replace via split/join check)
                 processedContent = processedContent.split(item.src).join(`assets/${fileName}`);
             }
         }));
 
-        // 3. 处理封面图
         let coverImageName = '';
         const coverImage = frontmatter.coverImage || frontmatter.heroImage;
         if (coverImage) {
@@ -416,12 +384,10 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             }
         }
 
-        // 4. 生成 Frontmatter
         const frontmatterStr = coverImageName
             ? generateFrontmatter(`assets/${coverImageName}`)
             : generateFrontmatter();
 
-        // 5. 生成 Header (使用 HTML <img> 获得更好样式)
         const headerStr = generateMarkdownHeader(coverImageName ? `assets/${coverImageName}` : undefined, false);
 
         const fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
