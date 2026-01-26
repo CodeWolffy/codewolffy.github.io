@@ -261,6 +261,20 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             }
         });
 
+        // 修复 iframe 高度问题 (仅针对导出)
+        // 查找所有 <iframe ...> 标签，并注入 height="450" 和 style="min-height: 450px"
+        processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
+            // 如果已经有 height 或 style，简单追加或忽略（这里简单强制添加/替换 style 和 height 属性比较复杂，
+            // 简单做法是直接在末尾添加，浏览器/Markdown查看器通常会处理。更稳妥是解析后重组，但正则替换通常够用）
+
+            // 移除已有的 height 和 style 以避免冲突 (简单处理)
+            let newAttrs = attributes
+                .replace(/height=["'][^"']*["']/g, '')
+                .replace(/style=["'][^"']*["']/g, '');
+
+            return `<iframe ${newAttrs} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
+        });
+
         // 1. Frontmatter
         const frontmatterStr = generateFrontmatter();
         // 2. Header
@@ -329,6 +343,25 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         h1 { font-size: 2.25em; margin-bottom: 0.5em; color: #111827; }
         .meta { color: #6b7280; margin-bottom: 2em; border-bottom: 1px solid #e5e7eb; padding-bottom: 1em; }
         .cover-img { width: 100%; max-height: 400px; object-fit: cover; margin-bottom: 2em; border-radius: 8px; }
+        
+        /* Video Container Styles 16:9 */
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
+            margin: 1.5em 0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f3f4f6;
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            }
     </style>
 </head>
 <body>
@@ -371,6 +404,14 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
                 processedContent = processedContent.split(item.src).join(`assets/${fileName}`);
             }
         }));
+
+        // 修复 iframe 高度问题 (仅针对导出)
+        processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
+            let newAttrs = attributes
+                .replace(/height=["'][^"']*["']/g, '')
+                .replace(/style=["'][^"']*["']/g, '');
+            return `<iframe ${newAttrs} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
+        });
 
         let coverImageName = '';
         const coverImage = frontmatter.coverImage || frontmatter.heroImage;
