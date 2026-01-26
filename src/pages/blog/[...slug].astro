@@ -379,10 +379,14 @@ const pageUrl = Astro.url.href;
                     }
 
                     // Enforce Fullscreen & Mobile Attributes
-                    newIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+                    newIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation');
                     newIframe.setAttribute('allowfullscreen', 'true');
                     newIframe.setAttribute('webkitallowfullscreen', 'true');
                     newIframe.setAttribute('mozallowfullscreen', 'true');
+                    
+                    // Sandbox: Critical for mobile interactions and popups (jumping to app)
+                    newIframe.setAttribute('sandbox', 'allow-top-navigation allow-same-origin allow-forms allow-scripts allow-popups allow-presentation allow-modals');
+
                     // iOS specific
                     newIframe.setAttribute('playsinline', 'true');
                     newIframe.setAttribute('webkit-playsinline', 'true');
@@ -390,6 +394,10 @@ const pageUrl = Astro.url.href;
                     newIframe.style.width = '100%';
                     newIframe.style.height = '100%';
                     newIframe.style.border = '0';
+                    newIframe.style.zIndex = '10'; // Ensure it sits on top for touch events
+                    newIframe.style.position = 'absolute'; // Reinforce absolute positioning
+                    newIframe.style.top = '0';
+                    newIframe.style.left = '0';
 
                     // Create Wrapper
                     const wrapper = document.createElement('figure');
