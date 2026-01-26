@@ -478,17 +478,17 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             </Button>
 
             {isOpen && (
-                <div className="absolute left-0 top-full mt-2 w-56 rounded-lg border border-border bg-background shadow-lg z-50">
+                <div className="absolute right-0 sm:left-0 sm:right-auto top-full mt-2 w-44 sm:w-56 rounded-lg border border-border bg-background shadow-lg z-50">
                     {formatOptions.map((option) => (
                         <button
                             key={option.value}
-                            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-secondary transition-colors first:rounded-t-lg last:rounded-b-lg"
+                            className="flex w-full items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm hover:bg-secondary transition-colors first:rounded-t-lg last:rounded-b-lg"
                             onClick={() => handleExport(option.value)}
                         >
-                            <option.icon className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                                <div className="font-medium">{option.label}</div>
-                                <div className="text-xs text-muted-foreground">{option.desc}</div>
+                            <option.icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            <div className="min-w-0">
+                                <div className="font-medium truncate">{option.label}</div>
+                                <div className="text-xs text-muted-foreground truncate">{option.desc}</div>
                             </div>
                         </button>
                     ))}
