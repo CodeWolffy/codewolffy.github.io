@@ -398,8 +398,9 @@ const pageUrl = Astro.url.href;
                     newIframe.setAttribute('webkitallowfullscreen', 'true');
                     newIframe.setAttribute('mozallowfullscreen', 'true');
                     
-                    // Sandbox: Critical for mobile interactions and popups (jumping to app)
-                    newIframe.setAttribute('sandbox', 'allow-top-navigation allow-same-origin allow-forms allow-scripts allow-popups allow-presentation allow-modals');
+                    // 移除 sandbox 属性以确保移动端全屏功能正常
+                    // 视频来自可信源（B站、YouTube），无需 sandbox 安全限制
+                    newIframe.removeAttribute('sandbox');
 
                     // iOS specific
                     newIframe.setAttribute('playsinline', 'true');
@@ -462,6 +463,8 @@ const pageUrl = Astro.url.href;
         border-radius: 0.5rem;
         overflow: hidden;
         background: var(--muted);
+        /* 确保移动端触摸交互正常 */
+        touch-action: manipulation;
     }
 
     .video-container iframe {
@@ -471,5 +474,8 @@ const pageUrl = Astro.url.href;
         width: 100% !important;
         height: 100% !important;
         border: 0;
+        /* 确保 iframe 可以接收所有触摸事件 */
+        touch-action: auto;
+        pointer-events: auto;
     }
 </style>

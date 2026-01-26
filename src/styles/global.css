@@ -443,6 +443,8 @@
         border-radius: 0.5rem;
         overflow: hidden;
         background: var(--muted);
+        /* 确保移动端触摸交互正常 */
+        touch-action: manipulation;
     }
 
     .video-container iframe {
@@ -452,6 +454,9 @@
         width: 100% !important;
         height: 100% !important;
         border: 0;
+        /* 确保 iframe 可以接收所有触摸事件 */
+        touch-action: auto;
+        pointer-events: auto;
     }
 
     /* 移动端表格横向滚动容器 */
