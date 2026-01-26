@@ -344,61 +344,75 @@ const pageUrl = Astro.url.href;
             // Handle Video Embeds (Responsive + Captions + Disable Autoplay)
             const initVideos = () => {
                 const iframes = document.querySelectorAll('.prose iframe');
-                iframes.forEach(iframe => {
-                    // Disable Autoplay
-                    const src = iframe.getAttribute('src');
-                    if (src && (src.includes('bilibili.com') || src.includes('youtube.com'))) {
-                         let newSrc = src;
-                         // Handle protocol relative URLs
-                         if (newSrc.startsWith('//')) {
-                             newSrc = 'https:' + newSrc;
-                         }
-                         
-                         const separator = newSrc.includes('?') ? '&' : '?';
-                         if (!newSrc.includes('autoplay=0')) {
-                             if (newSrc.includes('autoplay=1')) {
-                                 newSrc = newSrc.replace('autoplay=1', 'autoplay=0');
-                             } else {
-                                 newSrc = `${newSrc}${separator}autoplay=0`;
-                             }
-                             iframe.setAttribute('src', newSrc);
-                         }
-                    }
-
-                    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
-                    iframe.setAttribute('allowfullscreen', '');
-                    iframe.setAttribute('webkitallowfullscreen', '');
-                    iframe.setAttribute('mozallowfullscreen', '');
-
-                    // Reload iframe to apply new permissions
-                    // Permissions policies are often checked on load.
-                    if (iframe.src) {
-                        iframe.src = iframe.src;
-                    }
-
+                iframes.forEach(oldIframe => {
                     // Check if already processed
-                    if (iframe.parentElement.classList.contains('video-container')) return;
+                    if (oldIframe.parentElement.classList.contains('video-container')) return;
+
+                    // Create new Iframe (Cloning/Rebuilding ensures attributes apply correctly from start)
+                    const newIframe = document.createElement('iframe');
                     
-                    // Create wrapper
+                    // Copy original attributes
+                    Array.from(oldIframe.attributes).forEach(attr => {
+                        newIframe.setAttribute(attr.name, attr.value);
+                    });
+
+                    // Update Src (Autoplay handling)
+                    let src = newIframe.getAttribute('src') || '';
+                    if (src && (src.includes('bilibili.com') || src.includes('youtube.com'))) {
+                         // Handle protocol relative URLs
+                         if (src.startsWith('//')) src = 'https:' + src;
+                         
+                         const separator = src.includes('?') ? '&' : '?';
+                         if (!src.includes('autoplay=0')) {
+                             if (src.includes('autoplay=1')) {
+                                 src = src.replace('autoplay=1', 'autoplay=0');
+                             } else {
+                                 src = `${src}${separator}autoplay=0`;
+                             }
+                         }
+                         // Bilibili specific: High Quality + No Autoplay
+                         if (src.includes('bilibili.com')) {
+                            // Ensure high_quality=1 for better mobile compatibility? 
+                            // Actually, standard is usually enough, but let's just make sure
+                         }
+                         newIframe.setAttribute('src', src);
+                    }
+
+                    // Enforce Fullscreen & Mobile Attributes
+                    newIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+                    newIframe.setAttribute('allowfullscreen', 'true');
+                    newIframe.setAttribute('webkitallowfullscreen', 'true');
+                    newIframe.setAttribute('mozallowfullscreen', 'true');
+                    // iOS specific
+                    newIframe.setAttribute('playsinline', 'true');
+                    newIframe.setAttribute('webkit-playsinline', 'true');
+
+                    newIframe.style.width = '100%';
+                    newIframe.style.height = '100%';
+                    newIframe.style.border = '0';
+
+                    // Create Wrapper
                     const wrapper = document.createElement('figure');
                     wrapper.className = 'my-4';
                     
                     const container = document.createElement('div');
                     container.className = 'video-container';
                     
-                    // Move iframe into container
-                    iframe.parentNode.insertBefore(wrapper, iframe);
-                    container.appendChild(iframe);
+                    // Assembly: Wrapper -> Container -> NewIframe
+                    container.appendChild(newIframe);
                     wrapper.appendChild(container);
-                    
+
                     // Add Caption
-                    const title = iframe.getAttribute('title');
+                    const title = newIframe.getAttribute('title');
                     if (title) {
                         const caption = document.createElement('figcaption');
                         caption.className = 'text-center text-sm text-muted-foreground mt-2';
                         caption.textContent = title;
                         wrapper.appendChild(caption);
                     }
+
+                    // Replace Old Iframe
+                    oldIframe.parentNode.replaceChild(wrapper, oldIframe);
                 });
             };
             
