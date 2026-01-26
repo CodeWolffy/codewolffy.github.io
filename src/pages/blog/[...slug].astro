@@ -12,6 +12,7 @@ import { Copyright } from '@/components/blog/Copyright';
 import Iframe from '../../components/mdx/Iframe.astro';
 import { buttonVariants } from '@/components/ui/button';
 import { FilePenLine } from 'lucide-react';
+import Callout from '../../components/mdx/Callout.astro';
 
 
 export const prerender = true;
@@ -158,7 +159,7 @@ const pageUrl = Astro.url.href;
 
 
             <div class="prose dark:prose-invert max-w-none" data-pagefind-body>
-                <Content />
+                <Content components={{ Callout }} />
             </div>
 			
 			<!-- 代码复制按钮初始化 -->

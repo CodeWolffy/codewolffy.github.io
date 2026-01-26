@@ -134,3 +134,7 @@ List<User> results = userRepository.findAll(example);
 * **为什么写？** 为了在**手动拼接动态 SQL** 时，省去判断“是否是第一个条件”的繁琐逻辑，统一在每条条件前加 `AND`。
 * **性能有影响吗？** 没有，数据库优化器会忽略它。
 * **现在还用吗？** 在使用 MyBatis `<where>` 标签、Hibernate 或 ORM 框架时，**不需要**也不建议使用 `1=1`。但在纯字符串拼接 SQL 的简单脚本或旧代码维护中，依然非常常见。
+
+<iframe src="https://www.youtube.com/embed/RjEEEUHvaD4?si=ypPzNgvHgCrjb2dy" title="YouTube" />
+
+<iframe src="//player.bilibili.com/player.html?isOutside=true&aid=112773979702011&bvid=BV1cwbxezEZb&cid=500001613353119&p=1" title="哔哩哔哩" />

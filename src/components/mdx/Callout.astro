@@ -1,0 +1,52 @@
+---
+import { AlertCircle, Info, Lightbulb, Flame } from 'lucide-react';
+
+interface Props {
+  type?: 'info' | 'tip' | 'warning' | 'danger';
+  title?: string;
+}
+
+const { type = 'info', title } = Astro.props;
+
+const variants = {
+  info: {
+    icon: Info,
+    className: 'bg-blue-50 text-blue-900 border-blue-200 dark:bg-blue-950/30 dark:text-blue-200 dark:border-blue-900',
+    iconClass: 'text-blue-600 dark:text-blue-400',
+    defaultTitle: '信息'
+  },
+  tip: {
+    icon: Lightbulb,
+    className: 'bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-900',
+    iconClass: 'text-emerald-600 dark:text-emerald-400',
+    defaultTitle: '提示'
+  },
+  warning: {
+    icon: AlertCircle,
+    className: 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-900',
+    iconClass: 'text-amber-600 dark:text-amber-400',
+    defaultTitle: '注意'
+  },
+  danger: {
+    icon: Flame,
+    className: 'bg-red-50 text-red-900 border-red-200 dark:bg-red-950/30 dark:text-red-200 dark:border-red-900',
+    iconClass: 'text-red-600 dark:text-red-400',
+    defaultTitle: '警告'
+  }
+};
+
+const variant = variants[type];
+const Icon = variant.icon;
+---
+
+<div class={`my-6 rounded-lg border p-4 ${variant.className}`}>
+  <div class="flex items-start gap-3">
+    <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${variant.iconClass}`} />
+    <div class="w-full min-w-0 leading-relaxed">
+      {title && <div class="font-medium mb-1">{title}</div>}
+      <div class="callout-content">
+        <slot />
+      </div>
+    </div>
+  </div>
+</div>

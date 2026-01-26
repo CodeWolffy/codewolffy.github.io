@@ -268,35 +268,117 @@ export default config({
                         iframe: block({
                             label: '嵌入视频 (iframe)',
                             schema: {
-                                src: fields.text({ label: '视频地址 (Source URL)', description: '例如: //player.bilibili.com/player.html?bvid=...' }),
+                                src: fields.text({
+                                    label: '视频地址 (Source URL)',
+                                    description: '请输入 iframe 代码中 src 引号内的内容。如果您复制了整个 <iframe> 代码，请看下方的“智能提示”。'
+                                }),
                                 title: fields.text({ label: '标题 (Title)', description: '视频的简短描述，用于辅助功能' }),
                             },
                             ContentView: (props) => {
-                                const src = props.value.src;
+                                const rawSrc = props.value.src || '';
                                 const title = props.value.title;
+
+                                // 提取 URL 的逻辑
+                                let src = rawSrc;
+                                let warning = null;
+                                let extractedUrl: string | null = null;
+
+                                if (rawSrc.trim().startsWith('<iframe')) {
+                                    const match = rawSrc.match(/src=["'](.*?)["']/);
+                                    if (match && match[1]) {
+                                        src = match[1];
+                                        extractedUrl = match[1];
+                                        warning = (
+                                            <div style={{ marginTop: '8px', padding: '12px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '6px', color: '#92400e', fontSize: '13px' }}>
+                                                <strong>⚠️ 检测到完整 iframe 代码</strong>
+                                                <p style={{ margin: '4px 0' }}>请只保留 <code style={{ background: '#fef3c7', padding: '2px 4px', borderRadius: '4px' }}>src</code> 属性中的链接。</p>
+                                                <div style={{ marginTop: '8px', padding: '8px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '4px', wordBreak: 'break-all', display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                                                    <div style={{ fontSize: '12px', color: '#64748b' }}>建议修改为：</div>
+                                                    <div style={{ fontWeight: '500', color: '#0f172a', fontFamily: 'monospace', fontSize: '12px' }}>{extractedUrl}</div>
+                                                    <button
+                                                        type="button"
+                                                        style={{
+                                                            alignSelf: 'flex-start',
+                                                            padding: '4px 12px',
+                                                            background: '#2563eb',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px',
+                                                            cursor: 'pointer',
+                                                            marginTop: '4px'
+                                                        }}
+                                                        onClick={() => {
+                                                            if (extractedUrl) {
+                                                                navigator.clipboard.writeText(extractedUrl);
+                                                                alert('已复制链接！建议删除上方内容后粘贴。');
+                                                            }
+                                                        }}
+                                                    >
+                                                        📋 复制链接
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                }
+
+                                // 处理预览用的 URL (尝试禁用自动播放)
+                                const getPreviewSrc = (url: string) => {
+                                    if (!url) return '';
+                                    try {
+                                        // 简单处理 Bilibili 和常见视频网站
+                                        let previewUrl = url;
+                                        if (url.includes('bilibili.com')) {
+                                            // 确保包含 &autoplay=0
+                                            if (!previewUrl.includes('autoplay=0')) {
+                                                const separator = previewUrl.includes('?') ? '&' : '?';
+                                                previewUrl = `${previewUrl}${separator}autoplay=0`;
+                                            }
+                                        }
+                                        return previewUrl;
+                                    } catch (e) {
+                                        return url;
+                                    }
+                                };
+
+                                const previewSrc = getPreviewSrc(src);
+
                                 return (
                                     <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>
-                                        <div style={{ padding: '8px 12px', borderBottom: '1px solid #e2e8f0', background: '#fff', fontSize: '12px', color: '#64748b' }}>
-                                            🎥 视频嵌入 (Iframe Preview)
+                                        <div style={{ padding: '8px 12px', borderBottom: '1px solid #e2e8f0', background: '#fff', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span>🎥 视频嵌入预览</span>
+                                            {extractedUrl && <span style={{ color: '#f59e0b' }}>⚠️ 格式需修正</span>}
                                         </div>
+
+                                        {/* 预览区域 */}
                                         {src ? (
-                                            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+                                            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, background: '#000' }}>
                                                 <iframe
-                                                    src={src}
+                                                    src={previewSrc}
                                                     title={title}
-                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation"
+                                                    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation"
                                                     allowFullScreen
                                                     sandbox="allow-top-navigation allow-same-origin allow-forms allow-scripts allow-popups allow-presentation allow-modals"
-                                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', zIndex: 10 }}
+                                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', zIndex: 0, opacity: warning ? 0.5 : 1, pointerEvents: 'none' }}
                                                 />
                                             </div>
                                         ) : (
-                                            <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
-                                                请在右侧输入视频地址...
+                                            <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8' }}>
+                                                <div style={{ marginBottom: '8px', fontSize: '24px' }}>📺</div>
+                                                请在右侧输入视频地址
                                             </div>
                                         )}
+
+                                        {/* 警告信息 */}
+                                        {warning && (
+                                            <div style={{ padding: '0 12px 12px 12px' }}>
+                                                {warning}
+                                            </div>
+                                        )}
+
                                         {title && (
-                                            <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0', fontSize: '13px', textAlign: 'center', color: '#475569' }}>
+                                            <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0', fontSize: '13px', textAlign: 'center', color: '#475569', background: '#fff' }}>
                                                 {title}
                                             </div>
                                         )}
@@ -304,10 +386,62 @@ export default config({
                                 );
                             }
                         }),
-                    },
-                }),
-            },
-        }),
+                        callout: block({
+                            label: '提示框 (Callout)',
+                            schema: {
+                                type: fields.select({
+                                    label: '类型',
+                                    options: [
+                                        { label: 'ℹ️ 信息 (Info)', value: 'info' },
+                                        { label: '💡 提示 (Tip)', value: 'tip' },
+                                        { label: '⚠️ 警告 (Warning)', value: 'warning' },
+                                        { label: '🔥 危险 (Danger)', value: 'danger' },
+                                    ],
+                                    defaultValue: 'info'
+                                }),
+                                title: fields.text({ label: '标题 (可选)' }),
+                                content: fields.child({
+                                    kind: 'block',
+                                    placeholder: '请输入提示内容...',
+                                    formatting: {
+                                        inlineMarks: 'inherit',
+                                        softBreaks: 'inherit',
+                                        listTypes: 'inherit',
+                                    },
+                                    links: 'inherit',
+                                }),
+                            },
+                            ContentView: (props: any) => {
+                                const typeMap: Record<string, { color: string; border: string; icon: string }> = {
+                                    info: { color: '#eff6ff', border: '#bfdbfe', icon: 'ℹ️' },
+                                    tip: { color: '#ecfdf5', border: '#a7f3d0', icon: '💡' },
+                                    warning: { color: '#fffbeb', border: '#fde68a', icon: '⚠️' },
+                                    danger: { color: '#fef2f2', border: '#fecaca', icon: '🔥' }
+                                };
+                                const style = typeMap[props.value.type || 'info'];
+                                return (
+                                    <div style={{ padding: '16px', background: style.color, border: `1px solid ${style.border}`, borderRadius: '8px' }}>
+                                        <div style={{ display: 'flex', gap: '8px', fontWeight: 'bold', marginBottom: '4px' }}>
+                                            <span>{style.icon}</span>
+                                            <span>{props.value.title}</span>
+                                        </div>
+                                        <div style={{ color: '#374151' }}>{props.children}</div>
+                                        <style>{`
+                                    /* Fix Keystatic Slash Menu Z-Index */
+                                    div[role="listbox"],
+                                    div[data-reach-menu-popover],
+                                    [id^="headlessui-portal-root"] {
+                                        z-index: 99999 !important;
+                                    }
+                                `}</style>
+                                    </div>
+                                );
+                            }
+                        }),
+                    }, // Close components
+                }), // Close fields.mdx
+            }, // Close schema
+        }), // Close posts collection
         friends: collection({
             label: '🔗 友情链接',
             slugField: 'name',
@@ -380,5 +514,5 @@ export default config({
                 priority: fields.number({ label: '排序优先级', defaultValue: 0 }),
             },
         }),
-    },
+    }, // Close collections
 });
