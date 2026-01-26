@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Download, FileText, FileCode, Printer, ChevronDown, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import JSZip from 'jszip';
@@ -23,12 +23,12 @@ interface ExportButtonProps {
 type ExportFormat = 'markdown' | 'html' | 'pdf' | 'zip';
 
 export function ExportButton({ title, content, frontmatter }: ExportButtonProps) {
-    const [isOpen, setIsOpen] = React.useState(false);
-    const [isExporting, setIsExporting] = React.useState(false);
-    const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const [isOpen, setIsOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     // 点击外部关闭下拉菜单
-    React.useEffect(() => {
+    useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
