@@ -372,15 +372,28 @@ const pageUrl = Astro.url.href;
                             oldIframe.setAttribute('mozallowfullscreen', 'true');
                             oldIframe.removeAttribute('sandbox');
                             
-                            // B站移动端播放器替换
+                            // B站移动端播放器替换 + 禁用自动播放
                             let src = oldIframe.getAttribute('src') || '';
                             if (src.includes('bilibili.com')) {
+                                // 处理协议
+                                if (src.startsWith('//')) src = 'https:' + src;
+                                
+                                // 确保 autoplay=0
+                                const separator = src.includes('?') ? '&' : '?';
+                                if (!src.includes('autoplay=0')) {
+                                    if (src.includes('autoplay=1')) {
+                                        src = src.replace('autoplay=1', 'autoplay=0');
+                                    } else {
+                                        src = `${src}${separator}autoplay=0`;
+                                    }
+                                }
+                                
+                                // 移动端播放器替换
                                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                                 if (isMobile && src.includes('player.bilibili.com/player.html')) {
-                                    if (src.startsWith('//')) src = 'https:' + src;
                                     src = src.replace('player.bilibili.com/player.html', 'www.bilibili.com/blackboard/html5mobileplayer.html');
-                                    oldIframe.setAttribute('src', src);
                                 }
+                                oldIframe.setAttribute('src', src);
                             }
                         }
                         return;
