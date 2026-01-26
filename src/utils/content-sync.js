@@ -2,6 +2,98 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+/**
+ * Parses frontmatter from MDX content
+ * @param {string} content 
+ * @returns {string|null}
+ */
+function parseFrontmatter(content) {
+    // Support both LF and CRLF
+    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!match) return null;
+    return match[1];
+}
+
+/**
+ * Extracts tags and categories from frontmatter string
+ * @param {string} frontmatter 
+ */
+function extractTagsAndCategories(frontmatter) {
+    const tags = new Set();
+    const categories = new Set();
+
+    if (!frontmatter) return { tags, categories };
+
+    const lines = frontmatter.split(/\r?\n/);
+    let currentKey = null;
+    let inList = false;
+
+    const stripComment = (str) => {
+        const idx = str.indexOf('#');
+        return idx === -1 ? str : str.substring(0, idx);
+    };
+
+    const cleanValue = (val) => {
+        if (!val) return '';
+        return stripComment(val).trim().replace(/^['"]|['"]$/g, '');
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        // Detect Key
+        const keyMatch = line.match(/^([a-zA-Z0-9_]+):/);
+        if (keyMatch) {
+            currentKey = keyMatch[1];
+            inList = false;
+
+            // Handle inline array syntax: "tags: [a, b]"
+            const valuePart = stripComment(trimmed.substring(currentKey.length + 1)).trim();
+            if (valuePart.startsWith('[') && valuePart.endsWith(']')) {
+                const content = valuePart.slice(1, -1);
+                const items = content.split(',').map(cleanValue).filter(Boolean);
+                if (currentKey === 'tags') {
+                    items.forEach(item => tags.add(item));
+                } else if (currentKey === 'category') {
+                    items.forEach(item => categories.add(item));
+                }
+                continue; // Skip list processing for this line
+            }
+        }
+
+        if (currentKey === 'tags') {
+            if (trimmed.startsWith('- ')) {
+                inList = true;
+                const valuePart = trimmed.substring(2).trim();
+
+                if (!valuePart.startsWith('discriminant:') && !valuePart.includes(':')) {
+                    const val = cleanValue(valuePart);
+                    if (val && val !== 'discriminant' && val !== 'value') tags.add(val);
+                }
+                else if (valuePart.startsWith('value:')) {
+                    const val = cleanValue(valuePart.substring(6));
+                    if (val) tags.add(val);
+                }
+            } else if (inList) {
+                if (trimmed.startsWith('value:')) {
+                    const val = cleanValue(trimmed.substring(6));
+                    if (val) tags.add(val);
+                }
+            }
+        } else if (currentKey === 'category') {
+            if (trimmed.startsWith('value:')) {
+                const val = cleanValue(trimmed.substring(6));
+                if (val) categories.add(val);
+            }
+        }
+    }
+
+    return { tags, categories };
+}
+
 export async function syncContent(rootDir) {
     const BLOG_DIR = path.resolve(rootDir, 'src/content/blog');
     const TAGS_DIR = path.resolve(rootDir, 'src/content/tags');
@@ -25,70 +117,6 @@ export async function syncContent(rootDir) {
 
     async function readFileContent(filePath) {
         return await fs.readFile(filePath, 'utf-8');
-    }
-
-    function parseFrontmatter(content) {
-        const match = content.match(/^---\n([\s\S]*?)\n---/);
-        if (!match) return null;
-        return match[1];
-    }
-
-    function extractTagsAndCategories(frontmatter) {
-        const tags = new Set();
-        const categories = new Set();
-
-        if (!frontmatter) return { tags, categories };
-
-        const lines = frontmatter.split('\n');
-        let currentKey = null;
-        let inList = false;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmed = line.trim();
-
-            if (!trimmed || trimmed.startsWith('#')) continue;
-
-            // Detect Key
-            const keyMatch = line.match(/^([a-zA-Z0-9_]+):/);
-            if (keyMatch) {
-                currentKey = keyMatch[1];
-                inList = false;
-            }
-
-            const cleanValue = (val) => {
-                if (!val) return '';
-                return val.trim().replace(/^['"]|['"]$/g, '');
-            };
-
-            if (currentKey === 'tags') {
-                if (trimmed.startsWith('- ')) {
-                    inList = true;
-                    const valuePart = trimmed.substring(2).trim();
-
-                    if (!valuePart.startsWith('discriminant:') && !valuePart.includes(':')) {
-                        const val = cleanValue(valuePart);
-                        if (val && val !== 'discriminant' && val !== 'value') tags.add(val);
-                    }
-                    else if (valuePart.startsWith('value:')) {
-                        const val = cleanValue(valuePart.substring(6));
-                        if (val) tags.add(val);
-                    }
-                } else if (inList) {
-                    if (trimmed.startsWith('value:')) {
-                        const val = cleanValue(trimmed.substring(6));
-                        if (val) tags.add(val);
-                    }
-                }
-            } else if (currentKey === 'category') {
-                if (trimmed.startsWith('value:')) {
-                    const val = cleanValue(trimmed.substring(6));
-                    if (val) categories.add(val);
-                }
-            }
-        }
-
-        return { tags, categories };
     }
 
     console.log('[AutoSync] Scanning content...');
@@ -217,76 +245,6 @@ export async function pruneContent(rootDir, dryRun = false) {
         return await fs.readFile(filePath, 'utf-8');
     }
 
-    /**
-     * @param {string} content
-     */
-    function parseFrontmatter(content) {
-        const match = content.match(/^---\n([\s\S]*?)\n---/);
-        if (!match) return null;
-        return match[1];
-    }
-
-    /**
-     * @param {string} frontmatter
-     */
-    function extractTagsAndCategories(frontmatter) {
-        /** @type {Set<string>} */
-        const tags = new Set();
-        /** @type {Set<string>} */
-        const categories = new Set();
-
-        if (!frontmatter) return { tags, categories };
-
-        const lines = frontmatter.split('\n');
-        let currentKey = null;
-        let inList = false;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmed = line.trim();
-
-            if (!trimmed || trimmed.startsWith('#')) continue;
-
-            const keyMatch = line.match(/^([a-zA-Z0-9_]+):/);
-            if (keyMatch) {
-                currentKey = keyMatch[1];
-                inList = false;
-            }
-
-            // @ts-ignore
-            const cleanValue = (val) => {
-                if (!val) return '';
-                return val.trim().replace(/^['"]|['"]$/g, '');
-            };
-
-            if (currentKey === 'tags') {
-                if (trimmed.startsWith('- ')) {
-                    inList = true;
-                    const valuePart = trimmed.substring(2).trim();
-                    if (!valuePart.startsWith('discriminant:') && !valuePart.includes(':')) {
-                        const val = cleanValue(valuePart);
-                        if (val && val !== 'discriminant' && val !== 'value') tags.add(val);
-                    }
-                    else if (valuePart.startsWith('value:')) {
-                        const val = cleanValue(valuePart.substring(6));
-                        if (val) tags.add(val);
-                    }
-                } else if (inList) {
-                    if (trimmed.startsWith('value:')) {
-                        const val = cleanValue(trimmed.substring(6));
-                        if (val) tags.add(val);
-                    }
-                }
-            } else if (currentKey === 'category') {
-                if (trimmed.startsWith('value:')) {
-                    const val = cleanValue(trimmed.substring(6));
-                    if (val) categories.add(val);
-                }
-            }
-        }
-        return { tags, categories };
-    }
-
     console.log('[ContentCleanup] Scanning usage...');
 
     const blogFiles = await getMdxFiles(BLOG_DIR);
@@ -305,6 +263,10 @@ export async function pruneContent(rootDir, dryRun = false) {
         }
     }
 
+    // Create lowercase sets for case-insensitive comparison
+    const usedTagsLower = new Set([...usedTags].map(t => t.toLowerCase()));
+    const usedCategoriesLower = new Set([...usedCategories].map(c => c.toLowerCase()));
+
     // Check Tags
     const definedTagFiles = await getJsonFiles(TAGS_DIR);
     for (const file of definedTagFiles) {
@@ -313,7 +275,10 @@ export async function pruneContent(rootDir, dryRun = false) {
             const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
             const tagName = content.name;
 
-            if (!usedTags.has(tagName)) {
+            // Check both exact match and case-insensitive match
+            const isUsed = usedTags.has(tagName) || usedTagsLower.has(tagName.toLowerCase());
+
+            if (!isUsed) {
                 if (dryRun) {
                     console.log(`[DryRun] Would delete unused tag: ${tagName} (${file})`);
                 } else {
@@ -334,7 +299,10 @@ export async function pruneContent(rootDir, dryRun = false) {
             const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
             const catName = content.name;
 
-            if (!usedCategories.has(catName)) {
+            // Check both exact match and case-insensitive match
+            const isUsed = usedCategories.has(catName) || usedCategoriesLower.has(catName.toLowerCase());
+
+            if (!isUsed) {
                 if (dryRun) {
                     console.log(`[DryRun] Would delete unused category: ${catName} (${file})`);
                 } else {
