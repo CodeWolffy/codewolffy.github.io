@@ -281,11 +281,13 @@ export default config({
                                         </div>
                                         {src ? (
                                             <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
-                                                 <iframe 
-                                                    src={src} 
+                                                <iframe
+                                                    src={src}
                                                     title={title}
-                                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} 
-                                                 />
+                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                                                    allowFullScreen
+                                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                                                />
                                             </div>
                                         ) : (
                                             <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>

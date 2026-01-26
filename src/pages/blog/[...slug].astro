@@ -365,11 +365,16 @@ const pageUrl = Astro.url.href;
                          }
                     }
 
-                    // Force enable fullscreen attributes
                     iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
                     iframe.setAttribute('allowfullscreen', '');
                     iframe.setAttribute('webkitallowfullscreen', '');
                     iframe.setAttribute('mozallowfullscreen', '');
+
+                    // Reload iframe to apply new permissions
+                    // Permissions policies are often checked on load.
+                    if (iframe.src) {
+                        iframe.src = iframe.src;
+                    }
 
                     // Check if already processed
                     if (iframe.parentElement.classList.contains('video-container')) return;
