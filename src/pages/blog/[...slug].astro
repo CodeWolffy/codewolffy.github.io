@@ -371,6 +371,17 @@ const pageUrl = Astro.url.href;
                             oldIframe.setAttribute('webkitallowfullscreen', 'true');
                             oldIframe.setAttribute('mozallowfullscreen', 'true');
                             oldIframe.removeAttribute('sandbox');
+                            
+                            // B站移动端播放器替换
+                            let src = oldIframe.getAttribute('src') || '';
+                            if (src.includes('bilibili.com')) {
+                                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                if (isMobile && src.includes('player.bilibili.com/player.html')) {
+                                    if (src.startsWith('//')) src = 'https:' + src;
+                                    src = src.replace('player.bilibili.com/player.html', 'www.bilibili.com/blackboard/html5mobileplayer.html');
+                                    oldIframe.setAttribute('src', src);
+                                }
+                            }
                         }
                         return;
                     }
@@ -383,7 +394,7 @@ const pageUrl = Astro.url.href;
                         newIframe.setAttribute(attr.name, attr.value);
                     });
 
-                    // Update Src (Autoplay handling)
+                    // Update Src (Autoplay handling + Mobile player)
                     let src = newIframe.getAttribute('src') || '';
                     if (src && (src.includes('bilibili.com') || src.includes('youtube.com'))) {
                          // Handle protocol relative URLs
@@ -397,10 +408,16 @@ const pageUrl = Astro.url.href;
                                  src = `${src}${separator}autoplay=0`;
                              }
                          }
-                         // Bilibili specific: High Quality + No Autoplay
+                         
+                         // B站移动端播放器替换 - 解决移动端全屏问题
+                         // PC播放器: player.bilibili.com/player.html
+                         // 移动端播放器: www.bilibili.com/blackboard/html5mobileplayer.html
                          if (src.includes('bilibili.com')) {
-                            // Ensure high_quality=1 for better mobile compatibility? 
-                            // Actually, standard is usually enough, but let's just make sure
+                             // 检测是否为移动设备
+                             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                             if (isMobile && src.includes('player.bilibili.com/player.html')) {
+                                 src = src.replace('player.bilibili.com/player.html', 'www.bilibili.com/blackboard/html5mobileplayer.html');
+                             }
                          }
                          newIframe.setAttribute('src', src);
                     }
