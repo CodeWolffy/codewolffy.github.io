@@ -1,5 +1,6 @@
 // @ts-check
 import { config, fields, collection, singleton } from '@keystatic/core';
+import { block } from '@keystatic/core/content-components';
 
 export default config({
     ui: {
@@ -262,7 +263,45 @@ export default config({
                             directory: 'public/images/posts',
                             publicPath: '/images/posts/'
                         }
-                    }
+                    },
+                    components: {
+                        iframe: block({
+                            label: '嵌入视频 (iframe)',
+                            schema: {
+                                src: fields.text({ label: '视频地址 (Source URL)', description: '例如: //player.bilibili.com/player.html?bvid=...' }),
+                                title: fields.text({ label: '标题 (Title)', description: '视频的简短描述，用于辅助功能' }),
+                            },
+                            ContentView: (props) => {
+                                const src = props.value.src;
+                                const title = props.value.title;
+                                return (
+                                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>
+                                        <div style={{ padding: '8px 12px', borderBottom: '1px solid #e2e8f0', background: '#fff', fontSize: '12px', color: '#64748b' }}>
+                                            🎥 视频嵌入 (Iframe Preview)
+                                        </div>
+                                        {src ? (
+                                            <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+                                                 <iframe 
+                                                    src={src} 
+                                                    title={title}
+                                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} 
+                                                 />
+                                            </div>
+                                        ) : (
+                                            <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                                                请在右侧输入视频地址...
+                                            </div>
+                                        )}
+                                        {title && (
+                                            <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0', fontSize: '13px', textAlign: 'center', color: '#475569' }}>
+                                                {title}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+                        }),
+                    },
                 }),
             },
         }),

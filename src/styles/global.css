@@ -421,9 +421,72 @@
         max-width: calc(100vw - 2rem);
     }
 
+
+
     .prose video,
     .prose iframe {
         max-width: 100%;
+        /* Remove conflicting !important rules that break the wrapper */
+        /* width: 100%; */
+        /* height: auto; */
+        border-radius: 0.5rem;
+    }
+
+    /* 视频响应式容器 (16:9) */
+    .video-container {
+        position: relative;
+        width: 100%;
+        padding-bottom: 56.25%;
+        /* 16:9 */
+        height: 0;
+        margin: 1.5rem 0;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background: var(--muted);
+    }
+
+    .video-container iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        border: 0;
+    }
+
+    /* 移动端表格横向滚动容器 */
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-left: 0;
+        margin-right: 0;
+        margin-bottom: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid hsl(240 5.9% 90%);
+        background: var(--card);
+        padding: 1px;
+        /* Avoid collapsing borders cutting off */
+    }
+
+    .dark .table-wrapper {
+        border-color: hsl(240 3.7% 15.9%);
+        background: var(--card);
+    }
+
+    .table-wrapper table {
+        margin: 0;
+        width: max-content;
+        /* Force table to expand beyond container */
+        min-width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table-wrapper th,
+    .table-wrapper td {
+        white-space: nowrap;
+        /* Prevent text from wrapping */
+        padding: 0.75rem 1rem;
+        /* Add breathing room */
     }
 }
 

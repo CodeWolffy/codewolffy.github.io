@@ -9,6 +9,10 @@ import sitemap from '@astrojs/sitemap';
 import keystatic from '@keystatic/astro';
 import cloudflare from '@astrojs/cloudflare';
 
+// Import custom plugins
+import { rehypeTableWrapper } from './src/plugins/rehype-table-wrapper.mjs';
+import { rehypeVideoWrapper } from './src/plugins/rehype-video-wrapper.mjs';
+
 // Import sync utility
 import { syncContent } from './src/utils/content-sync.js';
 
@@ -49,7 +53,9 @@ export default defineConfig({
   // Cloudflare Pages 支持 SSR，所以 Keystatic 可以在生产环境运行
   integrations: [
     react(),
-    mdx(),
+    mdx({
+      rehypePlugins: [rehypeTableWrapper],
+    }),
     sitemap({
       // 过滤掉不需要索引的页面
       filter: (page) =>
@@ -96,6 +102,7 @@ export default defineConfig({
 
   // Markdown 代码高亮配置
   markdown: {
+    rehypePlugins: [rehypeTableWrapper],
     shikiConfig: {
       // 使用双主题支持亮/暗模式 - 使用 One Dark 主题（VS Code 经典）
       themes: {

@@ -72,6 +72,26 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         return lines.join('\n');
     };
 
+    // 为视频链接添加禁止自动播放参数
+    const disableAutoplay = (url: string) => {
+        try {
+            // 处理 Bilibili 和 YouTube
+            if (url.includes('bilibili.com') || url.includes('youtube.com')) {
+                const separator = url.includes('?') ? '&' : '?';
+                if (!url.includes('autoplay=0')) {
+                    // 如果已经有 autoplay=1，则替换
+                    if (url.includes('autoplay=1')) {
+                        return url.replace('autoplay=1', 'autoplay=0');
+                    }
+                    return `${url}${separator}autoplay=0`;
+                }
+            }
+            return url;
+        } catch (e) {
+            return url;
+        }
+    };
+
     // 导出为 Markdown
     const exportMarkdown = () => {
         // 构建可见的头部信息（类似于页面显示效果）
@@ -114,9 +134,47 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             headerParts.push(`<img src="${fullImageUrl}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px;" />`);
         }
 
+        // 处理内容中的视频 iframe，使其在 Markdown 预览中也有正确的高度
+        let processedContent = content;
+        try {
+            // 查找 iframe 标签并包裹在响应式容器中 (添加 inline styles)
+            processedContent = processedContent.replace(
+                /<iframe\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>(?:<\/iframe>)?/gi,
+                (match, beforeSrc, src, afterSrc) => {
+                    // 提取 title
+                    const fullAttributes = beforeSrc + ' ' + afterSrc;
+                    const titleMatch = fullAttributes.match(/title=["']([^"']+)["']/);
+                    const title = titleMatch ? titleMatch[1] : '';
+
+                    // 移除可能导致闭合问题的尾部斜杠
+                    const cleanBefore = beforeSrc.replace(/\/$/, '');
+                    const cleanAfter = afterSrc.replace(/\/$/, '');
+
+                    // 处理协议相对路径，确保在本地预览时能加载
+                    let finalSrc = src;
+                    if (finalSrc.startsWith('//')) {
+                        finalSrc = 'https:' + finalSrc;
+                    }
+
+                    // 禁止自动播放
+                    finalSrc = disableAutoplay(finalSrc);
+
+                    // 使用更简单的 iframe 结构，Typora 等编辑器支持更好
+                    // 设置固定高度 450px，宽度 100%
+                    return `
+<iframe src="${finalSrc}" ${cleanBefore.trim()} ${cleanAfter.trim()} width="100%" height="450" frameborder="0" style="border:0;"></iframe>
+${title ? `<div style="text-align: center; margin-bottom: 20px; color: #475569; font-size: 13px;">${title}</div>` : ''}
+`;
+                }
+            );
+        } catch (e) {
+            console.error('Error processing markdown content:', e);
+            processedContent = content; // Fallback
+        }
+
         // 组合完整内容：Frontmatter + 可见头部 + 原始内容
         const visibleHeader = headerParts.join('\n\n');
-        const fullContent = `${generateFrontmatter()}\n\n${visibleHeader}\n\n${content}`;
+        const fullContent = `${generateFrontmatter()}\n\n${visibleHeader}\n\n${processedContent}`;
 
         const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
         downloadBlob(blob, getFileName('md'));
@@ -159,7 +217,46 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             }
         });
 
-        // 3. 移除不必要的 UI 元素（如复制按钮等，如果有的话）
+        // 3. 处理 iframe (视频)：确保可见性和路径正确
+        const iframes = clone.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+            // 处理 src
+            let src = iframe.getAttribute('src');
+            if (src) {
+                if (src.startsWith('//')) {
+                    src = 'https:' + src;
+                }
+                // 禁止自动播放
+                src = disableAutoplay(src);
+                iframe.src = src;
+            }
+
+            // 移除可能导致布局问题的 class 和 style
+            iframe.removeAttribute('class');
+
+            // 强制设置样式和尺寸，确保在无外部 CSS 时可见
+            iframe.style.width = '100%';
+            iframe.style.height = '450px';
+            iframe.style.border = '0';
+            iframe.style.display = 'block';
+            iframe.style.marginBottom = '20px'; // 增加一点底部间距
+            iframe.setAttribute('width', '100%');
+            iframe.setAttribute('height', '450');
+            iframe.setAttribute('frameborder', '0');
+
+            // 如果父元素是专门的 wrapper (可能因为 CSS 缺失导致高度为 0)，尝试解除或修复
+            // 这里简单处理：如果父节点是 div 且看起来像是一个 wrapper，
+            // 我们可以尝试把父节点的样式重置，或者直接把 iframe 移出来（略复杂）。
+            // 最简单的方式是将父节点的可能导致的 hidden/height:0 样式清空。
+            if (iframe.parentElement && iframe.parentElement.tagName === 'DIV') {
+                iframe.parentElement.style.height = 'auto';
+                iframe.parentElement.style.paddingBottom = '0';
+                iframe.parentElement.style.overflow = 'visible';
+                iframe.parentElement.style.position = 'static';
+            }
+        });
+
+        // 4. 移除不必要的 UI 元素（如复制按钮等，如果有的话）
         // 假设复制按钮有特定类名，这里举例移除 .copy-btn
         const trash = clone.querySelectorAll('.copy-btn, .hidden-print');
         trash.forEach(el => el.remove());
@@ -221,6 +318,27 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
         table { width: 100%; border-collapse: collapse; margin-bottom: 1.5em; }
         th, td { border: 1px solid #e5e7eb; padding: 0.75em; text-align: left; }
         th { background-color: #f9fafb; font-weight: 600; }
+
+        /* 视频容器响应式样式 */
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            margin-bottom: 1.5em;
+            border-radius: 8px;
+            background: #f1f5f9;
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        figure { margin: 1.5em 0; }
+        figcaption { text-align: center; color: #6b7280; font-size: 0.875em; margin-top: 0.5em; }
 
         .meta { margin-bottom: 2em; color: #6b7280; font-size: 0.9em; border-bottom: 1px solid #e5e7eb; padding-bottom: 1em; }
         .meta span { margin-right: 1em; }

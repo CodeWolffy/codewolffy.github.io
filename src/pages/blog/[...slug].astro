@@ -9,6 +9,7 @@ import { ShareButtons } from '@/components/blog/ShareButtons';
 import { ExportButton } from '@/components/blog/ExportButton';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { Copyright } from '@/components/blog/Copyright';
+import Iframe from '../../components/mdx/Iframe.astro';
 
 
 export const prerender = true;
@@ -339,6 +340,60 @@ const pageUrl = Astro.url.href;
 
             // Re-run on View Transitions navigation
             document.addEventListener('astro:page-load', initZoom);
+            
+            // Handle Video Embeds (Responsive + Captions + Disable Autoplay)
+            const initVideos = () => {
+                const iframes = document.querySelectorAll('.prose iframe');
+                iframes.forEach(iframe => {
+                    // Disable Autoplay
+                    const src = iframe.getAttribute('src');
+                    if (src && (src.includes('bilibili.com') || src.includes('youtube.com'))) {
+                         let newSrc = src;
+                         // Handle protocol relative URLs
+                         if (newSrc.startsWith('//')) {
+                             newSrc = 'https:' + newSrc;
+                         }
+                         
+                         const separator = newSrc.includes('?') ? '&' : '?';
+                         if (!newSrc.includes('autoplay=0')) {
+                             if (newSrc.includes('autoplay=1')) {
+                                 newSrc = newSrc.replace('autoplay=1', 'autoplay=0');
+                             } else {
+                                 newSrc = `${newSrc}${separator}autoplay=0`;
+                             }
+                             iframe.setAttribute('src', newSrc);
+                         }
+                    }
+
+                    // Check if already processed
+                    if (iframe.parentElement.classList.contains('video-container')) return;
+                    
+                    // Create wrapper
+                    const wrapper = document.createElement('figure');
+                    wrapper.className = 'my-4';
+                    
+                    const container = document.createElement('div');
+                    container.className = 'video-container';
+                    
+                    // Move iframe into container
+                    iframe.parentNode.insertBefore(wrapper, iframe);
+                    container.appendChild(iframe);
+                    wrapper.appendChild(container);
+                    
+                    // Add Caption
+                    const title = iframe.getAttribute('title');
+                    if (title) {
+                        const caption = document.createElement('figcaption');
+                        caption.className = 'text-center text-sm text-muted-foreground mt-2';
+                        caption.textContent = title;
+                        wrapper.appendChild(caption);
+                    }
+                });
+            };
+            
+            // Run on load and transitions
+            initVideos();
+            document.addEventListener('astro:page-load', initVideos);
         </script>
         
         <div class="hidden lg:block">
@@ -348,3 +403,26 @@ const pageUrl = Astro.url.href;
         </div>
 	</div>
 </BaseLayout>
+
+<style is:global>
+    /* Force Critical Video Styles */
+    .video-container {
+        position: relative;
+        width: 100%;
+        padding-bottom: 56.25%; /* 16:9 */
+        height: 0;
+        margin: 1.5rem 0;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background: var(--muted);
+    }
+
+    .video-container iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        border: 0;
+    }
+</style>
