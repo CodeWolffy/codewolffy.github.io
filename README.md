@@ -2,7 +2,7 @@
 
 > **探索技术、编程与设计的边界**
 
-一个基于 [Astro 5](https://astro.build/) 构建的现代个人技术博客，完美融合了极速性能与卓越的用户体验。本项目采用最新的前沿 Web 技术栈（React 19, Tailwind CSS 4, Keystatic CMS），旨在提供一个开箱即用、功能强大且设计精美的高性能博客解决方案。
+一个基于 [Astro 5](https://astro.build/) 构建的现代个人技术博客，完美融合了极速性能与卓越的用户体验。本项目采用最新的前沿 Web 技术栈（React 18.3、Tailwind CSS 4.1、Keystatic 0.5），旨在提供一个开箱即用、功能强大且设计精美的高性能博客解决方案。
 
 [![Built with Astro](https://img.shields.io/badge/Built%20with-Astro-FF5D01?logo=astro&logoColor=white)](https://astro.build)
 [![Deployed on Cloudflare Pages](https://img.shields.io/badge/Deployed%20on-Cloudflare%20Pages-orange?logo=cloudflare)](https://pages.cloudflare.com/)
@@ -17,7 +17,7 @@
 ### 🏗️ 架构与性能 (Architecture & Performance)
 - **极速加载**: 基于 **Astro 5** 的静态生成 (SSG) 架构，默认移除未使用的 JavaScript，仅在需要交互的组件上使用 React Hydration (岛屿架构)。
 - **混合渲染 (Hybrid Rendering)**: 结合静态页面与按需服务器端渲染 (SSR) API，兼顾 SEO 与动态功能。
-- **现代化构建**: 利用 **Vite 6** + **esbuild** 进行极速构建，配置了精细化的 `manualChunks` 分包策略，最大化缓存利用率。
+- **现代化构建**: 利用 **Vite 6** + **esbuild 0.25** 进行极速构建，配置了精细化的 `manualChunks` 分包策略，最大化缓存利用率。
 - **Core Web Vitals**: 在 Mobile/Web 端均能达到 Lighthouse 满分 💯 性能表现。
 - **PWA 支持**: 完善的 `manifest.json` 配置与 Service Worker 支持，可添加到主屏幕，提供离线访问与原生应用般的体验。
 
@@ -57,14 +57,16 @@
 
 | 领域 | 核心库 | 版本 | 作用说明 |
 | :--- | :--- | :--- | :--- |
-| **Core** | [Astro](https://astro.build/) | v5.16+ | 静态站点生成器，路由管理 |
-| **UI** | [React](https://react.dev/) | v19.0 | 构建交互式岛屿组件 (Search, Comments) |
-| **Style** | [Tailwind CSS](https://tailwindcss.com/) | v4.0 | CSS 框架 (配合 Vite 插件) |
-| **CMS** | [Keystatic](https://keystatic.com/) | v0.5 | 可视化内容编辑器 |
-| **Search** | [Pagefind](https://pagefind.app/) | v1.4 | 静态搜索索引生成器 |
-| **Icons** | [Lucide React](https://lucide.dev/) | Latest | 统一的 SVG 图标库 |
-| **Utility** | [clsx](https://github.com/lukeed/clsx) | v2 | 动态类名拼接 |
-| **Utility** | [tailwind-merge](https://github.com/dcastil/tailwind-merge) | v3 | Tailwind 类名冲突合并 |
+| **Core** | [Astro](https://astro.build/) | v5.16.11 | 静态站点生成器，路由管理 |
+| **Build** | [Vite](https://vitejs.dev/) | v6.4.1 | 极速构建引擎与开发服务器 |
+| **UI** | [React](https://react.dev/) | v18.3.1 | 构建交互式岛屿组件 (Search, Comments) |
+| **Language** | [TypeScript](https://www.typescriptlang.org/) | v5.9.3 | 类型安全的 JavaScript 超集 |
+| **Style** | [Tailwind CSS](https://tailwindcss.com/) | v4.1.18 | CSS 框架 (配合 Vite 插件) |
+| **CMS** | [Keystatic](https://keystatic.com/) | v0.5.48 | 可视化内容编辑器 |
+| **Search** | [Pagefind](https://pagefind.app/) | v1.4.0 | 静态搜索索引生成器 |
+| **Icons** | [Lucide React](https://lucide.dev/) | v0.562.0 | 统一的 SVG 图标库 |
+| **Utility** | [clsx](https://github.com/lukeed/clsx) | v2.1.1 | 动态类名拼接 |
+| **Utility** | [tailwind-merge](https://github.com/dcastil/tailwind-merge) | v3.4.0 | Tailwind 类名冲突合并 |
 | **Deploy** | [Cloudflare Pages](https://pages.cloudflare.com/) | - | 全球边缘节点托管 |
 
 ---
