@@ -74,7 +74,15 @@ const nextPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
 const pageUrl = Astro.url.href;
 ---
 
-<BaseLayout title={post.data.title} description={post.data.description}>
+<BaseLayout 
+	title={post.data.title} 
+	description={post.data.description}
+	image={post.data.coverImage || post.data.heroImage}
+	type="article"
+	publishedTime={post.data.pubDate}
+	modifiedTime={post.data.updatedDate}
+	author="狼码纪"
+>
 	<!-- JSON-LD 结构化数据 -->
 	<script type="application/ld+json" set:html={JSON.stringify({
 		"@context": "https://schema.org",

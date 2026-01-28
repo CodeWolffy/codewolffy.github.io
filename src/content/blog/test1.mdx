@@ -18,262 +18,39 @@ tags:
 这是mermaid 图
 
 <Mermaid
-  chart="erDiagram
-%% 用户泛化实体及其特化子类
-USER ||--o{ ADMINISTRATOR : &#x22;ISA&#x22;
-USER ||--o{ STUDENT : &#x22;ISA&#x22;
-USER ||--o{ STAFF : &#x22;ISA&#x22;
-
-%% 用户实体属性
-USER {
-bigint id PK &#x22;用户ID&#x22;
-varchar username UK &#x22;用户名&#x22;
-varchar password &#x22;密码&#x22;
-varchar real_name &#x22;真实姓名&#x22;
-tinyint user_type &#x22;用户类型&#x22;
-tinyint gender &#x22;性别&#x22;
-varchar phone &#x22;手机号&#x22;
-varchar email &#x22;邮箱&#x22;
-varchar avatar &#x22;头像&#x22;
-tinyint status &#x22;状态&#x22;
-datetime create_time &#x22;创建时间&#x22;
-datetime last_login_time &#x22;最后登录时间&#x22;
-int total_study_minutes &#x22;累计学习时长&#x22;
-}
-
-ADMINISTRATOR {
-varchar admin_permissions &#x22;管理权限&#x22;
-}
-
-STUDENT {
-varchar student_id &#x22;学号&#x22;
-varchar department &#x22;院系&#x22;
-varchar class_name &#x22;班级&#x22;
-}
-
-STAFF {
-varchar staff_id &#x22;工号&#x22;
-varchar department &#x22;部门&#x22;
-}
-
-%% 空间分类实体
-SPACE_CATEGORY {
-bigint id PK &#x22;分类ID&#x22;
-varchar category_name &#x22;分类名称&#x22;
-varchar code UK &#x22;分类编码&#x22;
-varchar description &#x22;描述&#x22;
-tinyint require_seat &#x22;是否需要座位&#x22;
-tinyint require_approval &#x22;是否需要审批&#x22;
-tinyint has_capacity_limit &#x22;是否有容量限制&#x22;
-int time_mode &#x22;时间模式&#x22;
-int sort_order &#x22;排序顺序&#x22;
-tinyint status &#x22;状态&#x22;
-}
-
-%% 学习空间实体
-STUDY_ROOM {
-bigint id PK &#x22;空间ID&#x22;
-varchar room_name &#x22;空间名称&#x22;
-varchar room_code UK &#x22;空间编号&#x22;
-varchar location &#x22;位置&#x22;
-int floor &#x22;楼层&#x22;
-int total_seats &#x22;总座位数&#x22;
-int available_seats &#x22;可用座位数&#x22;
-text facilities &#x22;设施信息&#x22;
-int capacity_limit &#x22;容量限制&#x22;
-time open_time &#x22;开放时间&#x22;
-time close_time &#x22;关闭时间&#x22;
-tinyint status &#x22;状态&#x22;
-}
-
-%% 座位实体
-SEAT {
-bigint id PK &#x22;座位ID&#x22;
-varchar seat_number &#x22;座位号&#x22;
-int seat_row &#x22;行号&#x22;
-int seat_col &#x22;列号&#x22;
-tinyint seat_type &#x22;座位类型&#x22;
-tinyint has_power &#x22;是否有电源&#x22;
-tinyint has_lamp &#x22;是否有台灯&#x22;
-tinyint status &#x22;状态&#x22;
-varchar description &#x22;描述&#x22;
-}
-
-%% 预约实体
-RESERVATION {
-bigint id PK &#x22;预约ID&#x22;
-varchar reservation_code UK &#x22;预约编号&#x22;
-date reservation_date &#x22;预约日期&#x22;
-time start_time &#x22;开始时间&#x22;
-time end_time &#x22;结束时间&#x22;
-int duration &#x22;时长&#x22;
-tinyint status &#x22;状态&#x22;
-tinyint approval_status &#x22;审批状态&#x22;
-datetime approval_time &#x22;审批时间&#x22;
-datetime check_in_time &#x22;签到时间&#x22;
-datetime check_out_time &#x22;签退时间&#x22;
-int actual_duration &#x22;实际使用时长&#x22;
-}
-
-%% 公告实体
-ANNOUNCEMENT {
-bigint id PK &#x22;公告ID&#x22;
-varchar title &#x22;标题&#x22;
-text content &#x22;内容&#x22;
-tinyint announcement_type &#x22;公告类型&#x22;
-tinyint priority &#x22;优先级&#x22;
-tinyint target_user_type &#x22;目标用户类型&#x22;
-datetime publish_time &#x22;发布时间&#x22;
-tinyint status &#x22;状态&#x22;
-int view_count &#x22;浏览次数&#x22;
-tinyint is_top &#x22;是否置顶&#x22;
-}
-
-%% 评价实体
-EVALUATION {
-bigint id PK &#x22;评价ID&#x22;
-int rating &#x22;评分&#x22;
-int environment_score &#x22;环境评分&#x22;
-int facility_score &#x22;设施评分&#x22;
-int service_score &#x22;服务评分&#x22;
-text content &#x22;评价内容&#x22;
-text images &#x22;图片&#x22;
-tinyint is_anonymous &#x22;是否匿名&#x22;
-tinyint status &#x22;状态&#x22;
-text reply_content &#x22;回复内容&#x22;
-datetime reply_time &#x22;回复时间&#x22;
-}
-
-%% 反馈实体
-FEEDBACK {
-bigint id PK &#x22;反馈ID&#x22;
-tinyint feedback_type &#x22;反馈类型&#x22;
-varchar title &#x22;标题&#x22;
-text content &#x22;内容&#x22;
-text images &#x22;图片&#x22;
-varchar contact_info &#x22;联系方式&#x22;
-tinyint status &#x22;处理状态&#x22;
-datetime handle_time &#x22;处理时间&#x22;
-text handle_result &#x22;处理结果&#x22;
-}
-
-%% 通知实体
-NOTIFICATION {
-bigint id PK &#x22;通知ID&#x22;
-varchar title &#x22;标题&#x22;
-text content &#x22;内容&#x22;
-tinyint type &#x22;类型&#x22;
-bigint related_id &#x22;关联ID&#x22;
-tinyint is_read &#x22;是否已读&#x22;
-datetime read_time &#x22;阅读时间&#x22;
-int priority &#x22;优先级&#x22;
-}
-
-%% 预约规则实体
-ROOM_RULE {
-bigint id PK &#x22;规则ID&#x22;
-varchar rule_name &#x22;规则名称&#x22;
-text rule_content &#x22;规则内容&#x22;
-int max_reservation_per_day &#x22;每日最大预约次数&#x22;
-int max_duration &#x22;单次最长时长&#x22;
-int advance_days &#x22;可提前预约天数&#x22;
-int check_in_advance_minutes &#x22;签到提前分钟数&#x22;
-tinyint need_approval &#x22;是否需要审批&#x22;
-tinyint status &#x22;状态&#x22;
-}
-
-%% 统计实体
-ROOM_USAGE_STATISTICS {
-bigint id PK &#x22;统计ID&#x22;
-date stat_date &#x22;统计日期&#x22;
-int total_reservations &#x22;总预约次数&#x22;
-int completed_reservations &#x22;完成次数&#x22;
-decimal seat_utilization_rate &#x22;座位利用率&#x22;
-}
-
-USER_RESERVATION_STATISTICS {
-bigint id PK &#x22;统计ID&#x22;
-varchar stat_month &#x22;统计月份&#x22;
-int total_reservations &#x22;总预约次数&#x22;
-int total_study_time &#x22;总学习时长&#x22;
-}
-
-ANNOUNCEMENT_VIEW_LOG {
-bigint id PK &#x22;记录ID&#x22;
-datetime view_time &#x22;阅读时间&#x22;
-}
-
-%% ========== 实体关系 ==========
-
-%% 空间分类与学习空间
-SPACE_CATEGORY ||--o{ STUDY_ROOM : &#x22;包含&#x22;
-
-%% 学习空间与座位
-STUDY_ROOM ||--o{ SEAT : &#x22;拥有&#x22;
-
-%% 学生的预约关系
-STUDENT ||--o{ RESERVATION : &#x22;创建&#x22;
-STUDY_ROOM ||--o{ RESERVATION : &#x22;被预约&#x22;
-SEAT ||--o| RESERVATION : &#x22;被选择&#x22;
-
-%% 工作人员审批预约
-STAFF ||--o{ RESERVATION : &#x22;审批&#x22;
-
-%% 学生的评价关系
-STUDENT ||--o{ EVALUATION : &#x22;发表&#x22;
-RESERVATION ||--|| EVALUATION : &#x22;对应&#x22;
-STUDY_ROOM ||--o{ EVALUATION : &#x22;被评价&#x22;
-
-%% 工作人员回复评价
-STAFF ||--o{ EVALUATION : &#x22;回复&#x22;
-
-%% 学生提交反馈
-STUDENT ||--o{ FEEDBACK : &#x22;提交&#x22;
-STUDY_ROOM ||--o{ FEEDBACK : &#x22;涉及&#x22;
-
-%% 工作人员处理反馈
-STAFF ||--o{ FEEDBACK : &#x22;处理&#x22;
-
-%% 工作人员发布公告
-STAFF ||--o{ ANNOUNCEMENT : &#x22;发布&#x22;
-
-%% 通知与用户
-USER ||--o{ NOTIFICATION : &#x22;接收&#x22;
-
-%% 公告阅读记录
-ANNOUNCEMENT ||--o{ ANNOUNCEMENT_VIEW_LOG : &#x22;被阅读&#x22;
-USER ||--o{ ANNOUNCEMENT_VIEW_LOG : &#x22;阅读&#x22;
-
-%% 统计关系
-STUDY_ROOM ||--o{ ROOM_USAGE_STATISTICS : &#x22;统计&#x22;
-USER ||--o{ USER_RESERVATION_STATISTICS : &#x22;统计&#x22;"
-/>
-
-
-
-这是简单的mermaid图：\
-
-
-<Mermaid
   chart="flowchart TD
-    A[用户开始登录] --> B[输入账号和密码]
-    B --> C{验证账号格式}
-    C -- 格式错误 --> D[提示账号格式有误]
-    D --> B
-    C -- 格式正确 --> E{验证密码}
-    E -- 密码错误 --> F[提示密码错误，剩余重试次数n-1]
-    F --> G{重试次数是否用尽}
-    G -- 未用尽 --> B
-    G -- 已用尽 --> H[锁定账号15分钟]
-    E -- 密码正确 --> I[验证账号状态]
-    I -- 账号异常 --> J[提示账号异常，请联系客服]
-    I -- 账号正常 --> K[登录成功，跳转到首页]"
+A[用户开始登录] --> B[输入账号和密码]
+B --> C{验证账号格式}
+C -- 格式错误 --> D[提示账号格式有误]
+D --> B
+C -- 格式正确 --> E{验证密码}
+E -- 密码错误 --> F[提示密码错误，剩余重试次数n-1]
+F --> G{重试次数是否用尽}
+G -- 未用尽 --> B
+G -- 已用尽 --> H[锁定账号15分钟]
+E -- 密码正确 --> I[验证账号状态]
+I -- 账号异常 --> J[提示账号异常，请联系客服]
+I -- 账号正常 --> K[登录成功，跳转到首页]"
 />
 
 \
 这是提示框：
 
-<Callout type="danger" title="问问吾问无为谓" />
+危险：
+
+<Callout type="danger" title="危险" />
+
+提示：
+
+<Callout type="tip" title="提示" />
+
+警告：
+
+<Callout type="warning" title="警告" />
+
+信息：
+
+<Callout type="info" title="信息" />
 
 这是代码块：
 

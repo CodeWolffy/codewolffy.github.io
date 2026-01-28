@@ -7,9 +7,26 @@ import '@/styles/global.css';
 interface Props {
 	title: string;
 	description?: string;
+	image?: string;
+	type?: 'website' | 'article';
+	publishedTime?: Date;
+	modifiedTime?: Date;
+	author?: string;
 }
 
-const { title, description = "A modern tech blog." } = Astro.props;
+const { 
+	title, 
+	description = "狼码纪 - 分享技术与创意的博客", 
+	image,
+	type = 'website',
+	publishedTime,
+	modifiedTime,
+	author = '狼码纪'
+} = Astro.props;
+
+// 构建完整的 OG 图片 URL
+const ogImage = image ? new URL(image, Astro.site || Astro.url) : new URL("/default-share.png", Astro.site || Astro.url);
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 ---
 
 <!doctype html>
@@ -18,7 +35,6 @@ const { title, description = "A modern tech blog." } = Astro.props;
 		<meta charset="UTF-8" />
 		<meta name="description" content={description} />
 		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
 		<link rel="manifest" href="/manifest.json" />
 		<link rel="alternate" type="application/rss+xml" title="MyTechBlog RSS" href="/rss.xml" />
@@ -28,19 +44,35 @@ const { title, description = "A modern tech blog." } = Astro.props;
 		<meta name="google-site-verification" content="BY-N1ILCYoVzYJ1psC5ldCUPU5IxbG6wuKnRw03LIj0" />
 		<meta name="google-site-verification" content="7XGmhuDPS4PTDQdHg6OchrT8wvbkdplfPqlSxX7gZ_I" />
         
+        <!-- Canonical URL -->
+        <link rel="canonical" href={canonicalUrl} />
+
         <!-- Open Graph / Facebook -->
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={Astro.url} />
+        <meta property="og:type" content={type} />
+        <meta property="og:url" content={canonicalUrl} />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
-        <meta property="og:image" content={new URL("/og-image.jpg", Astro.url)} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:site_name" content="狼码纪" />
+        <meta property="og:locale" content="zh_CN" />
+        
+        {/* Article 扩展标签 - 仅用于文章页 */}
+        {type === 'article' && publishedTime && (
+            <meta property="article:published_time" content={publishedTime.toISOString()} />
+        )}
+        {type === 'article' && modifiedTime && (
+            <meta property="article:modified_time" content={modifiedTime.toISOString()} />
+        )}
+        {type === 'article' && author && (
+            <meta property="article:author" content={author} />
+        )}
 
         <!-- Twitter -->
-        <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content={Astro.url} />
-        <meta property="twitter:title" content={title} />
-        <meta property="twitter:description" content={description} />
-        <meta property="twitter:image" content={new URL("/og-image.jpg", Astro.url)} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content={canonicalUrl} />
+        <meta name="twitter:title" content={title} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={ogImage} />
 
 		<ClientRouter />
 		
