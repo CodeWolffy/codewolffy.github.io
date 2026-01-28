@@ -318,7 +318,54 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             }
         });
 
+        // --- Mermaid Cleanup ---
+        // 1. 全局移除模态框 (它是 container 的兄弟元素，不是子元素)
+        const modals = clone.querySelectorAll('.mermaid-modal');
+        modals.forEach(el => el.remove());
+
+        // 2. 清理 Mermaid 容器内部
+        const mermaidContainers = clone.querySelectorAll('.mermaid-container');
+        mermaidContainers.forEach(container => {
+            // 移除工具栏
+            const toolbars = container.querySelectorAll('.mermaid-toolbar');
+            toolbars.forEach(el => el.remove());
+
+            // 移除代码视图
+            const codeViews = container.querySelectorAll('.mermaid-code-view');
+            codeViews.forEach(el => el.remove());
+
+            // 移除模态框 (它通常在 body 下，或者如果是 append 的话可能不在 content 里，
+            // 但如果它被包含在 container 里，也移除)
+            const modals = container.querySelectorAll('.mermaid-modal');
+            modals.forEach(el => el.remove());
+
+            // 重置容器样式，避免高度过高
+            container.removeAttribute('style');
+            if (container instanceof HTMLElement) {
+                container.style.height = 'auto'; // 强制自动高度
+                container.style.minHeight = '0';
+            }
+
+            // 确保内容区域可见且样式正确
+            const content = container.querySelector('.mermaid-content');
+            if (content instanceof HTMLElement) {
+                content.removeAttribute('style'); // 移除缩放等 inline style
+                content.style.transform = 'none';
+            }
+        });
+
+        // --- Callout Cleanup ---
+        // 目前 Callout 结构比较干净，主要是 class 依赖 Tailwind。
+        // 上面的 CSS Shim 已经处理了样式。
+        // 这里可以做一些额外的清理，例如如果有 dark mode class 干扰打印，可以移除。
+        // (可选：移除 dark: 类，虽然 CSS Shim 里只是没定义 dark 样式，通常会被忽略)
+        const callouts = clone.querySelectorAll('[class*="bg-"][class*="-50"]'); // 粗略定位 Callout
+        callouts.forEach(el => {
+            // 可以在这里移除 dark mode 类，确保打印版一致性，不过有了 CSS Shim 只要不引入 dark 样式文件就没事
+        });
+
         const coverImage = frontmatter.coverImage || frontmatter.heroImage;
+
         let coverImageBase64 = '';
         if (coverImage) {
             coverImageBase64 = await urlToBase64(resolveImageUrl(coverImage), true);
@@ -331,37 +378,90 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
     <style>
-        body { max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: system-ui, sans-serif; line-height: 1.6; color: #374151; }
+        /* Basic Reset & Typography */
+        body { max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #374151; }
         img { max-width: 100%; height: auto; border-radius: 8px; margin: 1.5em 0; }
         pre { background: #f3f4f6; padding: 1em; border-radius: 6px; overflow-x: auto; }
-        code { font-family: monospace; background: #f3f4f6; padding: 0.2em 0.4em; border-radius: 4px; }
-        pre code { background: none; padding: 0; }
-        blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; font-style: italic; }
+        code { font-family: 'Fira Code', 'Consolas', monospace; background: #f3f4f6; padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.9em; }
+        pre code { background: none; padding: 0; font-size: 0.9em; color: #333; }
+        blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; margin: 1.5em 0; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 1.5em; }
         th, td { border: 1px solid #e5e7eb; padding: 0.75em; text-align: left; }
         a { color: #2563eb; text-decoration: none; }
-        h1 { font-size: 2.25em; margin-bottom: 0.5em; color: #111827; }
+        h1 { font-size: 2.25em; margin-bottom: 0.5em; color: #111827; font-weight: 700; }
+        h2 { font-size: 1.5em; margin-top: 1.5em; margin-bottom: 1em; color: #1f2937; font-weight: 600; }
+        h3 { font-size: 1.25em; margin-top: 1.5em; margin-bottom: 0.75em; color: #1f2937; font-weight: 600; }
         .meta { color: #6b7280; margin-bottom: 2em; border-bottom: 1px solid #e5e7eb; padding-bottom: 1em; }
         .cover-img { width: 100%; max-height: 400px; object-fit: cover; margin-bottom: 2em; border-radius: 8px; }
-        
-        /* Video Container Styles 16:9 */
-        .video-container {
-            position: relative;
-            width: 100%;
-            padding-bottom: 56.25%; /* 16:9 */
-            height: 0;
+
+        /* Video Container */
+        .video-container { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; margin: 1.5em 0; border-radius: 8px; overflow: hidden; background: #f3f4f6; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        /* --- Mermaid Overrides --- */
+        .mermaid-container {
             margin: 1.5em 0;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #f3f4f6;
+            background: transparent !important;
+            border: none !important;
         }
-        .video-container iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            }
+        .mermaid-content {
+            padding: 0 !important;
+            display: flex;
+            justify-content: center;
+        }
+        /* Ensure SVGs are visible and sized correctly */
+        .mermaid svg {
+            max-width: 100% !important;
+            height: auto !important;
+            background-color: white; /* Ensure transparency doesn't break readability */
+        }
+        
+        /* --- Callout Tailwind Shim --- */
+        /* Layout Utilities */
+        .flex { display: flex; }
+        .items-start { align-items: flex-start; }
+        .gap-3 { gap: 0.75rem; }
+        .my-6 { margin-top: 1.5rem; margin-bottom: 1.5rem; }
+        .p-4 { padding: 1rem; }
+        .rounded-lg { border-radius: 0.5rem; }
+        .border { border-width: 1px; }
+        .w-full { width: 100%; }
+        .min-w-0 { min-width: 0; }
+        .leading-relaxed { line-height: 1.625; }
+        .mt-0.5 { margin-top: 0.125rem; }
+        .shrink-0 { flex-shrink: 0; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .font-medium { font-weight: 500; }
+        
+        /* Variants - Colors & Borders */
+        
+        /* Info */
+        .bg-blue-50 { background-color: #eff6ff; }
+        .text-blue-900 { color: #1e3a8a; }
+        .border-blue-200 { border-color: #bfdbfe; }
+        .text-blue-600 { color: #2563eb; }
+        
+        /* Tip */
+        .bg-emerald-50 { background-color: #ecfdf5; }
+        .text-emerald-900 { color: #064e3b; }
+        .border-emerald-200 { border-color: #a7f3d0; }
+        .text-emerald-600 { color: #059669; }
+        
+        /* Warning */
+        .bg-amber-50 { background-color: #fffbeb; }
+        .text-amber-900 { color: #78350f; }
+        .border-amber-200 { border-color: #fde68a; }
+        .text-amber-600 { color: #d97706; }
+        
+        /* Danger */
+        .bg-red-50 { background-color: #fef2f2; }
+        .text-red-900 { color: #7f1d1d; }
+        .border-red-200 { border-color: #fecaca; }
+        .text-red-600 { color: #dc2626; }
+        
+        /* Dark Mode Support (Basic Fallback for printed HTML which is usually light) */
+        /* We typically force light mode for export unless specifically requested otherwise */
+
     </style>
 </head>
 <body>

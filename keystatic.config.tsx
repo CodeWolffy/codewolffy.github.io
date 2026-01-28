@@ -4,7 +4,10 @@ import { block } from '@keystatic/core/content-components';
 
 export default config({
     ui: {
-        brand: { name: '我的博客后台' },
+        brand: {
+            name: '我的博客后台',
+            mark: () => <img src="/favicon.png" height={24} alt="Logo" />
+        },
         navigation: {
             '博客管理': ['posts'],
             '页面管理': ['about', 'friendsPage', 'projects'],
