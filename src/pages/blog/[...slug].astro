@@ -118,8 +118,7 @@ const pageUrl = Astro.url.href;
             <div class="mb-1">
                 <Breadcrumbs 
                     items={[
-                         ...(categoryName ? [{ label: categoryName, href: `/categories/${categoryId}` }] : []),
-                         { label: post.data.title }
+                         ...(categoryName ? [{ label: categoryName, href: `/categories/${categoryId}` }] : [])
                     ]} 
                 />
             </div>
