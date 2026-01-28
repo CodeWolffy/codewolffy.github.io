@@ -50,6 +50,11 @@ const sortedCategories = Object.values(categoryCounts).sort((a, b) => b.count - 
 // Limit items for homepage (Preview)
 const topCategories = sortedCategories.slice(0, 4);
 const topTags = sortedTags.slice(0, 8);
+
+// 计算阅读时间函数 (中文按字数，假设 300 字/分钟)
+function getReadingTime(content: string): number {
+    return Math.max(1, Math.ceil(content.length / 300));
+}
 ---
 
 <BaseLayout title="狼码纪">
@@ -80,8 +85,8 @@ const topTags = sortedTags.slice(0, 8);
 				<h1 class="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl text-foreground pb-2">
 					狼码纪
 				</h1>
-				<p class="mx-auto max-w-[600px] text-muted-foreground text-lg md:text-xl animate-in fade-in slide-in-from-bottom-5 duration-1000 delay-200">
-					探索技术、编程与设计的边界。
+				<p id="typewriter-text" class="mx-auto max-w-[600px] text-muted-foreground text-lg md:text-xl h-8">
+					<span id="typewriter-content"></span><span id="typewriter-cursor" class="border-r-2 border-primary animate-pulse">&nbsp;</span>
 				</p>
 			</div>
 			<div class="flex gap-4 mt-4 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-300">
@@ -99,6 +104,36 @@ const topTags = sortedTags.slice(0, 8);
 		</div>
 	</section>
 
+	<script>
+		const text = "探索技术、编程与设计的边界。";
+		const element = document.getElementById('typewriter-content');
+		let index = 0;
+		
+		function typeWriter() {
+			if (element && index < text.length) {
+				element.textContent += text.charAt(index);
+				index++;
+				setTimeout(typeWriter, 100);
+			}
+		}
+		
+		// Start animation after page load
+		if (document.readyState === 'complete') {
+			typeWriter();
+		} else {
+			window.addEventListener('load', typeWriter);
+		}
+		
+		// Re-run on View Transitions
+		document.addEventListener('astro:page-load', () => {
+			if (element) {
+				element.textContent = '';
+				index = 0;
+				typeWriter();
+			}
+		});
+	</script>
+
     <!-- 最新文章区域 -->
     <section class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6">
         <div class="flex items-center justify-between mb-8">
@@ -108,12 +143,13 @@ const topTags = sortedTags.slice(0, 8);
             </a>
         </div>
         
-		<div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+		<div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 stagger-animation">
 			{latestPosts.map((post, index) => (
 				<PostCard 
 					post={post}
 					index={index}
 					mainTagLabel={post.data.tags && post.data.tags.length > 0 ? (tagMap.get(post.data.tags[0]) || post.data.tags[0]) : undefined}
+					readingTime={getReadingTime(post.body || '')}
 				/>
 			))}
 		</div>

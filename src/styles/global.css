@@ -865,6 +865,46 @@
     animation: breathe 3s ease-in-out infinite;
 }
 
+/* 打字机动画 */
+@keyframes typewriter {
+    from {
+        max-width: 0;
+    }
+
+    to {
+        max-width: 100%;
+    }
+}
+
+@keyframes blink-caret {
+
+    0%,
+    100% {
+        border-color: var(--primary);
+    }
+
+    50% {
+        border-color: transparent;
+    }
+}
+
+/* 打字机容器 - 用于居中显示 */
+.typewriter-container {
+    display: flex;
+    justify-content: center;
+}
+
+.typewriter {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 2px solid var(--primary);
+    max-width: 0;
+    animation:
+        typewriter 2.5s ease-out forwards,
+        blink-caret 0.75s step-end infinite;
+}
+
 /* 抖动效果 - 用于错误提示 */
 @keyframes shake {
 

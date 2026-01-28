@@ -5,13 +5,14 @@ interface Props {
   post: CollectionEntry<'blog'>;
   mainTagLabel?: string;
   index?: number;
+  readingTime?: number;
 }
 
-const { post, mainTagLabel, index = 0 } = Astro.props;
+const { post, mainTagLabel, index = 0, readingTime } = Astro.props;
 ---
 
 <article 
-    class="group relative flex flex-col space-y-2 rounded-xl p-3 bg-card border border-border hover:border-primary/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-md"
+    class="group relative flex flex-col space-y-2 rounded-xl p-3 bg-card border border-border hover:border-primary/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-md animate-fade-in-up opacity-0"
     style={`animation-delay: ${index * 50}ms;`}
 >
     
@@ -23,6 +24,8 @@ const { post, mainTagLabel, index = 0 } = Astro.props;
                 alt={post.data.title}
                 width={804}
                 height={452}
+                loading="lazy"
+                decoding="async"
                 class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
             />
         </div>
@@ -32,6 +35,12 @@ const { post, mainTagLabel, index = 0 } = Astro.props;
             <time datetime={post.data.pubDate.toISOString()}>
                 {post.data.pubDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric' })}
             </time>
+            {readingTime && (
+                <>
+                    <span>•</span>
+                    <span>{readingTime} 分钟</span>
+                </>
+            )}
             {mainTagLabel && (
                 <>
                     <span>•</span>
