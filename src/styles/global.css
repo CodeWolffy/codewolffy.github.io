@@ -622,6 +622,16 @@
     animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/* 打字机光标闪烁动画 */
+@keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.animate-cursor-blink {
+    animation: cursor-blink 1s step-end infinite;
+}
+
 /* 头像光环旋转 */
 @keyframes rotate-halo {
     0% {

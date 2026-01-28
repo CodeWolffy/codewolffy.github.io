@@ -17,7 +17,7 @@ tags:
 
 这是mermaid 图
 
-<mermaid
+<Mermaid
   chart="erDiagram
 %% 用户泛化实体及其特化子类
 USER ||--o{ ADMINISTRATOR : &#x22;ISA&#x22;
@@ -249,10 +249,31 @@ STUDY_ROOM ||--o{ ROOM_USAGE_STATISTICS : &#x22;统计&#x22;
 USER ||--o{ USER_RESERVATION_STATISTICS : &#x22;统计&#x22;"
 />
 
+
+
+这是简单的mermaid图：\
+
+
+<Mermaid
+  chart="flowchart TD
+    A[用户开始登录] --> B[输入账号和密码]
+    B --> C{验证账号格式}
+    C -- 格式错误 --> D[提示账号格式有误]
+    D --> B
+    C -- 格式正确 --> E{验证密码}
+    E -- 密码错误 --> F[提示密码错误，剩余重试次数n-1]
+    F --> G{重试次数是否用尽}
+    G -- 未用尽 --> B
+    G -- 已用尽 --> H[锁定账号15分钟]
+    E -- 密码正确 --> I[验证账号状态]
+    I -- 账号异常 --> J[提示账号异常，请联系客服]
+    I -- 账号正常 --> K[登录成功，跳转到首页]"
+/>
+
 \
 这是提示框：
 
-<callout type="tip" title="看起来不" />
+<Callout type="danger" title="问问吾问无为谓" />
 
 这是代码块：
 

@@ -386,7 +386,7 @@ export default config({
                                 );
                             }
                         }),
-                        callout: block({
+                        Callout: block({
                             label: '提示框 (Callout)',
                             schema: {
                                 type: fields.select({
@@ -438,7 +438,7 @@ export default config({
                                 );
                             }
                         }),
-                        mermaid: block({
+                        Mermaid: block({
                             label: '📊 Mermaid 图表',
                             schema: {
                                 chart: fields.text({
