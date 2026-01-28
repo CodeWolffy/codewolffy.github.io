@@ -143,9 +143,10 @@ const pageUrl = Astro.url.href;
                         <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         约 {readingTime} 分钟
                     </span>
-                    <!-- 阅读量 - 不蒜子 -->
-                    <span class="items-center gap-1.5" id="busuanzi_container_page_pv" style="display:none;">
-                        <svg style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg><span id="busuanzi_value_page_pv">0</span>&nbsp;次浏览
+                    <!-- 阅读量 - 不蒜子 (优化：加载中显示骨架) -->
+                    <span class="inline-flex items-center gap-1.5 busuanzi-loading" id="busuanzi_container_page_pv">
+                        <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span id="busuanzi_value_page_pv" class="min-w-[1.5rem] text-center">...</span>次浏览
                     </span>
                 </div>
                 {tagIds.length > 0 && (
