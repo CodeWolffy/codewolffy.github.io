@@ -44,9 +44,9 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background">
-            <div className="flex w-full h-12 items-center px-4 md:px-8 max-w-[1450px] mx-auto">
+            <div className="flex w-full h-12 items-center justify-between md:justify-start px-4 md:px-8 max-w-[1450px] mx-auto">
                 {/* Left Side: Desktop Nav + Mobile Menu + Mobile Logo */}
-                <div className="flex items-center gap-1 mr-auto md:mr-4">
+                <div className="flex items-center gap-1 md:mr-4">
                     {/* Desktop: Logo + Nav */}
                     <div className="hidden md:flex shrink-0">
                         <a className="mr-6 flex items-center space-x-2 font-bold text-2xl" href="/">
@@ -76,7 +76,7 @@ export function Header() {
                 </div>
 
                 {/* Right Side: Search + Github + Theme */}
-                <div className="flex items-center gap-1 ml-auto md:ml-0 md:flex-1 md:justify-end lg:justify-start">
+                <div className="flex items-center gap-1 md:flex-1 md:justify-end lg:justify-start">
                     {/* Search - Mobile: Collapsed/Right, Desktop: Fill/Left */}
                     <div className="md:flex-1 shrink-0 md:min-w-0 md:mx-4 flex justify-end md:justify-start">
                         <Search />
