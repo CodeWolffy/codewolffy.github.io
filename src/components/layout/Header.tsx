@@ -64,8 +64,8 @@ export function Header() {
 
                     {/* Mobile: Menu Button */}
                     <div className="md:hidden shrink-0">
-                        <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                        <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                            {isMenuOpen ? <X className="h-[26px] w-[26px]" /> : <Menu className="h-[26px] w-[26px]" />}
                         </Button>
                     </div>
 
