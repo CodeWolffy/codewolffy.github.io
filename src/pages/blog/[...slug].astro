@@ -14,6 +14,7 @@ import { FilePenLine } from 'lucide-react';
 import Callout from '../../components/mdx/Callout.astro';
 import Mermaid from '../../components/mdx/Mermaid.astro';
 import Iframe from '../../components/mdx/Iframe.astro';
+import { calculateReadingTime } from '../../utils/reading-time';
 
 
 export const prerender = true;
@@ -49,10 +50,11 @@ const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
 const tagIds = post.data.tags || [];
 const tagNames = tagIds.map(tagId => tagMap.get(tagId) || tagId); // Used for SEO
 
-// 计算阅读时间（中文按字数，假设300字/分钟）
+// 计算阅读时间（精细化计算：考虑图片、代码、Mermaid等）
 const content = post.body || '';
-const wordCount = content.length;
-const readingTime = Math.max(1, Math.ceil(wordCount / 300));
+const readingTimeResult = calculateReadingTime(content);
+const wordCount = readingTimeResult.wordCount;
+const readingTime = readingTimeResult.minutes;
 
 // 获取相关文章（根据标签匹配）
 const relatedPosts = allPosts
@@ -125,7 +127,7 @@ const pageUrl = Astro.url.href;
                 <h1 class="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-1">
                     {post.data.title}
                 </h1>
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-1">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-base text-muted-foreground mb-1">
 
                     {post.data.pubDate && (
                         <time datetime={post.data.pubDate.toISOString()}>
@@ -138,20 +140,20 @@ const pageUrl = Astro.url.href;
                         </time>
                     )}
                     <!-- 阅读时间 -->
-                    <span class="inline-flex items-center gap-1">
-                        <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span class="inline-flex items-center gap-1.5">
+                        <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         约 {readingTime} 分钟
                     </span>
                     <!-- 阅读量 - 不蒜子 -->
-                    <span class="items-center gap-1" id="busuanzi_container_page_pv" style="display:none;">
-                        <svg style="width:14px;height:14px;vertical-align:middle;margin-right:2px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg><span id="busuanzi_value_page_pv">0</span>&nbsp;次浏览
+                    <span class="items-center gap-1.5" id="busuanzi_container_page_pv" style="display:none;">
+                        <svg style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg><span id="busuanzi_value_page_pv">0</span>&nbsp;次浏览
                     </span>
                 </div>
                 {tagIds.length > 0 && (
                     <div class="mb-1 flex flex-wrap items-center gap-2">
-                        <span class="text-sm text-muted-foreground">标签：</span>
+                        <span class="text-base text-muted-foreground">标签：</span>
                         {tagIds.map((tagId) => (
-                            <a href={`/tags/${tagId}`} class="text-sm font-medium text-primary hover:underline">
+                            <a href={`/tags/${tagId}`} class="text-base font-medium text-primary hover:underline">
                                 #{tagMap.get(tagId) || tagId}
                             </a>
                         ))}

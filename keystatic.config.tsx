@@ -5,7 +5,7 @@ import { block } from '@keystatic/core/content-components';
 export default config({
     ui: {
         brand: {
-            name: '我的博客后台',
+            name: '狼码纪博客后台',
             mark: () => <img src="/favicon.png" height={24} alt="Logo" />
         },
         navigation: {

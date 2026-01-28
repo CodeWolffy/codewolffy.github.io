@@ -44,15 +44,15 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background">
-            <div className="flex w-full h-14 items-center px-1 md:px-8">
+            <div className="flex w-full h-12 items-center px-4 md:px-8 max-w-[1450px] mx-auto">
                 {/* Left Side: Desktop Nav + Mobile Menu + Mobile Logo */}
                 <div className="flex items-center gap-1 mr-auto md:mr-4">
                     {/* Desktop: Logo + Nav */}
                     <div className="hidden md:flex shrink-0">
-                        <a className="mr-6 flex items-center space-x-2 font-bold" href="/">
+                        <a className="mr-6 flex items-center space-x-2 font-bold text-2xl" href="/">
                             <span className="hidden font-bold sm:inline-block">狼码纪</span>
                         </a>
-                        <nav className="flex items-center space-x-6 text-sm font-medium">
+                        <nav className="flex items-center space-x-6 text-[17px] font-medium">
                             <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/">首页</a>
                             <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/archives">归档</a>
                             <a className="transition-colors hover:text-foreground/80 text-foreground/60" href="/categories">分类/标签</a>
@@ -70,7 +70,7 @@ export function Header() {
                     </div>
 
                     {/* Mobile: Logo */}
-                    <div className="md:hidden font-bold shrink-0">
+                    <div className="md:hidden font-bold text-lg shrink-0">
                         <a href="/">狼码纪</a>
                     </div>
                 </div>
@@ -85,14 +85,14 @@ export function Header() {
                     {/* Right Actions - 固定宽度 */}
                     <div className="flex items-center shrink-0 space-x-1">
                         <a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" className="inline-flex">
-                            <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 py-2 w-9 px-0">
-                                <Github className="h-4 w-4" />
+                            <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 py-2 w-10 px-0">
+                                <Github className="h-[26px] w-[26px]" />
                                 <span className="sr-only">GitHub</span>
                             </div>
                         </a>
-                        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-                            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                        <Button variant="ghost" size="icon" className="h-10 w-10" onClick={toggleTheme}>
+                            <Sun className="h-[26px] w-[26px] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                            <Moon className="absolute h-[26px] w-[26px] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                             <span className="sr-only">Toggle theme</span>
                         </Button>
                     </div>

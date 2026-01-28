@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import PostCard from "@/components/blog/PostCard.astro";
 import { getCollection } from "astro:content";
+import { getReadingTimeMinutes } from "@/utils/reading-time";
 
 const posts = (await getCollection("blog", ({ data }) => {
     return import.meta.env.PROD ? data.draft !== true : true;
@@ -50,11 +51,6 @@ const sortedCategories = Object.values(categoryCounts).sort((a, b) => b.count - 
 // Limit items for homepage (Preview)
 const topCategories = sortedCategories.slice(0, 4);
 const topTags = sortedTags.slice(0, 8);
-
-// 计算阅读时间函数 (中文按字数，假设 300 字/分钟)
-function getReadingTime(content: string): number {
-    return Math.max(1, Math.ceil(content.length / 300));
-}
 ---
 
 <BaseLayout title="狼码纪">
@@ -121,7 +117,7 @@ function getReadingTime(content: string): number {
 					post={post}
 					index={index}
 					mainTagLabel={post.data.tags && post.data.tags.length > 0 ? (tagMap.get(post.data.tags[0]) || post.data.tags[0]) : undefined}
-					readingTime={getReadingTime(post.body || '')}
+						readingTime={getReadingTimeMinutes(post.body || '')}
 				/>
 			))}
 		</div>
