@@ -85,9 +85,8 @@ function getReadingTime(content: string): number {
 				<h1 class="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl text-foreground pb-2">
 					狼码纪
 				</h1>
-				<p id="typewriter-text" class="mx-auto max-w-[600px] text-muted-foreground text-lg md:text-xl h-8 flex items-center justify-center">
-					<span id="typewriter-content"></span>
-					<span id="typewriter-cursor" class="inline-block w-[2px] h-[1.2em] bg-primary ml-1 animate-cursor-blink"></span>
+				<p class="mx-auto max-w-[600px] text-muted-foreground text-lg md:text-xl h-8">
+					探索技术、编程与设计的边界。
 				</p>
 			</div>
 			<div class="flex gap-4 mt-4 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-300">
@@ -105,35 +104,7 @@ function getReadingTime(content: string): number {
 		</div>
 	</section>
 
-	<script>
-		const text = "探索技术、编程与设计的边界。";
-		const element = document.getElementById('typewriter-content');
-		let index = 0;
-		
-		function typeWriter() {
-			if (element && index < text.length) {
-				element.textContent += text.charAt(index);
-				index++;
-				setTimeout(typeWriter, 100);
-			}
-		}
-		
-		// Start animation after page load
-		if (document.readyState === 'complete') {
-			typeWriter();
-		} else {
-			window.addEventListener('load', typeWriter);
-		}
-		
-		// Re-run on View Transitions
-		document.addEventListener('astro:page-load', () => {
-			if (element) {
-				element.textContent = '';
-				index = 0;
-				typeWriter();
-			}
-		});
-	</script>
+
 
     <!-- 最新文章区域 -->
     <section class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6">
