@@ -438,6 +438,70 @@ export default config({
                                 );
                             }
                         }),
+                        mermaid: block({
+                            label: '📊 Mermaid 图表',
+                            schema: {
+                                chart: fields.text({
+                                    label: '图表代码',
+                                    multiline: true,
+                                    description: '输入 Mermaid 语法。常用类型：flowchart（流程图）、sequenceDiagram（时序图）、pie（饼图）、gantt（甘特图）'
+                                }),
+                            },
+                            ContentView: (props) => {
+                                const chart = props.value.chart || '';
+
+                                // 简单的语法提示
+                                const getChartType = (code: string) => {
+                                    if (code.startsWith('flowchart') || code.startsWith('graph')) return '流程图';
+                                    if (code.startsWith('sequenceDiagram')) return '时序图';
+                                    if (code.startsWith('pie')) return '饼图';
+                                    if (code.startsWith('gantt')) return '甘特图';
+                                    if (code.startsWith('classDiagram')) return '类图';
+                                    if (code.startsWith('erDiagram')) return 'ER图';
+                                    if (code.startsWith('stateDiagram')) return '状态图';
+                                    return '图表';
+                                };
+
+                                return (
+                                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>
+                                        <div style={{ padding: '8px 12px', borderBottom: '1px solid #e2e8f0', background: '#fff', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span>📊 Mermaid {chart ? getChartType(chart.trim()) : '图表'}</span>
+                                            {chart && <span style={{ color: '#22c55e' }}>✓ 已输入</span>}
+                                        </div>
+
+                                        {chart ? (
+                                            <div style={{ padding: '16px', background: '#fff' }}>
+                                                <pre style={{
+                                                    margin: 0,
+                                                    padding: '12px',
+                                                    background: '#f1f5f9',
+                                                    borderRadius: '6px',
+                                                    fontSize: '12px',
+                                                    fontFamily: 'ui-monospace, monospace',
+                                                    overflow: 'auto',
+                                                    maxHeight: '200px',
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-word'
+                                                }}>
+                                                    {chart}
+                                                </pre>
+                                                <div style={{ marginTop: '8px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
+                                                    ⓘ 图表将在文章页面渲染显示
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                                                <div style={{ marginBottom: '8px', fontSize: '24px' }}>📊</div>
+                                                <div style={{ marginBottom: '12px' }}>请在右侧输入 Mermaid 图表代码</div>
+                                                <div style={{ fontSize: '11px', color: '#cbd5e1' }}>
+                                                    示例：flowchart TD; A--&gt;B;
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+                        }),
                     }, // Close components
                 }), // Close fields.mdx
             }, // Close schema

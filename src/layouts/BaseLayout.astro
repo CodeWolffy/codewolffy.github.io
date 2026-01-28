@@ -43,6 +43,33 @@ const { title, description = "A modern tech blog." } = Astro.props;
         <meta property="twitter:image" content={new URL("/og-image.jpg", Astro.url)} />
 
 		<ClientRouter />
+		
+		<!-- 不蒜子访问统计 -->
+		<script is:inline>
+			// 不蒜子脚本加载函数
+			function loadBusuanzi() {
+				// 检查页面是否有不蒜子容器元素（只在文章页加载）
+				const container = document.getElementById('busuanzi_container_page_pv');
+				if (!container) return;
+				
+				// 移除旧脚本（如果存在）
+				const oldScript = document.getElementById('busuanzi_script');
+				if (oldScript) oldScript.remove();
+				
+				// 重置显示状态
+				container.style.display = 'none';
+				
+				// 创建新脚本
+				const script = document.createElement('script');
+				script.id = 'busuanzi_script';
+				script.src = '//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js';
+				script.async = true;
+				document.head.appendChild(script);
+			}
+			
+			// 只监听 astro:page-load（首次加载和导航都会触发，但只触发一次）
+			document.addEventListener('astro:page-load', loadBusuanzi);
+		</script>
 
 		{/* Theme Initialization Script to prevent FOUC */}
 		<script is:inline>

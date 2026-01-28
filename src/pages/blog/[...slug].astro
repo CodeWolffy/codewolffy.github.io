@@ -9,10 +9,11 @@ import { ShareButtons } from '@/components/blog/ShareButtons';
 import { ExportButton } from '@/components/blog/ExportButton';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { Copyright } from '@/components/blog/Copyright';
-import Iframe from '../../components/mdx/Iframe.astro';
 import { buttonVariants } from '@/components/ui/button';
 import { FilePenLine } from 'lucide-react';
 import Callout from '../../components/mdx/Callout.astro';
+import Mermaid from '../../components/mdx/Mermaid.astro';
+import Iframe from '../../components/mdx/Iframe.astro';
 
 
 export const prerender = true;
@@ -129,9 +130,13 @@ const pageUrl = Astro.url.href;
                         </time>
                     )}
                     <!-- 阅读时间 -->
-                    <span class="flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span class="inline-flex items-center gap-1">
+                        <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         约 {readingTime} 分钟
+                    </span>
+                    <!-- 阅读量 - 不蒜子 -->
+                    <span class="items-center gap-1" id="busuanzi_container_page_pv" style="display:none;">
+                        <svg style="width:14px;height:14px;vertical-align:middle;margin-right:2px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg><span id="busuanzi_value_page_pv">0</span>&nbsp;次浏览
                     </span>
                 </div>
                 {tagIds.length > 0 && (
@@ -159,7 +164,7 @@ const pageUrl = Astro.url.href;
 
 
             <div class="prose dark:prose-invert max-w-none" data-pagefind-body>
-                <Content components={{ Callout }} />
+                <Content components={{ callout: Callout, mermaid: Mermaid, iframe: Iframe }} />
             </div>
 			
 			<!-- 代码复制按钮初始化 -->

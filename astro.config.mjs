@@ -50,6 +50,11 @@ const autoSyncContent = () => {
 // https://astro.build/config
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 export default defineConfig({
+  // 路由预加载配置 - 提升导航性能
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: 'hover'
+  },
   // Cloudflare Pages 支持 SSR，所以 Keystatic 可以在生产环境运行
   integrations: [
     react(),

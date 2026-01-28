@@ -1,0 +1,90 @@
+---
+// Mermaid 图表组件
+// 用法: 在 MDX 中使用 <Mermaid chart={`graph TD; A-->B;`} />
+interface Props {
+    chart: string;
+}
+
+const { chart } = Astro.props;
+const id = `mermaid-${Math.random().toString(36).substring(2, 9)}`;
+---
+
+<div class="mermaid-wrapper my-6">
+    <pre id={id} class="mermaid">{chart}</pre>
+</div>
+
+<script>
+    import mermaid from 'mermaid';
+    
+    const initMermaid = () => {
+        const isDark = document.documentElement.classList.contains('dark');
+        
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: isDark ? 'dark' : 'default',
+            securityLevel: 'loose',
+            fontFamily: 'inherit',
+        });
+        
+        // 渲染所有 mermaid 图表
+        const elements = document.querySelectorAll('.mermaid:not([data-processed])');
+        elements.forEach(async (element) => {
+            try {
+                const id = element.id || `mermaid-${Math.random().toString(36).substring(2, 9)}`;
+                const graphDefinition = element.textContent || '';
+                const { svg } = await mermaid.render(id + '-svg', graphDefinition);
+                element.innerHTML = svg;
+                element.setAttribute('data-processed', 'true');
+            } catch (error) {
+                console.error('Mermaid rendering error:', error);
+                element.innerHTML = `<div class="text-red-500 p-4 border border-red-500 rounded">Mermaid 图表渲染失败</div>`;
+            }
+        });
+    };
+    
+    // 初始加载
+    if (document.readyState === 'complete') {
+        initMermaid();
+    } else {
+        window.addEventListener('load', initMermaid);
+    }
+    
+    // View Transitions 导航后重新初始化
+    document.addEventListener('astro:page-load', initMermaid);
+    
+    // 主题切换时重新渲染
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.attributeName === 'class') {
+                // 移除 processed 标记以便重新渲染
+                document.querySelectorAll('.mermaid[data-processed]').forEach(el => {
+                    el.removeAttribute('data-processed');
+                });
+                initMermaid();
+            }
+        });
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+</script>
+
+<style is:global>
+    .mermaid-wrapper {
+        overflow-x: auto;
+    }
+    
+    .mermaid {
+        display: flex;
+        justify-content: center;
+        background: transparent !important;
+    }
+    
+    .mermaid svg {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* 暗色主题适配 */
+    .dark .mermaid {
+        filter: invert(0);
+    }
+</style>

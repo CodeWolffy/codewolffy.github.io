@@ -161,6 +161,18 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    /* 不蒜子访问统计样式 - 强制 inline-flex 对齐 */
+    #busuanzi_container_page_pv {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 0.25rem !important;
+    }
+
+    #busuanzi_container_page_pv[style*="display:none"],
+    #busuanzi_container_page_pv[style*="display: none"] {
+        display: none !important;
+    }
 }
 
 /* Hide pagefind's built-in search input since we use our own */

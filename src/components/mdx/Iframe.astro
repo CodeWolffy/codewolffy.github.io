@@ -1,0 +1,56 @@
+---
+// Iframe 嵌入视频组件
+// 用于在文章中嵌入外部视频（如 Bilibili、YouTube 等）
+
+interface Props {
+  src: string;
+  title?: string;
+}
+
+const { src, title = '嵌入视频' } = Astro.props;
+
+// 处理 Bilibili 视频，自动添加 autoplay=0 参数
+const processedSrc = (() => {
+  if (!src) return '';
+  let url = src;
+  if (url.includes('bilibili.com') && !url.includes('autoplay=0')) {
+    const separator = url.includes('?') ? '&' : '?';
+    url = `${url}${separator}autoplay=0`;
+  }
+  return url;
+})();
+---
+
+{processedSrc && (
+  <div class="video-wrapper my-6">
+    <iframe
+      src={processedSrc}
+      title={title}
+      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+      allowfullscreen
+      loading="lazy"
+    />
+  </div>
+)}
+
+<style>
+  .video-wrapper {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* 16:9 */
+    height: 0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--muted);
+  }
+
+  .video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0.5rem;
+  }
+</style>

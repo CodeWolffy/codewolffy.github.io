@@ -1,5 +1,6 @@
 ---
-import { AlertCircle, Info, Lightbulb, Flame } from 'lucide-react';
+// Callout 提示框组件
+// 用于在文章中显示不同类型的提示信息
 
 interface Props {
   type?: 'info' | 'tip' | 'warning' | 'danger';
@@ -10,40 +11,40 @@ const { type = 'info', title } = Astro.props;
 
 const variants = {
   info: {
-    icon: Info,
     className: 'bg-blue-50 text-blue-900 border-blue-200 dark:bg-blue-950/30 dark:text-blue-200 dark:border-blue-900',
     iconClass: 'text-blue-600 dark:text-blue-400',
-    defaultTitle: '信息'
+    defaultTitle: '信息',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`
   },
   tip: {
-    icon: Lightbulb,
     className: 'bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-900',
     iconClass: 'text-emerald-600 dark:text-emerald-400',
-    defaultTitle: '提示'
+    defaultTitle: '提示',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>`
   },
   warning: {
-    icon: AlertCircle,
     className: 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-900',
     iconClass: 'text-amber-600 dark:text-amber-400',
-    defaultTitle: '注意'
+    defaultTitle: '注意',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`
   },
   danger: {
-    icon: Flame,
     className: 'bg-red-50 text-red-900 border-red-200 dark:bg-red-950/30 dark:text-red-200 dark:border-red-900',
     iconClass: 'text-red-600 dark:text-red-400',
-    defaultTitle: '警告'
+    defaultTitle: '警告',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`
   }
 };
 
 const variant = variants[type];
-const Icon = variant.icon;
+const displayTitle = title || variant.defaultTitle;
 ---
 
 <div class={`my-6 rounded-lg border p-4 ${variant.className}`}>
   <div class="flex items-start gap-3">
-    <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${variant.iconClass}`} />
+    <span class={`mt-0.5 shrink-0 ${variant.iconClass}`} set:html={variant.icon} />
     <div class="w-full min-w-0 leading-relaxed">
-      {title && <div class="font-medium mb-1">{title}</div>}
+      {displayTitle && <div class="font-medium mb-1">{displayTitle}</div>}
       <div class="callout-content">
         <slot />
       </div>
