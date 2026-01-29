@@ -31,6 +31,12 @@ export default config({
                         div[data-keystatic-scroll-area] > div > div {
                             max-width: 900px !important;
                         }
+                        /* 放大 GitHub 登录按钮 */
+                        a[href*="/api/keystatic/github/login"] {
+                            transform: scale(3);
+                            transform-origin: center;
+                            margin: 60px !important;
+                        }
                     `}</style>
                 </>
             )

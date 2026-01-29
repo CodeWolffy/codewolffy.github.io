@@ -162,7 +162,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
                     minEntityHeight: 25,
                     entityPadding: 8,
                     strokeWidth: 1,
-                    fontSize: 12,
+                fontSize: 14, // Match CSS font size
                     wrap: true
                 },
                 flowchart: { 
@@ -173,6 +173,9 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
                     wrap: true
                 },
             });
+            
+            // 等待字体加载完成，防止计算布局时宽度计算错误
+            await document.fonts.ready;
             
             // 渲染所有图表
             const elements = document.querySelectorAll('.mermaid:not([data-processed])');
@@ -610,7 +613,6 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         box-sizing: content-box !important;
     }
 
-    /* Ensure text measurement matches rendering */
     .mermaid svg text, 
     .mermaid svg span,
     .mermaid g {
@@ -619,7 +621,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         letter-spacing: normal !important;
         line-height: normal !important;
         text-transform: none !important;
-        max-width: none !important;
+        /* max-width: none !important;  Removed: this can cause runway widths if layout is bad */
     }
     
     .mermaid-error {

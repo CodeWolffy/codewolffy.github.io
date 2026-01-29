@@ -22,14 +22,36 @@ const processedSrc = (() => {
 ---
 
 {processedSrc && (
-  <div class="video-wrapper my-6">
-    <iframe
-      src={processedSrc}
-      title={title}
-      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-      allowfullscreen
-      loading="lazy"
-    />
+  <div class="my-6">
+    <div class="video-wrapper !mb-0 !my-0">
+      <iframe
+        src={processedSrc}
+        title={title}
+        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+        allowfullscreen
+        loading="lazy"
+      />
+    </div>
+    {(() => {
+        if (!processedSrc || !processedSrc.includes('bilibili.com')) return null;
+        
+        const match = processedSrc.match(/video\/(BV\w+)/) || processedSrc.match(/bvid=(BV\w+)/);
+        const bvid = match ? match[1] : null;
+        
+        if (bvid) {
+            return (
+                 <a 
+                    href={`https://www.bilibili.com/video/${bvid}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="text-xs text-muted-foreground hover:text-primary transition-colors mt-0.5 block text-right lg:hidden"
+                >
+                    📺 去 Bilibili 观看高清原视频 &gt;
+                </a>
+            );
+        }
+        return null;
+    })()}
   </div>
 )}
 

@@ -488,8 +488,7 @@
     /* 增加圆角 */
     border: 1px solid hsl(240 5.9% 90%);
     /* 最外层边框 */
-    overflow: hidden;
-    /* 确保圆角生效 */
+    /* overflow: hidden; Removed to allow horizontal scrolling */
 }
 
 .dark .table-wrapper {
@@ -499,6 +498,8 @@
 /* 核心修复：使用 separate 模式精确控制边框，解决圆角和双边框问题 */
 .table-wrapper table {
     width: 100%;
+    min-width: 650px;
+    /* Force horizontal scroll on small screens */
     margin: 0;
     border-collapse: separate;
     /* 关键：分离边框模式 */
