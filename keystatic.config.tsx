@@ -6,7 +6,34 @@ export default config({
     ui: {
         brand: {
             name: '狼码纪博客后台',
-            mark: () => <img src="/favicon.png" height={24} alt="Logo" />
+            mark: () => (
+                <>
+                    <img src="/favicon.png" height={24} alt="Logo" />
+                    <style>{`
+                        /* 强制表格样式在编辑器中更易读 */
+                        div[contenteditable] table {
+                            width: 100% !important;
+                            table-layout: auto !important;
+                            border-collapse: collapse !important;
+                            margin: 1em 0 !important;
+                        }
+                        div[contenteditable] td, 
+                        div[contenteditable] th {
+                            border: 1px solid #e2e8f0 !important;
+                            padding: 8px 12px !important;
+                            min-width: 50px;
+                        }
+                        div[contenteditable] th {
+                            background-color: #f8fafc !important;
+                            font-weight: bold !important;
+                        }
+                        /* 增加编辑器内容区的宽度限制，以便显示宽表格 */
+                        div[data-keystatic-scroll-area] > div > div {
+                            max-width: 900px !important;
+                        }
+                    `}</style>
+                </>
+            )
         },
         navigation: {
             '博客管理': ['posts'],
@@ -444,14 +471,16 @@ export default config({
                         Mermaid: block({
                             label: '📊 Mermaid 图表',
                             schema: {
-                                chart: fields.text({
-                                    label: '图表代码',
-                                    multiline: true,
-                                    description: '输入 Mermaid 语法。常用类型：flowchart（流程图）、sequenceDiagram（时序图）、pie（饼图）、gantt（甘特图）'
+                                code: fields.object({
+                                    value: fields.text({
+                                        label: '图表代码',
+                                        multiline: true,
+                                        description: '输入 Mermaid 语法。常用类型：flowchart（流程图）、sequenceDiagram（时序图）、pie（饼图）、gantt（甘特图）'
+                                    }),
                                 }),
                             },
                             ContentView: (props) => {
-                                const chart = props.value.chart || '';
+                                const chart = props.value.code?.value || '';
 
                                 // 简单的语法提示
                                 const getChartType = (code: string) => {
@@ -495,7 +524,7 @@ export default config({
                                         ) : (
                                             <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
                                                 <div style={{ marginBottom: '8px', fontSize: '24px' }}>📊</div>
-                                                <div style={{ marginBottom: '12px' }}>请在右侧输入 Mermaid 图表代码</div>
+                                                <div style={{ marginBottom: '12px' }}>请在上方“图表代码”中输入 Mermaid 代码</div>
                                                 <div style={{ fontSize: '11px', color: '#cbd5e1' }}>
                                                     示例：flowchart TD; A--&gt;B;
                                                 </div>

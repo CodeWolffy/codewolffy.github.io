@@ -63,29 +63,7 @@ CREATE TABLE users (
 
 ### 📊 集合关系图
 
-<Mermaid
-  chart="graph LR
-    subgraph META [元数据 Metadata - 大圆]
-        direction TB
-        M1[Schema<br/>结构定义]
-        M2[业务含义<br/>Business Meaning]
-        M3[操作信息<br/>Operational Info]
-        M4[管理策略<br/>Governance Policy]
-    end
-    
-    subgraph SCH [独立的 Schema 视角]
-        direction TB
-        S1[仅关注结构约束]
-        S2[数据验证规则]
-        S3[数据库实现]
-    end
-    
-    M1 -.->|Schema是<br/>技术元数据的<br/>核心部分| S1
-    
-    style META fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style SCH fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style M1 fill:#ff8a65,stroke:#bf360c,stroke-width:3px,color:#fff"
-/>
+<Mermaid code={{"value":"graph LR\n    subgraph META [元数据 Metadata - 大圆]\n        direction TB\n        M1[Schema<br/>结构定义]\n        M2[业务含义<br/>Business Meaning]\n        M3[操作信息<br/>Operational Info]\n        M4[管理策略<br/>Governance Policy]\n    end\n    \n    subgraph SCH [独立的 Schema 视角]\n        direction TB\n        S1[仅关注结构约束]\n        S2[数据验证规则]\n        S3[数据库实现]\n    end\n    \n    M1 -.->|Schema是<br/>技术元数据的<br/>核心部分| S1\n    \n    style META fill:#e3f2fd,stroke:#1565c0,stroke-width:2px\n    style SCH fill:#fff3e0,stroke:#ef6c00,stroke-width:2px\n    style M1 fill:#ff8a65,stroke:#bf360c,stroke-width:3px,color:#fff"}} />
 
 **关键洞察**：Schema 是**技术元数据**的核心子集，但元数据还额外包含业务语境、管理策略、操作历史等更丰富的"软性"信息。
 
@@ -95,36 +73,7 @@ CREATE TABLE users (
 
 以下示例展示同一数据资产的两种描述维度：
 
-<Mermaid
-  chart="erDiagram
-    %% ========== Schema 层：物理结构定义（橙色） ==========
-    USER_TABLE {
-        int user_id PK &#x22;⚙️ Schema: INT, 主键, 自增&#x22;
-        varchar username &#x22;⚙️ Schema: VARCHAR(50), 非空, 唯一索引&#x22;
-        varchar email &#x22;⚙️ Schema: VARCHAR(100), 唯一约束, CHECK格式&#x22;
-        datetime created_at &#x22;⚙️ Schema: DATETIME, 默认CURRENT_TIMESTAMP&#x22;
-        tinyint status &#x22;⚙️ Schema: TINYINT(1), 枚举:0=禁用,1=激活&#x22;
-    }
-    
-    %% ========== 元数据层：描述与管理信息（蓝色） ==========
-    USER_TABLE_META {
-        string table_desc &#x22;📋 元数据: 核心业务系统用户主表，存储注册用户信息&#x22;
-        string biz_owner &#x22;👤 元数据: 业务负责人: 王经理(产品部)&#x22;
-        string tech_owner &#x22;🔧 元数据: 技术负责人: DBA-张三&#x22;
-        string update_time &#x22;⏰ 元数据: 每日凌晨02:00 ETL同步更新&#x22;
-        string data_source &#x22;📡 元数据: 数据来源: CRM系统/API网关&#x22;
-        string sensitivity &#x22;🔒 元数据: 安全等级: PII(个人身份信息) - L3级&#x22;
-        string compliance &#x22;⚖️ 元数据: 合规要求: GDPR/《个人信息保护法》&#x22;
-        int daily_query &#x22;📊 元数据: 日均查询量: 125,000次&#x22;
-        string retention &#x22;🗄️ 元数据: 保留策略: 7年(法规要求)，离职用户脱敏&#x22;
-    }
-    
-    USER_TABLE ||--|| USER_TABLE_META : &#x22;由...描述与解释&#x22;
-    
-    %% 样式定义
-    style USER_TABLE fill:#ffe0b2,stroke:#e65100,stroke-width:3px
-    style USER_TABLE_META fill:#b3e5fc,stroke:#0277bd,stroke-width:3px"
-/>
+<Mermaid code={{"value":"erDiagram\n    %% ========== Schema 层：物理结构定义（橙色） ==========\n    USER_TABLE {\n        int user_id PK \"⚙️ Schema: INT, 主键, 自增\"\n        varchar username \"⚙️ Schema: VARCHAR(50), 非空, 唯一索引\"\n        varchar email \"⚙️ Schema: VARCHAR(100), 唯一约束, CHECK格式\"\n        datetime created_at \"⚙️ Schema: DATETIME, 默认CURRENT_TIMESTAMP\"\n        tinyint status \"⚙️ Schema: TINYINT(1), 枚举:0=禁用,1=激活\"\n    }\n    \n    %% ========== 元数据层：描述与管理信息（蓝色） ==========\n    USER_TABLE_META {\n        string table_desc \"📋 元数据: 核心业务系统用户主表，存储注册用户信息\"\n        string biz_owner \"👤 元数据: 业务负责人: 王经理(产品部)\"\n        string tech_owner \"🔧 元数据: 技术负责人: DBA-张三\"\n        string update_time \"⏰ 元数据: 每日凌晨02:00 ETL同步更新\"\n        string data_source \"📡 元数据: 数据来源: CRM系统/API网关\"\n        string sensitivity \"🔒 元数据: 安全等级: PII(个人身份信息) - L3级\"\n        string compliance \"⚖️ 元数据: 合规要求: GDPR/《个人信息保护法》\"\n        int daily_query \"📊 元数据: 日均查询量: 125,000次\"\n        string retention \"🗄️ 元数据: 保留策略: 7年(法规要求)，离职用户脱敏\"\n    }\n    \n    USER_TABLE ||--|| USER_TABLE_META : \"由...描述与解释\"\n    \n    %% 样式定义\n    style USER_TABLE fill:#ffe0b2,stroke:#e65100,stroke-width:3px\n    style USER_TABLE_META fill:#b3e5fc,stroke:#0277bd,stroke-width:3px"}} />
 
 **场景解读**：
 
@@ -135,33 +84,7 @@ CREATE TABLE users (
 
 ### 🔄 关键区别流程图：何时用 Schema？何时用元数据？
 
-<Mermaid
-  chart="flowchart TB
-subgraph Question [&#x22;当遇到以下问题时，你需要哪个？&#x22;]
-Q1[新数据要存进数据库<br/>需要什么格式？]
-Q2[这个字段代表什么意思？<br/>数据从哪来？]
-Q3[如何验证数据格式<br/>是否正确？]
-Q4[谁负责这数据？<br/>能否给外部看？]
-end
-
-Q1 -->|Schema| A1[定义表结构<br/>字段类型<br/>约束规则]
-Q2 -->|Metadata| A2[业务定义<br/>数据血缘<br/>来源系统]
-Q3 -->|Schema| A3[主键约束<br/>类型检查<br/>格式验证]
-Q4 -->|Metadata| A4[Data Owner<br/>安全分级<br/>合规标签]
-
-A1 --> SchemaResult[Schema: 数据的<br/>结构和规则]
-A3 --> SchemaResult
-A2 --> MetaResult[Metadata: 数据的<br/>描述和管理]
-A4 --> MetaResult
-
-SchemaResult --> Final[协同工作<br/>Schema ⊂ Metadata]
-MetaResult --> Final
-
-style Question fill:#f5f5f5,stroke:#616161
-style SchemaResult fill:#ffccbc,stroke:#d84315
-style MetaResult fill:#b3e5fc,stroke:#0277bd
-style Final fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px"
-/>
+<Mermaid code={{"value":"flowchart TB\n    subgraph Question [\"当遇到以下问题时，你需要哪个？\"]\n        Q1[新数据要存进数据库<br/>需要什么格式？]\n        Q2[这个字段代表什么意思？<br/>数据从哪来？]\n        Q3[如何验证数据格式<br/>是否正确？]\n        Q4[谁负责这数据？<br/>能否给外部看？]\n    end\n    \n    Q1 -->|Schema| A1[定义表结构<br/>字段类型<br/>约束规则]\n    Q2 -->|Metadata| A2[业务定义<br/>数据血缘<br/>来源系统]\n    Q3 -->|Schema| A3[主键约束<br/>类型检查<br/>格式验证]\n    Q4 -->|Metadata| A4[Data Owner<br/>安全分级<br/>合规标签]\n    \n    A1 --> SchemaResult[Schema: 数据的<br/>结构和规则]\n    A3 --> SchemaResult\n    A2 --> MetaResult[Metadata: 数据的<br/>描述和管理]\n    A4 --> MetaResult\n    \n    SchemaResult --> Final[协同工作<br/>Schema ⊂ Metadata]\n    MetaResult --> Final\n    \n    style Question fill:#f5f5f5,stroke:#616161\n    style SchemaResult fill:#ffccbc,stroke:#d84315\n    style MetaResult fill:#b3e5fc,stroke:#0277bd\n    style Final fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px"}} />
 
 ---
 

@@ -474,41 +474,88 @@
         touch-action: auto;
         pointer-events: auto;
     }
+}
 
-    /* 移动端表格横向滚动容器 */
-    .table-wrapper {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        margin-left: 0;
-        margin-right: 0;
-        margin-bottom: 1rem;
-        border-radius: 0.5rem;
-        border: 1px solid hsl(240 5.9% 90%);
-        background: var(--card);
-        padding: 1px;
-        /* Avoid collapsing borders cutting off */
-    }
+/* 移除移动端媒体查询限制，使表格样式全局生效 */
+/* .table-wrapper 样式优化 */
+.table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0.5rem 0;
+    /* 缩小上下间距 */
+    padding: 0;
+    border-radius: 0.5rem;
+    /* 增加圆角 */
+    border: 1px solid hsl(240 5.9% 90%);
+    /* 最外层边框 */
+    overflow: hidden;
+    /* 确保圆角生效 */
+}
 
-    .dark .table-wrapper {
-        border-color: hsl(240 3.7% 15.9%);
-        background: var(--card);
-    }
+.dark .table-wrapper {
+    border-color: hsl(240 3.7% 15.9%);
+}
 
-    .table-wrapper table {
-        margin: 0;
-        width: max-content;
-        /* Force table to expand beyond container */
-        min-width: 100%;
-        border-collapse: collapse;
-    }
+/* 核心修复：使用 separate 模式精确控制边框，解决圆角和双边框问题 */
+.table-wrapper table {
+    width: 100%;
+    margin: 0;
+    border-collapse: separate;
+    /* 关键：分离边框模式 */
+    border-spacing: 0;
+    /* 关键：消除单元格间距 */
+    font-size: 0.875rem;
+    border-style: none;
+}
 
-    .table-wrapper th,
-    .table-wrapper td {
-        white-space: nowrap;
-        /* Prevent text from wrapping */
-        padding: 0.75rem 1rem;
-        /* Add breathing room */
-    }
+.table-wrapper th,
+.table-wrapper td {
+    padding: 0.75rem 1rem;
+    /* 只设置右边框和下边框，避免双重边框 */
+    border-right: 1px solid hsl(240 5.9% 90%);
+    border-bottom: 1px solid hsl(240 5.9% 90%);
+    border-left: none;
+    border-top: none;
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+    vertical-align: top;
+}
+
+/* 最后一列去掉右边框（由 wrapper 的右边框替代） */
+.table-wrapper th:last-child,
+.table-wrapper td:last-child {
+    border-right: none;
+}
+
+/* 最后一行去掉下边框（由 wrapper 的下边框替代） */
+/* 注意：针对 tbody 的最后一行，保留表头(th)的下边框 */
+.table-wrapper tbody tr:last-child td,
+.table-wrapper tbody tr:last-child th {
+    border-bottom: none;
+}
+
+/* 兼容没有 tbody 的情况（直接在 table 下的 tr） */
+.table-wrapper table>tr:last-child td,
+.table-wrapper table>tr:last-child th {
+    border-bottom: none;
+}
+
+.table-wrapper th {
+    background-color: hsl(240 4.8% 95.9%);
+    /* muted color */
+    font-weight: 600;
+    color: var(--foreground);
+    white-space: nowrap;
+}
+
+.dark .table-wrapper th {
+    background-color: hsl(240 3.7% 15.9%);
+    border-color: hsl(240 3.7% 15.9%);
+}
+
+.dark .table-wrapper td {
+    border-color: hsl(240 3.7% 15.9%);
 }
 
 /* ========== 图片样式优化 ========== */

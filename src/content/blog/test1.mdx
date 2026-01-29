@@ -17,21 +17,7 @@ tags:
 
 这是mermaid 图
 
-<Mermaid
-  chart="flowchart TD
-A[用户开始登录] --> B[输入账号和密码]
-B --> C{验证账号格式}
-C -- 格式错误 --> D[提示账号格式有误]
-D --> B
-C -- 格式正确 --> E{验证密码}
-E -- 密码错误 --> F[提示密码错误，剩余重试次数n-1]
-F --> G{重试次数是否用尽}
-G -- 未用尽 --> B
-G -- 已用尽 --> H[锁定账号15分钟]
-E -- 密码正确 --> I[验证账号状态]
-I -- 账号异常 --> J[提示账号异常，请联系客服]
-I -- 账号正常 --> K[登录成功，跳转到首页]"
-/>
+<Mermaid code={{"value":"erDiagram\n    %% Schema 层：定义结构\n    USERS ||--o{ ORDERS : places\n    USERS {\n        int id PK \"Schema: INT类型,自增\"\n        string name \"Schema: VARCHAR(100),非空\"\n        string email \"Schema: VARCHAR(255),唯一\"\n        datetime created_at \"Schema: TIMESTAMP,默认当前时间\"\n    }\n    \n    ORDERS {\n        int order_id PK \"Schema: INT类型,主键\"\n        int user_id FK \"Schema: INT类型,外键关联Users\"\n        decimal amount \"Schema: DECIMAL(10,2)\"\n        status enum \"Schema: ENUM类型\"\n    }\n    \n    %% 元数据层：注释说明\n    USERS_METADATA {\n        string table_desc \"元数据: 存储注册用户基本信息\"\n        string owner \"元数据: 负责人:张三\"\n        string update_freq \"元数据: 每日凌晨2点同步\"\n        string sensitivity \"元数据: 敏感等级:L3(个人信息)\"\n        string lineage \"元数据: 源系统:CRM\"\n    }\n    \n    ORDERS_METADATA {\n        string table_desc \"元数据: 电商订单主表\"\n        string owner \"元数据: 负责人:李四\"\n        string retention \"元数据: 保留期:7年(合规要求)\"\n        string usage_stats \"元数据: 日均查询10万次\"\n    }\n    \n    USERS ||--|| USERS_METADATA : described_by\n    ORDERS ||--|| ORDERS_METADATA : described_by\n    \n    style USERS fill:#e8f5e9,stroke:#2e7d32\n    style ORDERS fill:#e8f5e9,stroke:#2e7d32\n    style USERS_METADATA fill:#fff3e0,stroke:#ef6c00\n    style ORDERS_METADATA fill:#fff3e0,stroke:#ef6c00"}} />
 
 \
 这是提示框：

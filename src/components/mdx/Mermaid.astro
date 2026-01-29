@@ -2,10 +2,13 @@
 // Mermaid 图表组件
 // 支持预览/代码切换、缩放、全屏
 interface Props {
-    chart: string;
+    code: {
+        value: string;
+    };
 }
 
-const { chart } = Astro.props;
+const { code } = Astro.props;
+const mermaidCode = code.value || '';
 const id = `mermaid-${Math.random().toString(36).substring(2, 9)}`;
 
 // 解码 HTML 实体
@@ -22,7 +25,7 @@ function decodeHtmlEntities(str: string): string {
         .replace(/&amp;/g, '&');
 }
 
-const decodedChart = decodeHtmlEntities(chart || '');
+const decodedChart = decodeHtmlEntities(mermaidCode);
 ---
 
 <div class="mermaid-container my-6" data-mermaid-id={id}>
@@ -150,10 +153,25 @@ const decodedChart = decodeHtmlEntities(chart || '');
                 startOnLoad: false,
                 theme: isDark ? 'dark' : 'default',
                 securityLevel: 'loose',
-                fontFamily: 'inherit',
+                fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
                 maxTextSize: 100000,
-                er: { useMaxWidth: false, minEntityWidth: 100, minEntityHeight: 75 },
-                flowchart: { useMaxWidth: false, htmlLabels: true },
+                er: { 
+                    useMaxWidth: false,  // 禁用自动宽度，让图表紧凑
+                    layoutDirection: 'TB',  // 从上到下布局，减少水平宽度
+                    minEntityWidth: 80, 
+                    minEntityHeight: 25,
+                    entityPadding: 8,
+                    strokeWidth: 1,
+                    fontSize: 12,
+                    wrap: true  // 启用文本换行
+                },
+                flowchart: { 
+                    useMaxWidth: false,  // 禁用自动宽度
+                    htmlLabels: true,
+                    rankSpacing: 50,
+                    nodeSpacing: 30,
+                    wrap: true
+                },
             });
             
             // 渲染所有图表
@@ -181,6 +199,30 @@ const decodedChart = decodeHtmlEntities(chart || '');
             const { svg } = await mermaid.render(elemId + '-svg', chartData);
             element.innerHTML = svg;
             element.setAttribute('data-processed', 'true');
+            
+            // 自动缩放过宽的ER图
+            const svgEl = element.querySelector('svg');
+            if (svgEl) {
+                const isErDiagram = svgEl.getAttribute('aria-roledescription') === 'er';
+                if (isErDiagram) {
+                    // 获取容器宽度和SVG原始宽度
+                    const container = element.closest('.mermaid-scroll-container') || element.parentElement;
+                    if (container) {
+                        const containerWidth = container.clientWidth - 32; // 减去padding
+                        const svgWidth = svgEl.getBoundingClientRect().width;
+                        
+                        // 如果SVG太宽，自动缩放
+                        if (svgWidth > containerWidth && containerWidth > 0) {
+                            const scale = Math.max(0.3, containerWidth / svgWidth);
+                            svgEl.style.transform = `scale(${scale})`;
+                            svgEl.style.transformOrigin = 'top left';
+                            // 设置父容器高度以适应缩放后的内容
+                            const svgHeight = svgEl.getBoundingClientRect().height;
+                            (element as HTMLElement).style.height = `${svgHeight * scale}px`;
+                        }
+                    }
+                }
+            }
         } catch (error) {
             console.error('Mermaid rendering error:', error);
             element.innerHTML = `<div class="mermaid-error">渲染失败: ${error instanceof Error ? error.message : '未知错误'}</div>`;
@@ -249,7 +291,7 @@ const decodedChart = decodeHtmlEntities(chart || '');
             const modalChart = modal?.querySelector('.mermaid-modal-chart') as HTMLElement;
             const zoomLabel = modal?.querySelector('[data-zoom-label]');
             
-            let zoom = 0.75;
+            let zoom = 1;
             let modalZoom = 1;
             
             const updateZoom = (target: HTMLElement, newZoom: number) => {
@@ -513,11 +555,66 @@ const decodedChart = decodeHtmlEntities(chart || '');
         background: transparent !important;
     }
     
+    /* 重置 mermaid 容器样式，避免继承 prose 的干扰 */
+    pre.mermaid {
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-size: 14px !important;
+        overflow: visible !important;
+    }
+
     .mermaid svg {
         display: block;
-        max-width: none !important;
-        height: auto !important;
+        height: auto;
+        margin: 0 auto;
+        font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important;
+        font-size: 14px !important;
+    }
+    
+    /* ER图特殊样式 - 控制宽度 */
+    .mermaid svg[aria-roledescription="er"] {
+        max-width: 100%;
+    }
+    
+    /* 强制 ER 表格紧凑显示 */
+    .mermaid svg .er.entityBox {
+        stroke-width: 1px !important;
+    }
+    
+    .mermaid svg .er.attributeBoxEven,
+    .mermaid svg .er.attributeBoxOdd {
+        padding: 4px 8px !important;
+    }
+
+    /* 核心修复：防止 Prose/Tailwind 全局表格样式污染 Mermaid 内部的 HTML 标签 */
+    .mermaid table,
+    .mermaid th,
+    .mermaid td,
+    .mermaid tr {
         width: auto !important;
+        margin: 0 !important;
+        padding: 5px !important; /* 恢复默认的紧凑内边距 */
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    
+    /* 修复可能导致的表头对齐问题 */
+    .mermaid th {
+        text-align: center !important;
+        font-weight: bold !important;
+    }
+
+    /* Ensure text measurement matches rendering */
+    .mermaid svg text, 
+    .mermaid svg span,
+    .mermaid g {
+        font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important;
+        font-size: 14px !important;
+        letter-spacing: normal !important;
+        line-height: normal !important;
     }
     
     .mermaid-error {
