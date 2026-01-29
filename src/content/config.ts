@@ -60,7 +60,9 @@ const pages = defineCollection({
     type: 'content',
     schema: z.object({
         title: z.string(),
+        tagline: z.string().optional(),
         subtitle: z.string().optional(),
+        name: z.string().optional(),
 
         avatar: z.string().optional(),
         skills: z.array(z.string()).default([]),

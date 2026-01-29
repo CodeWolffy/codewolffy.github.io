@@ -62,7 +62,9 @@ export default config({
             format: { contentField: 'content' },
             schema: {
                 title: fields.text({ label: '页面标题', defaultValue: '关于我' }),
+                tagline: fields.text({ label: '个性签名/头衔', defaultValue: 'StackOverflow 野生代言人' }),
                 subtitle: fields.text({ label: '页面副标题', defaultValue: '软件工程师 & 技术爱好者' }),
+                name: fields.text({ label: '显示名称 (CodeWolffy)', defaultValue: 'CodeWolffy' }),
 
                 avatar: fields.image({
                     label: '头像',

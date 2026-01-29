@@ -11,18 +11,27 @@ const { Content } = await render(aboutPage);
 <BaseLayout title={`${aboutPage.data.title} | 狼码纪`} description={aboutPage.data.subtitle}>
 	<div class="container mx-auto max-w-4xl py-8 lg:py-12">
 		<!-- 头部区域 - 左右布局 -->
-		<div class="flex flex-col md:flex-row items-start gap-8 md:gap-12 mb-16">
-			<!-- 头像 - 左侧大头像 -->
-			<div class="relative group shrink-0 mx-auto md:mx-0">
-				<!-- 旋转光环 -->
-				<div class="absolute -inset-1 rounded-full bg-primary/30 blur-sm"></div>
-				<div class="relative h-56 w-56 lg:h-64 lg:w-64 rounded-full bg-card border-4 border-background flex items-center justify-center text-6xl shadow-xl overflow-hidden">
-					{aboutPage.data.avatar ? (
-						<img src={aboutPage.data.avatar} alt={aboutPage.data.title} class="w-full h-full object-cover" />
-					) : (
-						<span>👋</span>
-					)}
+		<div class="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-16">
+			<!-- 左侧列：头像和名字 -->
+			<div class="flex flex-col items-center shrink-0 mx-auto md:mx-0">
+				<!-- 头像 -->
+				<div class="relative group">
+					<!-- 旋转光环 -->
+					<div class="absolute -inset-1 rounded-full bg-primary/30 blur-sm"></div>
+					<div class="relative h-56 w-56 lg:h-64 lg:w-64 rounded-full bg-card border-4 border-background flex items-center justify-center text-6xl shadow-xl overflow-hidden">
+						{aboutPage.data.avatar ? (
+							<img src={aboutPage.data.avatar} alt={aboutPage.data.title} class="w-full h-full object-cover" />
+						) : (
+							<span>👋</span>
+						)}
+					</div>
 				</div>
+				<!-- 名字 -->
+				{aboutPage.data.name && (
+					<div class="mt-6 text-center">
+						<div class="text-3xl font-bold text-primary tracking-wide">{aboutPage.data.name}</div>
+					</div>
+				)}
 			</div>
 			
 			<!-- 右侧内容区域 -->
@@ -30,7 +39,12 @@ const { Content } = await render(aboutPage);
 				<h1 class="font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
 					{aboutPage.data.title}
 				</h1>
-				<p class="text-xl text-muted-foreground font-medium">
+				{aboutPage.data.tagline && (
+					<p class="text-2xl font-semibold text-primary mt-2">
+						{aboutPage.data.tagline}
+					</p>
+				)}
+				<p class="text-xl text-muted-foreground font-medium mt-2">
 					{aboutPage.data.subtitle || '软件工程师 & 技术爱好者'}
 				</p>
 				<!-- 简介内容 -->
