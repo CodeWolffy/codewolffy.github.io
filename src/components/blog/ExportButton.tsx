@@ -18,11 +18,12 @@ interface ExportButtonProps {
         heroImage?: string;
         [key: string]: unknown;
     };
+    className?: string; // Added className prop
 }
 
 type ExportFormat = 'markdown' | 'html' | 'pdf' | 'zip';
 
-export function ExportButton({ title, content, frontmatter }: ExportButtonProps) {
+export function ExportButton({ title, content, frontmatter, className }: ExportButtonProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -564,11 +565,11 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
     ];
 
     return (
-        <div className="relative inline-block" ref={dropdownRef}>
+        <div className={`relative inline-block ${className || ''}`} ref={dropdownRef}>
             <Button
                 variant="outline"
                 size="sm"
-                className="gap-2"
+                className="gap-2 w-full justify-center"
                 onClick={() => setIsOpen(!isOpen)}
                 disabled={isExporting}
             >
@@ -578,7 +579,7 @@ export function ExportButton({ title, content, frontmatter }: ExportButtonProps)
             </Button>
 
             {isOpen && (
-                <div className="absolute right-0 sm:left-0 sm:right-auto top-full mt-2 w-44 sm:w-56 rounded-lg border border-border bg-background shadow-lg z-50">
+                <div className="absolute right-0 top-full mt-2 w-44 sm:w-56 rounded-lg border border-border bg-background shadow-lg z-50">
                     {formatOptions.map((option) => (
                         <button
                             key={option.value}

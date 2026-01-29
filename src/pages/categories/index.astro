@@ -66,10 +66,11 @@ const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
                 {sortedCategories.length === 0 ? (
                     <p class="text-muted-foreground">暂无分类。</p>
                 ) : (
-                    sortedCategories.map((category) => (
+                    sortedCategories.map((category, index) => (
                         <a
                             href={`/categories/${category.id}`}
-                            class="group relative flex flex-col justify-between space-y-2 rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300"
+                            class="group relative flex flex-col justify-between space-y-2 rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300 animate-slide-up opacity-0"
+                            style={`animation-delay: ${index * 100}ms;`}
                         >
                             <div class="flex items-center justify-between">
                                 <h3 class="font-semibold text-xl group-hover:text-primary transition-colors">
@@ -99,10 +100,11 @@ const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
                     {sortedTags.length === 0 ? (
                         <p class="text-muted-foreground">暂无标签。</p>
                     ) : (
-                        sortedTags.map((tag) => (
+                        sortedTags.map((tag, index) => (
                             <a
                                 href={`/tags/${tag.id}`}
-                                class="group inline-flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm"
+                                class="group inline-flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm animate-slide-up opacity-0"
+                                style={`animation-delay: ${index * 50}ms;`}
                             >
                                 <span class="text-muted-foreground group-hover:text-primary/70">#</span>
                                 {tag.name}

@@ -60,7 +60,7 @@ const sortedTags = Object.values(tagCountMap).sort((a, b) => b.count - a.count);
                     return (
                         <a 
                             href={`/tags/${tag.id}`}
-                            class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden"
+                            class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden animate-slide-up opacity-0"
                             style={`animation-delay: ${index * 30}ms;`}
                         >
                             <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
