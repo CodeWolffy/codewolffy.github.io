@@ -194,12 +194,15 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 		</a>
 		<div class="relative flex min-h-screen flex-col">
 			<Header client:load />
-			<main id="main-content" class="flex-1 pb-20">
+			<main id="main-content" class:list={["flex-1", type !== 'article' ? "pb-8 md:pb-20" : "pb-8"]}>
 				<slot />
 			</main>
 			
 			<!-- Footer 美化版 -->
-			<footer class="fixed bottom-0 left-0 right-0 z-50 border-t py-1 md:px-8 bg-background">
+			<footer class:list={[
+				"border-t py-1 md:px-8 bg-background z-50 left-0 right-0",
+				type !== 'article' ? "md:fixed md:bottom-0" : "relative"
+			]}>
 			<div class="container mx-auto flex flex-col items-center justify-center gap-0.5">
 					<div class="flex items-center gap-4">
 						<a href="https://b23.tv/CWW8udk" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
