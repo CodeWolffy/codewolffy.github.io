@@ -156,14 +156,14 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
                 fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
                 maxTextSize: 100000,
                 er: { 
-                    useMaxWidth: false,  // 禁用自动宽度，让图表紧凑
-                    layoutDirection: 'TB',  // 从上到下布局，减少水平宽度
+                    useMaxWidth: false,  // 禁用自动宽度，保持原始尺寸以清晰显示
+                    layoutDirection: 'TB',
                     minEntityWidth: 80, 
                     minEntityHeight: 25,
                     entityPadding: 8,
                     strokeWidth: 1,
                     fontSize: 12,
-                    wrap: true  // 启用文本换行
+                    wrap: true
                 },
                 flowchart: { 
                     useMaxWidth: false,  // 禁用自动宽度
@@ -200,29 +200,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
             element.innerHTML = svg;
             element.setAttribute('data-processed', 'true');
             
-            // 自动缩放过宽的ER图
-            const svgEl = element.querySelector('svg');
-            if (svgEl) {
-                const isErDiagram = svgEl.getAttribute('aria-roledescription') === 'er';
-                if (isErDiagram) {
-                    // 获取容器宽度和SVG原始宽度
-                    const container = element.closest('.mermaid-scroll-container') || element.parentElement;
-                    if (container) {
-                        const containerWidth = container.clientWidth - 32; // 减去padding
-                        const svgWidth = svgEl.getBoundingClientRect().width;
-                        
-                        // 如果SVG太宽，自动缩放
-                        if (svgWidth > containerWidth && containerWidth > 0) {
-                            const scale = Math.max(0.3, containerWidth / svgWidth);
-                            svgEl.style.transform = `scale(${scale})`;
-                            svgEl.style.transformOrigin = 'top left';
-                            // 设置父容器高度以适应缩放后的内容
-                            const svgHeight = svgEl.getBoundingClientRect().height;
-                            (element as HTMLElement).style.height = `${svgHeight * scale}px`;
-                        }
-                    }
-                }
-            }
+            // 移除手动 JS 缩放逻辑，完全依赖 CSS 和 SVG 自身的 viewBox 进行自适应
         } catch (error) {
             console.error('Mermaid rendering error:', error);
             element.innerHTML = `<div class="mermaid-error">渲染失败: ${error instanceof Error ? error.message : '未知错误'}</div>`;
@@ -467,6 +445,17 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         border-radius: 0.5rem;
         background: #f8fafc;
         overflow: hidden;
+        width: 100%;
+    }
+
+    @media (min-width: 768px) {
+        .mermaid-container {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
     }
     
     .dark .mermaid-container {
@@ -575,7 +564,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
     
     /* ER图特殊样式 - 控制宽度 */
     .mermaid svg[aria-roledescription="er"] {
-        max-width: 100%;
+        /* max-width: 100%;  禁用最大宽度限制，允许滚动 */
     }
     
     /* 强制 ER 表格紧凑显示 */
@@ -595,7 +584,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
     .mermaid tr {
         width: auto !important;
         margin: 0 !important;
-        padding: 5px !important; /* 恢复默认的紧凑内边距 */
+        padding: 5px !important;
         border: none !important;
         background: transparent !important;
         box-shadow: none !important;
@@ -607,6 +596,20 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         font-weight: bold !important;
     }
 
+    /* 暴力重置：防止 svg 内部元素被全局样式（如 width: 100%）撑大 */
+    .mermaid svg g,
+    .mermaid svg rect,
+    .mermaid svg polygon,
+    .mermaid svg path {
+        transform-box: fill-box;
+    }
+
+    /* 针对 ER 图的特殊保护 */
+    .mermaid .entityBox {
+        width: auto !important;
+        box-sizing: content-box !important;
+    }
+
     /* Ensure text measurement matches rendering */
     .mermaid svg text, 
     .mermaid svg span,
@@ -615,6 +618,8 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         font-size: 14px !important;
         letter-spacing: normal !important;
         line-height: normal !important;
+        text-transform: none !important;
+        max-width: none !important;
     }
     
     .mermaid-error {
