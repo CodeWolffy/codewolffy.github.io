@@ -44,7 +44,7 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background">
-            <div className="flex w-full h-12 items-center justify-between md:justify-start px-1 md:px-8 max-w-[1450px] mx-auto">
+            <div className="flex w-full h-12 items-center justify-between md:justify-start px-1 md:px-8 max-w-[1600px] mx-auto">
                 {/* Left Side: Desktop Nav + Mobile Menu + Mobile Logo */}
                 <div className="flex items-center gap-1 md:mr-4">
                     {/* Desktop: Logo + Nav */}

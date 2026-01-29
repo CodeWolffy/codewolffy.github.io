@@ -1,5 +1,6 @@
 9---
 import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 
 interface Props {
   className?: string;
@@ -10,11 +11,11 @@ interface Props {
 const { className, tags, categories } = Astro.props;
 ---
 
-<aside class:list={["w-full space-y-8", className]}>
+<aside class:list={["w-full space-y-4", className]}>
   <!-- Profile Widget -->
   <div class="rounded-xl bg-card border border-border/50 p-6 shadow-sm">
     <div class="flex flex-col items-center text-center">
-      <div class="relative w-24 h-24 mb-4">
+      <div class="relative w-24 h-24 mb-2">
         <div class="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
         <img 
           src="https://github.com/CodeWolffy.png" 
@@ -24,17 +25,17 @@ const { className, tags, categories } = Astro.props;
         <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-background rounded-full"></div>
       </div>
       
-      <h3 class="text-xl font-bold text-foreground">狼码纪</h3>
-      <p class="text-xs text-muted-foreground mt-1 mb-4">全栈开发者 / 设计爱好者</p>
+      <h3 class="text-xl font-bold text-foreground">CodeWolffy</h3>
+      <p class="text-xs text-muted-foreground mt-1 mb-4">CV高级工程师 & StackOverflow潜水员 & 面向AI编程专家</p>
       
       <p class="text-sm text-foreground/80 leading-relaxed mb-6">
-        探索技术、编程与设计的边界。分享 web 开发、UI 设计与生产力工具的心得。
+        代码写得好不好，全看 AI 给得妙不妙
       </p>
       
       <div class="flex gap-2 w-full">
          <a href="https://github.com/CodeWolffy" target="_blank" class="flex-1">
             <Button variant="outline" size="sm" className="w-full gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36.5-8 4-2.64-3.5-5.36-2.5-8-4 0 0-5 .5-5 1.5 0 2-.2 4 .5 7 2 3.5 1.5 5.5.08 1.25-.27 2.48-1 3.5.28 1.15.28 2.35 0 3.5 0 0 1 0 3 1.5 2.64.5 5.36-.5 8-4 4.8 0 0 0-1 3.5v4"/></svg>
+                <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
                 Github
             </Button>
          </a>
@@ -46,44 +47,52 @@ const { className, tags, categories } = Astro.props;
   </div>
 
   <!-- Categories Widget -->
-  <div class="rounded-xl bg-card border border-border/50 p-6 shadow-sm">
-    <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+  <div class="rounded-xl bg-card border border-border/50 p-3 shadow-sm">
+    <h3 class="font-bold text-base mb-2 flex items-center gap-2">
         <span class="w-1 h-4 bg-primary rounded-full"></span>
         分类
     </h3>
-    <ul class="space-y-2">
+    <ul class="space-y-0.5">
       {categories.map((category) => (
         <li>
           <a 
             href={`/categories/${category.id}`}
-            class="group flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors"
+            class="group flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/60 transition-colors"
           >
-            <span class="text-sm font-medium group-hover:text-primary transition-colors">{category.name}</span>
-            <span class="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full group-hover:bg-background group-hover:text-primary transition-colors">{category.count}</span>
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground/70 group-hover:text-primary transition-colors"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                <span class="font-medium text-foreground/80 group-hover:text-primary transition-colors">{category.name}</span>
+            </div>
+            <span class="text-xs text-muted-foreground/60 group-hover:text-foreground transition-colors">
+                {category.count}
+            </span>
           </a>
         </li>
       ))}
     </ul>
-    <a href="/categories" class="block mt-4 text-xs text-center text-muted-foreground hover:text-primary transition-colors">
-        查看全部分类 →
+    <a href="/categories" class="flex items-center justify-end mt-2 text-xs text-muted-foreground hover:text-primary transition-colors">
+        全部 <ArrowRight className="w-3 h-3 ml-1" />
     </a>
   </div>
 
   <!-- Tags Widget -->
-  <div class="rounded-xl bg-card border border-border/50 p-6 shadow-sm">
-    <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+  <div class="rounded-xl bg-card border border-border/50 p-3 shadow-sm">
+    <h3 class="font-bold text-base mb-2 flex items-center gap-2">
         <span class="w-1 h-4 bg-secondary-foreground/30 rounded-full"></span>
         热门标签
     </h3>
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap gap-1.5">
       {tags.map((tag) => (
         <a 
           href={`/tags/${tag.id}`}
-          class="text-xs px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+          class="text-sm px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-all duration-300"
         >
           {tag.name}
         </a>
       ))}
     </div>
+    <a href="/tags" class="flex items-center justify-end mt-2 text-xs text-muted-foreground hover:text-primary transition-colors">
+        全部 <ArrowRight className="w-3 h-3 ml-1" />
+    </a>
   </div>
 </aside>

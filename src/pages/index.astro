@@ -56,63 +56,50 @@ const topTags = sortedTags.slice(0, 8);
 
 <BaseLayout title="狼码纪">
 	<!-- Hero Section -->
-	<section class="relative overflow-hidden py-12 lg:py-20 bg-background border-b border-border/50">
-		<!-- Background Elements -->
-		<div class="absolute inset-0 -z-10">
-			<div class="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
-			<div class="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[80px]"></div>
-			<div class="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[80px]"></div>
-		</div>
 
-		<div class="container mx-auto px-4 md:px-6">
-			<div class="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12">
-				<div class="flex-1 space-y-6 text-center md:text-left">
-					<div class="space-y-4">
-                        <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                            👋 欢迎来到狼码纪
+
+    <!-- Main Content Grid -->
+    <section class="container mx-auto pt-0 pb-8 px-4 md:px-6" id="latest-posts">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+            <!-- Mobile Sidebar Content (Moved to top as requested) -->
+            <div class="lg:hidden w-full mb-8">
+                 <Sidebar 
+                    tags={topTags} 
+                    categories={topCategories} 
+                    className="w-full"
+                />
+            </div>
+
+            <!-- Left Column: Posts List -->
+            <div class="lg:col-span-8 space-y-2">
+                <!-- Hero Text Block (Moved) -->
+				<div class="space-y-4 text-center md:text-left max-w-3xl mb-6">
+					<div class="space-y-2">
+                        <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20">
+                            ✨ 探索 · 记录 · 分享
                         </div>
-						<h1 class="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-							探索技术与设计的<br class="hidden md:block" />
-                            <span class="text-primary">无限边界</span>
+						<h1 class="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none pb-3 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+							StackOverflow <span class="text-primary">野生代言人</span>
 						</h1>
 						<p class="mx-auto md:mx-0 max-w-[600px] text-muted-foreground text-lg md:text-xl leading-relaxed">
-							这里是我记录代码人生、分享技术心得的数字花园。希望我的文章能为你带来一丝灵感。
+							如果代码一次就跑通了，那一定是哪里出 bug 了
 						</p>
 					</div>
 					<div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-						<a href="/about">
-							<Button size="lg" className="rounded-full px-8 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
-								开始探索 <ArrowRight className="ml-2 w-4 h-4" />
+						<a href="#latest-posts">
+							<Button size="lg" variant="outline" className="rounded-full px-8 bg-white hover:bg-gray-100 text-black shadow-sm border transition-all">
+								开始阅读 <ArrowRight className="ml-2 w-4 h-4" />
 							</Button>
 						</a>
-						<a href="/categories">
-							<Button size="lg" variant="outline" className="rounded-full px-8">
-								浏览归档
+						<a href="/archives">
+							<Button size="lg" className="rounded-full px-8 bg-black hover:bg-gray-800 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
+								归档列表
 							</Button>
 						</a>
 					</div>
 				</div>
-                
-                <!-- Hero Image/Illustration (Optional, using a placeholder/icon for now) -->
-                <div class="hidden md:flex flex-1 justify-center lg:justify-end relative">
-                    <div class="relative w-72 h-72 lg:w-96 lg:h-96">
-                        <div class="absolute inset-0 bg-gradient-to-tr from-primary/20 to-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
-                           <div class="relative z-10 w-full h-full bg-card/50 backdrop-blur-sm border border-white/10 rounded-2xl p-6 shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-500 flex items-center justify-center">
-                                <div class="text-9xl">🚀</div>
-                           </div>
-                         <div class="absolute -bottom-6 -left-6 w-full h-full bg-secondary/50 backdrop-blur-sm border border-white/10 rounded-2xl -z-10 -rotate-3"></div>
-                    </div>
-                </div>
-			</div>
-		</div>
-	</section>
 
-    <!-- Main Content Grid -->
-    <section class="container mx-auto py-12 px-4 md:px-6">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-            <!-- Left Column: Posts List -->
-            <div class="lg:col-span-8 space-y-10">
-                <div class="flex items-center justify-between border-b pb-4">
+                <div class="flex items-center justify-between border-b pb-1">
                     <h2 class="text-2xl font-bold tracking-tight flex items-center gap-2">
                         <span class="text-primary">#</span> 最新文章
                     </h2>
@@ -121,7 +108,7 @@ const topTags = sortedTags.slice(0, 8);
                     </a>
                 </div>
 
-                <div class="grid gap-6 sm:grid-cols-2">
+                <div class="grid gap-2 sm:grid-cols-2">
                     {latestPosts.map((post, index) => (
                         <PostCard 
                             post={post}
@@ -149,14 +136,7 @@ const topTags = sortedTags.slice(0, 8);
                 </div>
             </div>
             
-            <!-- Mobile Sidebar Content (Optional: Show some widgets at bottom on mobile) -->
-            <div class="lg:hidden space-y-8 mt-8 border-t pt-8">
-                 <Sidebar 
-                    tags={topTags} 
-                    categories={topCategories} 
-                    className="w-full"
-                />
-            </div>
+
         </div>
     </section>
 </BaseLayout>
