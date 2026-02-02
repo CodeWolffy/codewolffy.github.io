@@ -44,7 +44,7 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background">
-            <div className="flex w-full h-12 items-center justify-between md:justify-start px-1 md:px-8 max-w-[1600px] mx-auto">
+            <div className="flex w-full h-11 md:h-12 items-center justify-between md:justify-start px-1 md:px-8 max-w-[1600px] mx-auto">
                 {/* Left Side: Desktop Nav + Mobile Menu + Mobile Logo */}
                 <div className="flex items-center gap-1 md:mr-4">
                     {/* Desktop: Logo + Nav */}
@@ -64,7 +64,7 @@ export function Header() {
 
                     {/* Mobile: Menu Button */}
                     <div className="md:hidden shrink-0">
-                        <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10" onClick={() => setIsMenuOpen(!isMenuOpen)}>
                             {isMenuOpen ? <X className="h-[26px] w-[26px]" /> : <Menu className="h-[26px] w-[26px]" />}
                         </Button>
                     </div>
@@ -85,12 +85,12 @@ export function Header() {
                     {/* Right Actions - 固定宽度 */}
                     <div className="flex items-center shrink-0 space-x-1">
                         <a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" className="inline-flex">
-                            <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 py-2 w-10 px-0">
+                            <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 w-9 md:h-10 md:w-10 py-2 px-0">
                                 <Github className="h-[26px] w-[26px]" />
                                 <span className="sr-only">GitHub</span>
                             </div>
                         </a>
-                        <Button variant="ghost" size="icon" className="h-10 w-10" onClick={toggleTheme}>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10" onClick={toggleTheme}>
                             <Sun className="h-[26px] w-[26px] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                             <Moon className="absolute h-[26px] w-[26px] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                             <span className="sr-only">Toggle theme</span>
