@@ -17,7 +17,7 @@ tags:
 
 这是mermaid 图
 
-<Mermaid code={{"value":"erDiagram\n    %% Schema 层：定义结构\n    USERS ||--o{ ORDERS : places\n    USERS {\n        int id PK \"Schema: INT类型,自增\"\n        string name \"Schema: VARCHAR(100),非空\"\n        string email \"Schema: VARCHAR(255),唯一\"\n        datetime created_at \"Schema: TIMESTAMP,默认当前时间\"\n    }\n    \n    ORDERS {\n        int order_id PK \"Schema: INT类型,主键\"\n        int user_id FK \"Schema: INT类型,外键关联Users\"\n        decimal amount \"Schema: DECIMAL(10,2)\"\n        status enum \"Schema: ENUM类型\"\n    }\n    \n    %% 元数据层：注释说明\n    USERS_METADATA {\n        string table_desc \"元数据: 存储注册用户基本信息\"\n        string owner \"元数据: 负责人:张三\"\n        string update_freq \"元数据: 每日凌晨2点同步\"\n        string sensitivity \"元数据: 敏感等级:L3(个人信息)\"\n        string lineage \"元数据: 源系统:CRM\"\n    }\n    \n    ORDERS_METADATA {\n        string table_desc \"元数据: 电商订单主表\"\n        string owner \"元数据: 负责人:李四\"\n        string retention \"元数据: 保留期:7年(合规要求)\"\n        string usage_stats \"元数据: 日均查询10万次\"\n    }\n    \n    USERS ||--|| USERS_METADATA : described_by\n    ORDERS ||--|| ORDERS_METADATA : described_by\n    \n    style USERS fill:#e8f5e9,stroke:#2e7d32\n    style ORDERS fill:#e8f5e9,stroke:#2e7d32\n    style USERS_METADATA fill:#fff3e0,stroke:#ef6c00\n    style ORDERS_METADATA fill:#fff3e0,stroke:#ef6c00"}} />
+<Mermaid code={{"value":"erDiagram\n    STUDENT {\n        int student_id PK\n        string name\n        string major\n    }\n\n    COURSE {\n        int course_id PK\n        string course_name\n        int credit\n    }\n\n    ENROLLMENT {\n        int student_id FK\n        int course_id FK\n        int grade\n    }\n\n    STUDENT ||--o{ ENROLLMENT : \"enrolls in\"\n    COURSE ||--o{ ENROLLMENT : \"is enrolled in\""}} />
 
 \
 这是提示框：
@@ -47,15 +47,3 @@ public interface int eat()
 <iframe src="//player.bilibili.com/player.html?isOutside=true&aid=112773979702011&bvid=BV1cwbxezEZb&cid=500001613353119&p=1" />
 
 主要测试导出图片功能主要测试导出图片功能主要测试导出图片功能
-
-主要测试导出图片功能
-
-/
-
-主要测试导出图片功能
-
-![](/images/posts/test1/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202026-01-22%20105546.png)
-
-主要测试导出图片功能
-
-/

@@ -156,13 +156,13 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
                 fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
                 maxTextSize: 100000,
                 er: { 
-                    useMaxWidth: false,  // 禁用自动宽度，保持原始尺寸以清晰显示
+                    useMaxWidth: false,  // 禁用自动宽度，保持原始尺寸
                     layoutDirection: 'TB',
                     minEntityWidth: 80, 
                     minEntityHeight: 25,
                     entityPadding: 8,
                     strokeWidth: 1,
-                fontSize: 14, // Match CSS font size
+                    fontSize: 14,
                     wrap: true
                 },
                 flowchart: { 
@@ -203,7 +203,46 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
             element.innerHTML = svg;
             element.setAttribute('data-processed', 'true');
             
-            // 移除手动 JS 缩放逻辑，完全依赖 CSS 和 SVG 自身的 viewBox 进行自适应
+            // 关键修复：渲染后修正 SVG 宽度，解决 ER 图在宽屏下过度拉伸的问题
+            const svgElement = element.querySelector('svg');
+            if (svgElement) {
+                // 检测是否为 ER 图
+                const isErDiagram = svgElement.getAttribute('aria-roledescription') === 'er' || 
+                                    chartData.trim().toLowerCase().startsWith('erdiagram');
+                
+                if (isErDiagram) {
+                    // 获取容器的实际宽度
+                    const container = element.closest('.mermaid-container');
+                    const scrollContainer = container?.querySelector('.mermaid-scroll-container');
+                    const actualContainerWidth = scrollContainer ? scrollContainer.clientWidth : 
+                                                  (container ? container.clientWidth : 800);
+                    
+                    // 获取 SVG 的原始 viewBox 宽度
+                    const viewBox = svgElement.getAttribute('viewBox');
+                    let svgNaturalWidth = actualContainerWidth;
+                    
+                    if (viewBox) {
+                        const parts = viewBox.split(/\s+/).map(Number);
+                        if (parts.length >= 3) {
+                            svgNaturalWidth = parts[2]; // viewBox 的宽度
+                        }
+                    }
+                    
+                    // 移除 Mermaid 可能设置的内联样式和尺寸
+                    svgElement.removeAttribute('style');
+                    
+                    // 如果 SVG 原始宽度超过容器宽度，设置固定宽度为容器宽度
+                    // 否则使用原始宽度
+                    if (svgNaturalWidth > actualContainerWidth) {
+                        svgElement.setAttribute('width', String(actualContainerWidth - 32)); // 留一些padding
+                        svgElement.removeAttribute('height'); // 让高度自动计算
+                    } else {
+                        // 原始宽度合理，保持原样但确保不超过容器
+                        svgElement.style.maxWidth = '100%';
+                        svgElement.style.height = 'auto';
+                    }
+                }
+            }
         } catch (error) {
             console.error('Mermaid rendering error:', error);
             element.innerHTML = `<div class="mermaid-error">渲染失败: ${error instanceof Error ? error.message : '未知错误'}</div>`;
@@ -565,9 +604,9 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         font-size: 14px !important;
     }
     
-    /* ER图特殊样式 - 控制宽度 */
+    /* ER图特殊样式 - 保持原始宽度，不缩放 */
     .mermaid svg[aria-roledescription="er"] {
-        /* max-width: 100%;  禁用最大宽度限制，允许滚动 */
+        max-width: none;
     }
     
     /* 强制 ER 表格紧凑显示 */
@@ -581,16 +620,46 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
     }
 
     /* 核心修复：防止 Prose/Tailwind 全局表格样式污染 Mermaid 内部的 HTML 标签 */
+    /* 关键：使用 .prose 前缀提高选择器优先级，覆盖 Tailwind Typography 的表格样式 */
+    .prose .mermaid table,
+    .prose .mermaid-container table,
+    .mermaid-container table,
     .mermaid table,
     .mermaid th,
     .mermaid td,
     .mermaid tr {
         width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
         margin: 0 !important;
         padding: 5px !important;
         border: none !important;
         background: transparent !important;
         box-shadow: none !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        table-layout: auto !important;
+    }
+
+    /* 针对 ER 图 foreignObject 内部的表格元素的强力覆盖 */
+    .prose .mermaid svg foreignObject table,
+    .prose .mermaid svg foreignObject th,
+    .prose .mermaid svg foreignObject td,
+    .prose .mermaid svg foreignObject tr,
+    .mermaid svg foreignObject table,
+    .mermaid svg foreignObject th,
+    .mermaid svg foreignObject td,
+    .mermaid svg foreignObject tr {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 2px 4px !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        table-layout: auto !important;
+        font-size: inherit !important;
     }
     
     /* 修复可能导致的表头对齐问题 */
@@ -607,10 +676,20 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         transform-box: fill-box;
     }
 
-    /* 针对 ER 图的特殊保护 */
-    .mermaid .entityBox {
+    /* 针对 ER 图的特殊保护 - 强制所有 ER 图相关元素使用 auto 宽度 */
+    .prose .mermaid .entityBox,
+    .mermaid .entityBox,
+    .mermaid .er.entityBox {
         width: auto !important;
+        min-width: 0 !important;
         box-sizing: content-box !important;
+    }
+
+    /* 重置 ER 图标签容器的宽度 */
+    .prose .mermaid .entityLabel,
+    .mermaid .entityLabel {
+        width: auto !important;
+        min-width: 0 !important;
     }
 
     .mermaid svg text, 

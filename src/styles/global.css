@@ -123,7 +123,8 @@
     }
 
     html {
-        overflow-y: scroll; /* Force scrollbar to prevent layout shift */
+        overflow-y: scroll;
+        /* Force scrollbar to prevent layout shift */
         overflow-x: hidden;
         /* Changed from clip to hidden for better mobile support */
         -webkit-overflow-scrolling: touch;

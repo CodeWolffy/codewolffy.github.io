@@ -262,6 +262,20 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
             }
         });
 
+        // 修复 Mermaid 组件为标准的 mermaid 代码块格式
+        // 匹配 <Mermaid code={{"value":"..."}} /> 或 <Mermaid code={{'value':'...'}} />
+        // 使用更宽松的正则来匹配可能的空格和换行
+        processedContent = processedContent.replace(/<Mermaid\s+code=\{\{\s*["']value["']:\s*["']([\s\S]*?)["']\s*\}\}\s*\/>/g, (match, codeValue) => {
+            // 解码转义的字符
+            const decodedCode = codeValue
+                .replace(/\\n/g, '\n')
+                .replace(/\\"/g, '"')
+                .replace(/\\'/g, "'")
+                .replace(/<br\/>/g, '\n')
+                .replace(/<br \/>/g, '\n');
+            return `\`\`\`mermaid\n${decodedCode}\n\`\`\``;
+        });
+
         // 修复 iframe 高度问题 (仅针对导出)
         // 查找所有 <iframe ...> 标签，并注入 height="450" 和 style="min-height: 450px"
         processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
