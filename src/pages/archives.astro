@@ -16,26 +16,28 @@ const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
 const allCategories = await getCollection('categories');
 const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
 
-// 重构数据结构：按年份 -> 月份分组
+// 重构数据结构：按年份 -> 月份分组，并计算统计数据
 const groupedPosts = allPosts.reduce((acc, post) => {
     const year = post.data.pubDate.getFullYear();
     const month = post.data.pubDate.getMonth() + 1;
 
     let yearGroup = acc.find(y => y.year === year);
     if (!yearGroup) {
-        yearGroup = { year, months: [] };
+        yearGroup = { year, months: [], totalPosts: 0 };
         acc.push(yearGroup);
     }
 
     let monthGroup = yearGroup.months.find(m => m.month === month);
     if (!monthGroup) {
-        monthGroup = { month, posts: [] };
+        monthGroup = { month, posts: [], postCount: 0 };
         yearGroup.months.push(monthGroup);
     }
 
     monthGroup.posts.push(post);
+    monthGroup.postCount++;
+    yearGroup.totalPosts++;
     return acc;
-}, [] as { year: number; months: { month: number; posts: typeof allPosts }[] }[]);
+}, [] as { year: number; months: { month: number; posts: typeof allPosts; postCount: number }[]; totalPosts: number }[]);
 
 // 排序：年份倒序，月份倒序
 groupedPosts.sort((a, b) => b.year - a.year);
@@ -72,7 +74,12 @@ groupedPosts.forEach(yearGroup => {
                         <!-- 年份标签 -->
                         <div class="ml-10 md:ml-20 flex items-center gap-2">
                             <div class="px-4 py-1 rounded-full bg-secondary/50 border border-indigo-500/20 backdrop-blur-sm group-active:scale-95 transition-transform">
-                                <h2 class="text-2xl font-bold text-foreground tracking-tight">{yearGroup.year}</h2>
+                                <div class="flex items-center gap-2">
+                                    <h2 class="text-2xl font-bold text-foreground tracking-tight">{yearGroup.year}</h2>
+                                    <span class="text-sm font-medium text-muted-foreground bg-primary/10 px-2 py-0.5 rounded-full border border-primary/10">
+                                        {yearGroup.totalPosts} 篇
+                                    </span>
+                                </div>
                             </div>
                             <!-- 折叠指示图标 -->
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down opacity-50 transition-transform duration-300 group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
@@ -88,6 +95,9 @@ groupedPosts.forEach(yearGroup => {
                                     <span class="text-2xl font-bold opacity-10">{monthGroup.month.toString().padStart(2, '0')}</span>
                                     <span class="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                                         {new Date(yearGroup.year, monthGroup.month - 1).toLocaleString('zh-CN', { month: 'long' })}
+                                    </span>
+                                    <span class="text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full border border-border/50">
+                                        {monthGroup.postCount} 篇
                                     </span>
                                     <div class="h-px flex-1 bg-gradient-to-r from-border/50 to-transparent"></div>
                                 </div>
