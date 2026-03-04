@@ -92,7 +92,7 @@ groupedPosts.forEach(yearGroup => {
                             <div class="relative">
                                 <!-- 月份标题 -->
                                 <div class="flex items-center gap-3 mb-3">
-                                    <span class="text-2xl font-bold opacity-10">{monthGroup.month.toString().padStart(2, '0')}</span>
+                                    <span class="text-2xl font-bold text-muted-foreground/30">{monthGroup.month.toString().padStart(2, '0')}</span>
                                     <span class="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                                         {new Date(yearGroup.year, monthGroup.month - 1).toLocaleString('zh-CN', { month: 'long' })}
                                     </span>
@@ -104,13 +104,13 @@ groupedPosts.forEach(yearGroup => {
 
                                 <div class="space-y-3">
                                     {monthGroup.posts.map((post) => (
-                                        <article 
+                                        <article
                                             class="group/card relative rounded-xl hover:shadow-lg transition-all duration-300 bg-card border border-border/60 hover:-translate-y-1 overflow-hidden"
                                         >
-                                            <!-- 左侧实色边框 (Blue Accent) -->
-                                            <div class="absolute left-0 top-0 bottom-0 w-1 opacity-70 group-hover/card:opacity-100 transition-opacity duration-300 bg-blue-500"></div>
-                                            
-                                            <!-- 悬停实色背景 (Default: Muted/Accent) -->
+                                            <!-- 左侧实色边框 (使用更鲜明的主题色) -->
+                                            <div class="absolute left-0 top-0 bottom-0 w-1 opacity-100 group-hover/card:opacity-100 transition-opacity duration-300 bg-primary"></div>
+
+                                            <!-- 悬停实色背景 -->
                                             <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 bg-muted/50"></div>
                                             
                                             <a href={`/blog/${post.slug}`} class="block relative z-10 py-2 pr-2 pl-4 sm:py-2.5 sm:pr-2.5 sm:pl-6">
@@ -120,7 +120,7 @@ groupedPosts.forEach(yearGroup => {
                                                         <h3 class="font-bold text-2xl leading-none tracking-tight group-hover/card:text-primary transition-colors duration-300">
                                                             {post.data.title}
                                                         </h3>
-                                                        <time 
+                                                        <time
                                                             datetime={post.data.pubDate.toISOString()}
                                                             class="text-sm text-muted-foreground shrink-0 whitespace-nowrap font-medium pt-1"
                                                         >
@@ -130,14 +130,14 @@ groupedPosts.forEach(yearGroup => {
 
                                                     <!-- Footer: Metadata (Category & Tags) -->
                                                     <div class="flex flex-wrap items-center gap-2 mt-0.5">
-                                                        {/* Category (Homepage Style) */}
+                                                        {/* Category (使用主题色彩) */}
                                                         {post.data.category && (
-                                                            <div class="flex items-center gap-1 text-base font-medium text-primary bg-primary/10 px-1.5 py-0 rounded-md border border-primary/10">
+                                                            <div class="flex items-center gap-1 text-base font-medium text-accent-foreground bg-accent px-1.5 py-0 rounded-md border border-accent/20">
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
                                                                 <span>{categoryMap.get(post.data.category) || post.data.category}</span>
                                                             </div>
                                                         )}
-                                                        
+
                                                         {/* Tags */}
                                                         {post.data.tags && post.data.tags.length > 0 && (
                                                             <div class="flex flex-wrap gap-2">

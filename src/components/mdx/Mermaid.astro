@@ -156,7 +156,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
                 fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
                 maxTextSize: 100000,
                 er: { 
-                    useMaxWidth: false,  // 禁用自动宽度，保持原始尺寸
+                    useMaxWidth: true,
                     layoutDirection: 'TB',
                     minEntityWidth: 80, 
                     minEntityHeight: 25,
@@ -206,42 +206,40 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
             // 关键修复：渲染后修正 SVG 宽度，解决 ER 图在宽屏下过度拉伸的问题
             const svgElement = element.querySelector('svg');
             if (svgElement) {
-                // 检测是否为 ER 图
                 const isErDiagram = svgElement.getAttribute('aria-roledescription') === 'er' || 
                                     chartData.trim().toLowerCase().startsWith('erdiagram');
-                
                 if (isErDiagram) {
-                    // 获取容器的实际宽度
                     const container = element.closest('.mermaid-container');
-                    const scrollContainer = container?.querySelector('.mermaid-scroll-container');
-                    const actualContainerWidth = scrollContainer ? scrollContainer.clientWidth : 
-                                                  (container ? container.clientWidth : 800);
-                    
-                    // 获取 SVG 的原始 viewBox 宽度
+                    const scrollContainer = container?.querySelector('.mermaid-scroll-container') as HTMLElement | null;
+                    const containerWidth = scrollContainer?.clientWidth || container?.clientWidth || 800;
+
                     const viewBox = svgElement.getAttribute('viewBox');
-                    let svgNaturalWidth = actualContainerWidth;
-                    
+                    const widthAttr = Number.parseFloat(svgElement.getAttribute('width') || '');
+                    const heightAttr = Number.parseFloat(svgElement.getAttribute('height') || '');
+
+                    let intrinsicWidth = Number.isFinite(widthAttr) ? widthAttr : 0;
+                    let intrinsicHeight = Number.isFinite(heightAttr) ? heightAttr : 0;
+
                     if (viewBox) {
                         const parts = viewBox.split(/\s+/).map(Number);
-                        if (parts.length >= 3) {
-                            svgNaturalWidth = parts[2]; // viewBox 的宽度
+                        if (parts.length >= 4 && Number.isFinite(parts[2]) && Number.isFinite(parts[3])) {
+                            intrinsicWidth = parts[2];
+                            intrinsicHeight = parts[3];
                         }
                     }
-                    
-                    // 移除 Mermaid 可能设置的内联样式和尺寸
-                    svgElement.removeAttribute('style');
-                    
-                    // 如果 SVG 原始宽度超过容器宽度，设置固定宽度为容器宽度
-                    // 否则使用原始宽度
-                    if (svgNaturalWidth > actualContainerWidth) {
-                        svgElement.setAttribute('width', String(actualContainerWidth - 32)); // 留一些padding
-                        svgElement.removeAttribute('height'); // 让高度自动计算
-                    } else {
-                        // 原始宽度合理，保持原样但确保不超过容器
-                        svgElement.style.maxWidth = '100%';
-                        svgElement.style.height = 'auto';
+
+                    const maxRenderWidth = Math.max(560, Math.floor(containerWidth * 0.92));
+                    if (intrinsicWidth > 0 && intrinsicHeight > 0 && intrinsicWidth > maxRenderWidth) {
+                        const ratio = maxRenderWidth / intrinsicWidth;
+                        const targetHeight = Math.max(120, Math.round(intrinsicHeight * ratio));
+                        svgElement.setAttribute('width', String(maxRenderWidth));
+                        svgElement.setAttribute('height', String(targetHeight));
                     }
                 }
+
+                svgElement.removeAttribute('style');
+                svgElement.style.maxWidth = '100%';
+                svgElement.style.height = 'auto';
             }
         } catch (error) {
             console.error('Mermaid rendering error:', error);
@@ -604,9 +602,17 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         font-size: 14px !important;
     }
     
-    /* ER图特殊样式 - 保持原始宽度，不缩放 */
-    .mermaid svg[aria-roledescription="er"] {
-        max-width: none;
+    /* ER 图文本换行修复：允许长注释自动换行，避免单元格无界扩张 */
+    .mermaid svg[aria-roledescription="er"] foreignObject td,
+    .mermaid svg[aria-roledescription="er"] foreignObject th {
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+
+    .mermaid svg[aria-roledescription="er"] foreignObject table {
+        table-layout: auto !important;
+        width: auto !important;
     }
     
     /* 强制 ER 表格紧凑显示 */
