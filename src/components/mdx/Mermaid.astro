@@ -153,17 +153,16 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
                 startOnLoad: false,
                 theme: isDark ? 'dark' : 'default',
                 securityLevel: 'loose',
+                htmlLabels: false,
                 fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
                 maxTextSize: 100000,
                 er: { 
-                    useMaxWidth: true,
+                    useMaxWidth: false,
                     layoutDirection: 'TB',
                     minEntityWidth: 80, 
                     minEntityHeight: 25,
                     entityPadding: 8,
-                    strokeWidth: 1,
-                    fontSize: 14,
-                    wrap: true
+                    fontSize: 14
                 },
                 flowchart: { 
                     useMaxWidth: false,  // 禁用自动宽度
@@ -190,6 +189,126 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         }
     };
     
+    const normalizeErDiagram = (chart: string) => {
+        if (!chart.trimStart().toLowerCase().startsWith('erdiagram')) return chart;
+
+        let insideEntity = false;
+        return chart
+            .split('\n')
+            .map((line) => {
+                const trimmed = line.trim();
+
+                if (/^[\w\u00C0-\uFFFF-]+\s*(\[[^\]]+\])?\s*\{\s*$/.test(trimmed)) {
+                    insideEntity = true;
+                    return line;
+                }
+
+                if (insideEntity && /^\}\s*$/.test(trimmed)) {
+                    insideEntity = false;
+                    return line;
+                }
+
+                if (!insideEntity || !line.includes('"')) return line;
+
+                return line.replace(/"([^"]*)"/g, (_match, comment: string) => `"${wrapErComment(comment)}"`);
+            })
+            .join('\n');
+    };
+
+    const wrapErComment = (comment: string) => {
+        const maxLength = 22;
+        const normalized = comment.replace(/\s*<br\s*\/?\s*>\s*/gi, ' ').trim();
+        const chunks: string[] = [];
+        let rest = normalized;
+
+        while (rest.length > maxLength) {
+            const head = rest.slice(0, maxLength + 1);
+            const breakAt = Math.max(
+                head.lastIndexOf('，'),
+                head.lastIndexOf('、'),
+                head.lastIndexOf(','),
+                head.lastIndexOf(':'),
+                head.lastIndexOf('：'),
+                head.lastIndexOf(' ')
+            );
+            const index = breakAt >= 8 ? breakAt + 1 : maxLength;
+            chunks.push(rest.slice(0, index).trim());
+            rest = rest.slice(index).trim();
+        }
+
+        if (rest) chunks.push(rest);
+        return chunks.join('<br/>');
+    };
+    
+    const getSvgIntrinsicSize = (svgElement: SVGSVGElement) => {
+        const viewBox = svgElement.getAttribute('viewBox');
+        if (viewBox) {
+            const [, , width, height] = viewBox.split(/\s+/).map(Number);
+            if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+                return { width, height };
+            }
+        }
+
+        const width = Number.parseFloat(svgElement.getAttribute('width') || '');
+        const height = Number.parseFloat(svgElement.getAttribute('height') || '');
+        if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+            return { width, height };
+        }
+
+        const rect = svgElement.getBoundingClientRect();
+        return {
+            width: rect.width || 640,
+            height: rect.height || 360,
+        };
+    };
+
+    const fitSvgViewport = (svgElement: SVGSVGElement) => {
+        const fallback = getSvgIntrinsicSize(svgElement);
+        const contentRoot = (svgElement.querySelector(':scope > g') as SVGGElement | null) || svgElement;
+
+        try {
+            const bbox = contentRoot.getBBox();
+            if (bbox.width > 0 && bbox.height > 0) {
+                const padding = 28;
+                const x = bbox.x - padding;
+                const y = bbox.y - padding;
+                const width = bbox.width + padding * 2;
+                const height = bbox.height + padding * 2;
+
+                svgElement.setAttribute('viewBox', `${x} ${y} ${width} ${height}`);
+                svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+                return { width, height };
+            }
+        } catch {
+            // 保留 fallback
+        }
+
+        return fallback;
+    };
+
+    const applyDefaultSvgSize = (element: Element, svgElement: SVGSVGElement, isErDiagram: boolean) => {
+        const scrollContainer = element.closest('.mermaid-scroll-container') as HTMLElement | null;
+        const availableWidth = Math.max(320, (scrollContainer?.clientWidth || 760) - 32);
+        const { width, height } = fitSvgViewport(svgElement);
+        const targetWidth = Math.min(availableWidth * 0.82, 760);
+        const minScale = isErDiagram ? 0.72 : 0.82;
+        const maxScale = isErDiagram ? 1.18 : 1.35;
+        const scale = Math.min(maxScale, Math.max(minScale, targetWidth / width));
+        const displayWidth = Math.round(width * scale);
+        const displayHeight = Math.round(height * scale);
+
+        svgElement.removeAttribute('style');
+        svgElement.setAttribute('width', String(displayWidth));
+        svgElement.setAttribute('height', String(displayHeight));
+        svgElement.dataset.baseWidth = String(displayWidth);
+        svgElement.dataset.baseHeight = String(displayHeight);
+        svgElement.style.width = `${displayWidth}px`;
+        svgElement.style.height = `${displayHeight}px`;
+        svgElement.style.maxWidth = 'none';
+    };
+
+    
     // 渲染单个 mermaid 图表
     const renderMermaid = async (element: Element) => {
         if (element.getAttribute('data-processed')) return;
@@ -199,47 +318,15 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
             if (!chartData.trim()) return;
             
             const elemId = element.id || `mermaid-${Math.random().toString(36).substring(2, 9)}`;
-            const { svg } = await mermaid.render(elemId + '-svg', chartData);
+            const renderChartData = normalizeErDiagram(chartData);
+            const { svg } = await mermaid.render(elemId + '-svg', renderChartData);
             element.innerHTML = svg;
             element.setAttribute('data-processed', 'true');
             
-            // 关键修复：渲染后修正 SVG 宽度，解决 ER 图在宽屏下过度拉伸的问题
             const svgElement = element.querySelector('svg');
             if (svgElement) {
-                const isErDiagram = svgElement.getAttribute('aria-roledescription') === 'er' || 
-                                    chartData.trim().toLowerCase().startsWith('erdiagram');
-                if (isErDiagram) {
-                    const container = element.closest('.mermaid-container');
-                    const scrollContainer = container?.querySelector('.mermaid-scroll-container') as HTMLElement | null;
-                    const containerWidth = scrollContainer?.clientWidth || container?.clientWidth || 800;
-
-                    const viewBox = svgElement.getAttribute('viewBox');
-                    const widthAttr = Number.parseFloat(svgElement.getAttribute('width') || '');
-                    const heightAttr = Number.parseFloat(svgElement.getAttribute('height') || '');
-
-                    let intrinsicWidth = Number.isFinite(widthAttr) ? widthAttr : 0;
-                    let intrinsicHeight = Number.isFinite(heightAttr) ? heightAttr : 0;
-
-                    if (viewBox) {
-                        const parts = viewBox.split(/\s+/).map(Number);
-                        if (parts.length >= 4 && Number.isFinite(parts[2]) && Number.isFinite(parts[3])) {
-                            intrinsicWidth = parts[2];
-                            intrinsicHeight = parts[3];
-                        }
-                    }
-
-                    const maxRenderWidth = Math.max(560, Math.floor(containerWidth * 0.92));
-                    if (intrinsicWidth > 0 && intrinsicHeight > 0 && intrinsicWidth > maxRenderWidth) {
-                        const ratio = maxRenderWidth / intrinsicWidth;
-                        const targetHeight = Math.max(120, Math.round(intrinsicHeight * ratio));
-                        svgElement.setAttribute('width', String(maxRenderWidth));
-                        svgElement.setAttribute('height', String(targetHeight));
-                    }
-                }
-
-                svgElement.removeAttribute('style');
-                svgElement.style.maxWidth = '100%';
-                svgElement.style.height = 'auto';
+                const isErDiagram = renderChartData.trim().toLowerCase().startsWith('erdiagram');
+                applyDefaultSvgSize(element, svgElement, isErDiagram);
             }
         } catch (error) {
             console.error('Mermaid rendering error:', error);
@@ -313,8 +400,28 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
             let modalZoom = 1;
             
             const updateZoom = (target: HTMLElement, newZoom: number) => {
-                target.style.transform = `scale(${newZoom})`;
-                target.style.transformOrigin = 'top left';
+                const svg = target.querySelector('svg') as SVGSVGElement | null;
+                if (!svg) {
+                    target.style.transform = `scale(${newZoom})`;
+                    target.style.transformOrigin = 'top left';
+                    return;
+                }
+
+                const baseWidth = Number.parseFloat(svg.dataset.baseWidth || svg.getAttribute('width') || '0');
+                const baseHeight = Number.parseFloat(svg.dataset.baseHeight || svg.getAttribute('height') || '0');
+                if (!svg.dataset.baseWidth && baseWidth > 0 && baseHeight > 0) {
+                    svg.dataset.baseWidth = String(baseWidth);
+                    svg.dataset.baseHeight = String(baseHeight);
+                }
+
+                if (baseWidth > 0 && baseHeight > 0) {
+                    const width = Math.round(baseWidth * newZoom);
+                    const height = Math.round(baseHeight * newZoom);
+                    svg.setAttribute('width', String(width));
+                    svg.setAttribute('height', String(height));
+                    svg.style.width = `${width}px`;
+                    svg.style.height = `${height}px`;
+                }
             };
             
             // 初始化时应用默认缩放
@@ -567,6 +674,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         overflow: auto;
         cursor: grab;
         user-select: none;
+        scrollbar-gutter: stable;
     }
     
     .mermaid-scroll-container:active {
@@ -574,7 +682,9 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
     }
     
     .mermaid-content {
-        display: inline-block;
+        display: flex;
+        justify-content: center;
+        min-width: max-content;
         padding: 1rem;
         padding-top: 3rem;
     }
