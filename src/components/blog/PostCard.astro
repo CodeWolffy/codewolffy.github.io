@@ -12,12 +12,12 @@ const { post, mainTagLabel, index = 0, readingTime } = Astro.props;
 ---
 
 <article 
-    class="group relative flex flex-col space-y-2 rounded-xl p-3 pb-2 bg-card border border-border hover:border-primary/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-md animate-slide-up opacity-0"
+    class="group relative flex flex-col space-y-2 rounded-2xl p-3.5 bg-card border border-border/60 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up opacity-0"
     style={`animation-delay: ${index * 50}ms;`}
 >
     
     {(post.data.coverImage || post.data.heroImage) && (
-        <div class="aspect-video overflow-hidden rounded-lg bg-muted relative">
+        <div class="aspect-video overflow-hidden rounded-xl bg-muted relative">
             <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"></div>
             <img
                 src={post.data.coverImage || post.data.heroImage}
