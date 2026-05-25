@@ -1,7 +1,7 @@
 {
   "name": "blog",
   "type": "module",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "scripts": {
     "dev": "astro dev",
     "build": "npm run check:mermaid && astro build && npx pagefind --site dist",
@@ -12,9 +12,7 @@
     "check:mermaid": "node scripts/check-mermaid-regression.mjs"
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.6",
     "@astrojs/cloudflare": "^12.6.12",
-    "@astrojs/markdoc": "^0.15.10",
     "@astrojs/mdx": "^4.3.13",
     "@astrojs/react": "^4.4.2",
     "@astrojs/rss": "^4.0.15",
@@ -47,6 +45,7 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.6",
     "png-to-ico": "^3.0.1"
   }
 }

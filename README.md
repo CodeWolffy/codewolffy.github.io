@@ -57,8 +57,8 @@
 
 | 领域 | 核心库 | 版本 | 作用说明 |
 | :--- | :--- | :--- | :--- |
-| **Core** | [Astro](https://astro.build/) | v5.16.11 | 静态站点生成器，路由管理 |
-| **Build** | [Vite](https://vitejs.dev/) | v6.4.1 | 极速构建引擎与开发服务器 |
+| **Core** | [Astro](https://astro.build/) | v5.18.1 | 静态站点生成器，路由管理 |
+| **Build** | [Vite](https://vitejs.dev/) | v6.4.2 | 极速构建引擎与开发服务器 |
 | **UI** | [React](https://react.dev/) | v18.3.1 | 构建交互式岛屿组件 (Search, Comments) |
 | **Language** | [TypeScript](https://www.typescriptlang.org/) | v5.9.3 | 类型安全的 JavaScript 超集 |
 | **Style** | [Tailwind CSS](https://tailwindcss.com/) | v4.1.18 | CSS 框架 (配合 Vite 插件) |

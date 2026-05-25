@@ -9,7 +9,7 @@ export const siteConfig = {
     githubPages: 'https://codewolffy.github.io',
   },
   og: {
-    defaultImage: '/default-share.png',
+    defaultImage: '/default-share.jpg',
     locale: 'zh_CN',
   },
   rss: {
