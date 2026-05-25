@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Download, FileText, FileCode, Printer, ChevronDown, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import JSZip from 'jszip';
-import FileSaver from 'file-saver';
+
+const loadJsZip = () => import('jszip');
+const loadFileSaver = () => import('file-saver');
 
 interface ExportButtonProps {
     title: string;
@@ -298,6 +299,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
         // 3. 构建完整内容 (无 Footer References)
         const fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
 
+        const { default: FileSaver } = await loadFileSaver();
         const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
         FileSaver.saveAs(blob, getFileName('md'));
     };
@@ -491,12 +493,15 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
 </body>
 </html>`;
 
+        const { default: FileSaver } = await loadFileSaver();
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
         FileSaver.saveAs(blob, getFileName('html'));
     };
 
     // 导出 ZIP 包 (Markdown + Assets)
     const exportZip = async () => {
+        const { default: JSZip } = await loadJsZip();
+        const { default: FileSaver } = await loadFileSaver();
         const zip = new JSZip();
         const assetsFolder = zip.folder('assets');
 

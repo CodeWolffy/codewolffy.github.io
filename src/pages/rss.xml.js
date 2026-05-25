@@ -1,5 +1,6 @@
 import rss from '@astrojs/rss';
 import { getCollection } from 'astro:content';
+import { siteConfig } from '@/config/site';
 
 export async function GET(context) {
     const posts = await getCollection('blog', ({ data }) => {
@@ -12,8 +13,8 @@ export async function GET(context) {
     );
 
     return rss({
-        title: '狼码纪',
-        description: '探索技术、编程与设计的边界',
+        title: siteConfig.rss.title,
+        description: siteConfig.rss.description,
         site: context.site,
         items: sortedPosts.map((post) => ({
             title: post.data.title,
@@ -21,10 +22,10 @@ export async function GET(context) {
             description: post.data.description,
             link: `/blog/${post.slug}/`,
             // 添加作者信息
-            customData: `<author>狼码纪</author>`,
+            customData: `<author>${siteConfig.author.name}</author>`,
         })),
-        customData: `<language>zh-cn</language>`,
-        stylesheet: '/rss-style.xsl',
+        customData: `<language>${siteConfig.rss.language}</language>`,
+        stylesheet: siteConfig.rss.stylesheet,
     });
 }
 

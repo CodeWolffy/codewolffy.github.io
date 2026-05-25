@@ -1,5 +1,6 @@
 import * as React from 'react';
 import Giscus from '@giscus/react';
+import { siteConfig } from '@/config/site';
 
 export function Comments() {
     const [theme, setTheme] = React.useState('light');
@@ -91,18 +92,18 @@ export function Comments() {
         >
             {shouldLoad && (
                 <Giscus
-                    id="comments"
-                    repo="CodeWolffy/codewolffy.github.io"
-                    repoId="R_kgDOQ9k4Jg"
-                    category="Announcements"
-                    categoryId="DIC_kwDOQ9k4Js4C1Mb7"
-                    mapping="pathname"
-                    reactionsEnabled="1"
-                    emitMetadata="0"
-                    inputPosition="bottom"
+                    id={siteConfig.comments.giscus.id}
+                    repo={siteConfig.comments.giscus.repo}
+                    repoId={siteConfig.comments.giscus.repoId}
+                    category={siteConfig.comments.giscus.category}
+                    categoryId={siteConfig.comments.giscus.categoryId}
+                    mapping={siteConfig.comments.giscus.mapping}
+                    reactionsEnabled={siteConfig.comments.giscus.reactionsEnabled}
+                    emitMetadata={siteConfig.comments.giscus.emitMetadata}
+                    inputPosition={siteConfig.comments.giscus.inputPosition}
                     theme={theme}
-                    lang="zh-CN"
-                    loading="eager" // Load immediately once component is mounted
+                    lang={siteConfig.comments.giscus.lang}
+                    loading={siteConfig.comments.giscus.loading} // Load immediately once component is mounted
                 />
             )}
         </div>

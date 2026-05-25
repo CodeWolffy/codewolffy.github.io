@@ -14,9 +14,66 @@ declare global {
     }
 }
 
+const PAGEFIND_CSS_ID = "pagefind-ui-css";
+const PAGEFIND_SCRIPT_ID = "pagefind-ui-script";
+let pagefindAssetPromise: Promise<void> | null = null;
+
+function loadPagefindAssets() {
+    if (window.PagefindUI) {
+        return Promise.resolve();
+    }
+
+    if (!import.meta.env.PROD) {
+        return Promise.reject(new Error("Pagefind is only available after production build."));
+    }
+
+    if (pagefindAssetPromise) {
+        return pagefindAssetPromise;
+    }
+
+    pagefindAssetPromise = new Promise<void>((resolve, reject) => {
+        if (!document.getElementById(PAGEFIND_CSS_ID)) {
+            const link = document.createElement("link");
+            link.id = PAGEFIND_CSS_ID;
+            link.rel = "stylesheet";
+            link.href = "/pagefind/pagefind-ui.css";
+            document.head.appendChild(link);
+        }
+
+        const resolveIfReady = () => {
+            if (window.PagefindUI) {
+                resolve();
+            } else {
+                reject(new Error("Pagefind UI failed to initialize."));
+            }
+        };
+
+        const existingScript = document.getElementById(PAGEFIND_SCRIPT_ID) as HTMLScriptElement | null;
+        if (existingScript) {
+            existingScript.addEventListener("load", resolveIfReady, { once: true });
+            existingScript.addEventListener("error", () => reject(new Error("Pagefind UI failed to load.")), { once: true });
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.id = PAGEFIND_SCRIPT_ID;
+        script.src = "/pagefind/pagefind-ui.js";
+        script.async = true;
+        script.addEventListener("load", resolveIfReady, { once: true });
+        script.addEventListener("error", () => reject(new Error("Pagefind UI failed to load.")), { once: true });
+        document.head.appendChild(script);
+    }).catch((error) => {
+        pagefindAssetPromise = null;
+        throw error;
+    });
+
+    return pagefindAssetPromise;
+}
+
 export function Search() {
     const [isExpanded, setIsExpanded] = React.useState(false)
     const [searchValue, setSearchValue] = React.useState("")
+    const [searchStatus, setSearchStatus] = React.useState<"idle" | "loading" | "ready" | "unavailable">("idle")
     const searchContainerRef = React.useRef<HTMLDivElement>(null)
     const inputRef = React.useRef<HTMLInputElement>(null)
 
@@ -41,18 +98,26 @@ export function Search() {
     React.useEffect(() => {
         if (isExpanded) {
             // Small delay to ensure the container is rendered
-            const timer = setTimeout(() => {
+            const timer = setTimeout(async () => {
                 const searchResultsDiv = document.getElementById("pagefind-results");
-                // @ts-ignore
-                if (window.PagefindUI && searchResultsDiv) {
+                if (!searchResultsDiv) return;
+
+                try {
+                    setSearchStatus("loading");
+                    await loadPagefindAssets();
+
+                    if (!window.PagefindUI) {
+                        throw new Error("Pagefind UI is unavailable.");
+                    }
+
                     searchResultsDiv.innerHTML = ""; // Clear previous instance
-                    // @ts-ignore
-                    new PagefindUI({
+                    new window.PagefindUI({
                         element: "#pagefind-results",
                         showSubResults: true,
                         showImages: false,
                         autofocus: false, // We handle focus ourselves
                     });
+                    setSearchStatus("ready");
 
                     // Find the pagefind input and sync it with our controlled input
                     const pagefindInput = searchResultsDiv.querySelector('.pagefind-ui__search-input') as HTMLInputElement;
@@ -60,7 +125,8 @@ export function Search() {
                         pagefindInput.value = searchValue;
                         pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
                     }
-                } else if (!window.PagefindUI && searchResultsDiv) {
+                } catch {
+                    setSearchStatus("unavailable");
                     searchResultsDiv.innerHTML = `
                         <div class="flex flex-col items-center justify-center py-8 text-center text-muted-foreground space-y-2">
                             <p>搜索功能仅在生产构建模式下可用。</p>
@@ -164,7 +230,11 @@ export function Search() {
             {/* Search Results Dropdown */}
             {isExpanded && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-[70vh] overflow-auto">
-                    <div id="pagefind-results" className="p-2"></div>
+                    <div id="pagefind-results" className="p-2">
+                        {searchStatus === "loading" && (
+                            <div className="py-8 text-center text-sm text-muted-foreground">正在加载搜索...</div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

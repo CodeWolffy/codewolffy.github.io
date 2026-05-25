@@ -4,11 +4,12 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && npx pagefind --site dist",
+    "build": "npm run check:mermaid && astro build && npx pagefind --site dist",
     "preview": "astro preview",
     "astro": "astro",
     "sync-content": "node scripts/sync-content.js",
-    "clean-content": "node scripts/clean-content.js"
+    "clean-content": "node scripts/clean-content.js",
+    "check:mermaid": "node scripts/check-mermaid-regression.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.6",
@@ -32,6 +33,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "file-saver": "^2.0.5",
+    "gray-matter": "^4.0.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.562.0",
     "medium-zoom": "^1.1.0",

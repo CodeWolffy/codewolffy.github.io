@@ -2,6 +2,7 @@
 import { ClientRouter } from 'astro:transitions'; // Using ClientRouter for ViewTransitions in modern Astro
 import { Header } from "@/components/layout/Header";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
+import { siteConfig } from '@/config/site';
 import '@/styles/global.css';
 
 interface Props {
@@ -16,17 +17,19 @@ interface Props {
 
 const { 
 	title, 
-	description = "狼码纪 - 分享技术与创意的博客", 
+	description = siteConfig.description, 
 	image,
 	type = 'website',
 	publishedTime,
 	modifiedTime,
-	author = '狼码纪'
+	author = siteConfig.author.name
 } = Astro.props;
 
 // 构建完整的 OG 图片 URL
-const ogImage = image ? new URL(image, Astro.site || Astro.url) : new URL("/default-share.png", Astro.site || Astro.url);
+const ogImage = image ? new URL(image, Astro.site || Astro.url) : new URL(siteConfig.og.defaultImage, Astro.site || Astro.url);
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
+const busuanzi = siteConfig.analytics.busuanzi;
+const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.label, item.href]));
 ---
 
 <!doctype html>
@@ -37,16 +40,16 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
 		<link rel="manifest" href="/manifest.json" />
-		<link rel="alternate" type="application/rss+xml" title="MyTechBlog RSS" href="/rss.xml" />
+		<link rel="alternate" type="application/rss+xml" title={siteConfig.rss.title} href={siteConfig.links.rss} />
 		<!-- 不蒜子预连接优化 -->
-		<link rel="dns-prefetch" href="//busuanzi.ibruce.info" />
-		<link rel="preconnect" href="//busuanzi.ibruce.info" crossorigin />
+		<link rel="dns-prefetch" href={busuanzi.origin} />
+		<link rel="preconnect" href={busuanzi.origin} crossorigin />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
-		<!-- Google Search Console 站点验证 -->
-		<meta name="google-site-verification" content="BY-N1ILCYoVzYJ1psC5ldCUPU5IxbG6wuKnRw03LIj0" />
-		<meta name="google-site-verification" content="7XGmhuDPS4PTDQdHg6OchrT8wvbkdplfPqlSxX7gZ_I" />
-        
+		{siteConfig.verification.google.map((token) => (
+			<meta name="google-site-verification" content={token} />
+		))}
+
         <!-- Canonical URL -->
         <link rel="canonical" href={canonicalUrl} />
 
@@ -56,8 +59,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
         <meta property="og:image" content={ogImage} />
-        <meta property="og:site_name" content="狼码纪" />
-        <meta property="og:locale" content="zh_CN" />
+        <meta property="og:site_name" content={siteConfig.name} />
+        <meta property="og:locale" content={siteConfig.og.locale} />
         
         {/* Article 扩展标签 - 仅用于文章页 */}
         {type === 'article' && publishedTime && (
@@ -80,16 +83,16 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 		<ClientRouter />
 		
 		<!-- 不蒜子访问统计 - 优化版 -->
-		<script is:inline>
+		<script define:vars={{ busuanzi }}>
 			// 不蒜子脚本加载函数（带超时处理）
 			function loadBusuanzi() {
 				// 检查页面是否有不蒜子容器元素（只在文章页加载）
-				const container = document.getElementById('busuanzi_container_page_pv');
-				const valueEl = document.getElementById('busuanzi_value_page_pv');
+				const container = document.getElementById(busuanzi.pagePvContainerId);
+				const valueEl = document.getElementById(busuanzi.pagePvValueId);
 				if (!container) return;
 				
 				// 移除旧脚本（如果存在）
-				const oldScript = document.getElementById('busuanzi_script');
+				const oldScript = document.getElementById(busuanzi.scriptId);
 				if (oldScript) oldScript.remove();
 				
 				// 显示加载状态
@@ -101,8 +104,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 				
 				// 创建新脚本
 				const script = document.createElement('script');
-				script.id = 'busuanzi_script';
-				script.src = '//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js';
+				script.id = busuanzi.scriptId;
+				script.src = busuanzi.scriptSrc;
 				script.async = true;
 				
 				// 加载成功回调
@@ -128,7 +131,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 					if (!loaded) {
 						container.style.display = 'none';
 					}
-				}, 5000);
+				}, busuanzi.timeoutMs);
 				
 				document.head.appendChild(script);
 			}
@@ -180,11 +183,6 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 				}
 			});
 		</script>
-        {import.meta.env.PROD && (
-            <>
-                <link href="/pagefind/pagefind-ui.css" rel="stylesheet" />
-                <script src="/pagefind/pagefind-ui.js" is:inline></script>
-            </>
         )}
 	</head>
 	<body class="min-h-screen bg-background font-sans antialiased">
@@ -193,7 +191,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 			跳过导航
 		</a>
 		<div class="relative flex min-h-screen flex-col">
-			<Header client:load />
+			<Header client:idle />
 			<main id="main-content" class:list={["flex-1", type !== 'article' ? "pb-8 md:pb-20" : "pb-8"]}>
 				<slot />
 			</main>
@@ -205,19 +203,19 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 			]}>
 			<div class="container mx-auto flex flex-col items-center justify-center gap-0.5">
 					<div class="flex items-center gap-4">
-						<a href="https://b23.tv/CWW8udk" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+						<a href={socialLinks.Bilibili} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
 							<span class="sr-only">Bilibili</span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
 								<path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.996 1.524 2.249 1.56 3.758v4.806c-.054 1.51-.602 2.769-1.646 3.774-1.044 1.004-2.3 1.492-3.766 1.463H5.412c-1.503.029-2.756-.459-3.766-1.463C.602 17.56.054 16.3.001 14.79V9.985c.029-1.503.517-2.756 1.463-3.758C2.51 5.231 3.769 4.707 5.234 4.653h.854l-2.05-2.049A1.065 1.065 0 0 1 5.546 1.09l2.84 2.848h7.228l2.84-2.848a1.065 1.065 0 0 1 1.509 1.513l-2.05 2.05zm-3.875 5.004h-3.876c-.521-.019-.922.398-.902.937v2.5a.916.916 0 0 0 .902.934h3.876a.916.916 0 0 0 .902-.934v-2.5c.019-.539-.382-.956-.902-.937z"/>
 							</svg>
 						</a>
-						<a href="https://v.douyin.com/npIXkasyEdE" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+						<a href={socialLinks.Douyin} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
 							<span class="sr-only">Douyin</span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 1024 1024" fill="currentColor">
 								<path d="M937.386667 423.850667a387.84 387.84 0 0 1-232.874667-77.824v352.341333C704.512 878.250667 565.930667 1024 394.922667 1024S85.333333 878.250667 85.333333 698.368c0-179.882667 138.581333-325.632 309.589334-325.632 17.066667 0 33.706667 1.450667 49.92 4.266667v186.624a131.754667 131.754667 0 0 0-48.64-9.216c-76.288 0-138.154667 65.024-138.154667 145.322666 0 80.213333 61.866667 145.322667 138.24 145.322667 76.202667 0 138.069333-65.109333 138.069333-145.322667V0h172.714667c0 134.485333 103.68 243.541333 231.594667 243.541333v180.309334h-1.28"/>
 							</svg>
 						</a>
-						<a href="https://www.instagram.com/codewolffy" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+						<a href={socialLinks.Instagram} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
 							<span class="sr-only">Instagram</span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 								<rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -225,13 +223,13 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 								<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
 							</svg>
 						</a>
-						<a href="https://github.com/CodeWolffy" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+						<a href={socialLinks.GitHub} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
 							<span class="sr-only">GitHub</span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
 								<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
 							</svg>
 						</a>
-						<a href="https://juejin.cn/user/407261374331431" target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
+						<a href={socialLinks.Juejin} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
 							<span class="sr-only">Juejin</span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
 								<path d="M2 12l10 7.422l10 -7.422"/>
@@ -239,7 +237,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 								<path d="M11 6l1 .8l1 -.8l-1 -.8z"/>
 							</svg>
 						</a>
-						<a href="/rss.xml" class="text-muted-foreground hover:text-primary transition-colors">
+						<a href={siteConfig.links.rss} class="text-muted-foreground hover:text-primary transition-colors">
 							<span class="sr-only">RSS</span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 								<path d="M4 11a9 9 0 0 1 9 9"></path>
@@ -250,13 +248,13 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 					</div>
 					
 					<p class="text-balance text-center text-sm leading-none text-muted-foreground mt-1">
-						© {new Date().getFullYear()} 狼码纪. All rights reserved.
+						© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
 					</p>
 				</div>
 			</footer>
 			
 			<!-- 滚动到顶部按钮 -->
-			<ScrollToTop client:load />
+			<ScrollToTop client:idle />
 		</div>
 	</body>
 </html>

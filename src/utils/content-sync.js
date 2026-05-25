@@ -1,94 +1,41 @@
-
 import fs from 'fs/promises';
 import path from 'path';
+import matter from 'gray-matter';
 
-/**
- * Parses frontmatter from MDX content
- * @param {string} content 
- * @returns {string|null}
- */
-function parseFrontmatter(content) {
-    // Support both LF and CRLF
-    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-    if (!match) return null;
-    return match[1];
+function normalizeReferenceValue(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value.trim();
+
+    if (typeof value === 'object') {
+        if ('value' in value) return normalizeReferenceValue(value.value);
+        if ('id' in value) return normalizeReferenceValue(value.id);
+        if ('name' in value) return normalizeReferenceValue(value.name);
+    }
+
+    return '';
 }
 
-/**
- * Extracts tags and categories from frontmatter string
- * @param {string} frontmatter 
- */
-function extractTagsAndCategories(frontmatter) {
+function collectReferenceValues(value) {
+    if (Array.isArray(value)) {
+        return value.map(normalizeReferenceValue).filter(Boolean);
+    }
+
+    const normalized = normalizeReferenceValue(value);
+    return normalized ? [normalized] : [];
+}
+
+function extractTagsAndCategories(content, filePath = '') {
     const tags = new Set();
     const categories = new Set();
 
-    if (!frontmatter) return { tags, categories };
+    try {
+        const { data } = matter(content);
 
-    const lines = frontmatter.split(/\r?\n/);
-    let currentKey = null;
-    let inList = false;
-
-    const stripComment = (str) => {
-        const idx = str.indexOf('#');
-        return idx === -1 ? str : str.substring(0, idx);
-    };
-
-    const cleanValue = (val) => {
-        if (!val) return '';
-        return stripComment(val).trim().replace(/^['"]|['"]$/g, '');
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim();
-
-        if (!trimmed || trimmed.startsWith('#')) continue;
-
-        // Detect Key
-        const keyMatch = line.match(/^([a-zA-Z0-9_]+):/);
-        if (keyMatch) {
-            currentKey = keyMatch[1];
-            inList = false;
-
-            // Handle inline array syntax: "tags: [a, b]"
-            const valuePart = stripComment(trimmed.substring(currentKey.length + 1)).trim();
-            if (valuePart.startsWith('[') && valuePart.endsWith(']')) {
-                const content = valuePart.slice(1, -1);
-                const items = content.split(',').map(cleanValue).filter(Boolean);
-                if (currentKey === 'tags') {
-                    items.forEach(item => tags.add(item));
-                } else if (currentKey === 'category') {
-                    items.forEach(item => categories.add(item));
-                }
-                continue; // Skip list processing for this line
-            }
-        }
-
-        if (currentKey === 'tags') {
-            if (trimmed.startsWith('- ')) {
-                inList = true;
-                const valuePart = trimmed.substring(2).trim();
-
-                if (!valuePart.startsWith('discriminant:') && !valuePart.includes(':')) {
-                    const val = cleanValue(valuePart);
-                    if (val && val !== 'discriminant' && val !== 'value') tags.add(val);
-                }
-                else if (valuePart.startsWith('value:')) {
-                    const val = cleanValue(valuePart.substring(6));
-                    if (val) tags.add(val);
-                }
-            } else if (inList) {
-                if (trimmed.startsWith('value:')) {
-                    const val = cleanValue(trimmed.substring(6));
-                    if (val) tags.add(val);
-                }
-            }
-        } else if (currentKey === 'category') {
-            if (trimmed.startsWith('value:')) {
-                const val = cleanValue(trimmed.substring(6));
-                if (val) categories.add(val);
-            }
-        }
+        collectReferenceValues(data.tags).forEach(tag => tags.add(tag));
+        collectReferenceValues(data.category).forEach(category => categories.add(category));
+    } catch (error) {
+        const source = filePath ? ` in ${filePath}` : '';
+        console.error(`[ContentSync] Failed to parse frontmatter${source}:`, error);
     }
 
     return { tags, categories };
@@ -127,8 +74,7 @@ export async function syncContent(rootDir) {
 
     for (const file of blogFiles) {
         const content = await readFileContent(file);
-        const frontmatter = parseFrontmatter(content);
-        const { tags, categories } = extractTagsAndCategories(frontmatter);
+        const { tags, categories } = extractTagsAndCategories(content, file);
 
         tags.forEach(t => allTags.add(t));
         categories.forEach(c => allCategories.add(c));
@@ -154,7 +100,7 @@ export async function syncContent(rootDir) {
                     const fileBase = file.replace('.json', '');
 
                     if (fileBase.toLowerCase() === safeTagName.toLowerCase()) {
-                        // Collision or Case-diff found. 
+                        // Collision or Case-diff found.
                         // We return true to say "it basically exists, don't create a new one".
                         // This implies we prefer the existing definition over the new variation.
                         return true;
@@ -255,12 +201,9 @@ export async function pruneContent(rootDir, dryRun = false) {
 
     for (const file of blogFiles) {
         const content = await readFileContent(file);
-        const frontmatter = parseFrontmatter(content);
-        if (frontmatter) {
-            const { tags, categories } = extractTagsAndCategories(frontmatter);
-            tags.forEach(t => usedTags.add(t));
-            categories.forEach(c => usedCategories.add(c));
-        }
+        const { tags, categories } = extractTagsAndCategories(content, file);
+        tags.forEach(t => usedTags.add(t));
+        categories.forEach(c => usedCategories.add(c));
     }
 
     // Create lowercase sets for case-insensitive comparison

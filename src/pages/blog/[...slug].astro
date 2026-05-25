@@ -15,6 +15,7 @@ import Callout from '../../components/mdx/Callout.astro';
 import Mermaid from '../../components/mdx/Mermaid.astro';
 import Iframe from '../../components/mdx/Iframe.astro';
 import { calculateReadingTime } from '../../utils/reading-time';
+import { siteConfig } from '@/config/site';
 
 
 export const prerender = true;
@@ -107,7 +108,7 @@ const pageUrl = Astro.url.href;
 	type="article"
 	publishedTime={post.data.pubDate}
 	modifiedTime={post.data.updatedDate}
-	author="狼码纪"
+	author={siteConfig.author.name}
 >
 	<!-- JSON-LD 结构化数据 -->
 	<script type="application/ld+json" set:html={JSON.stringify({
@@ -119,13 +120,13 @@ const pageUrl = Astro.url.href;
 		"dateModified": post.data.updatedDate?.toISOString() || post.data.pubDate.toISOString(),
 		"author": {
 			"@type": "Person",
-			"name": "狼码纪",
-			"url": Astro.site?.href
+			"name": siteConfig.author.name,
+			"url": Astro.site?.href || siteConfig.urls.primary
 		},
 		"publisher": {
 			"@type": "Organization",
-			"name": "狼码纪",
-			"url": Astro.site?.href
+			"name": siteConfig.name,
+			"url": Astro.site?.href || siteConfig.urls.primary
 		},
 		"mainEntityOfPage": {
 			"@type": "WebPage",
@@ -184,7 +185,7 @@ const pageUrl = Astro.url.href;
                     </div>
                 )}
                 <div class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-11 md:top-14 z-[60] border border-border/50 w-full">
-                    <TableOfContents headings={headings} client:load />
+                    <TableOfContents headings={headings} client:idle />
                 </div>
                 {(post.data.coverImage || post.data.heroImage) && (
                     <img
@@ -202,14 +203,14 @@ const pageUrl = Astro.url.href;
             </div>
 			
 			<!-- 代码复制按钮初始化 -->
-			<CopyCodeButton client:load />
+			<CopyCodeButton client:idle />
 			
 			<!-- 分享与导出按钮 -->
 			<div class="mt-2 pt-2 border-t border-border flex flex-wrap items-center justify-between gap-4">
-				<ShareButtons title={post.data.title} description={post.data.description} url={pageUrl} client:load />
+				<ShareButtons title={post.data.title} description={post.data.description} url={pageUrl} client:visible />
 				<div class="flex gap-2 w-full lg:w-auto">
 					<a
-						href={`https://codewolffy.pages.dev/keystatic/branch/main/collection/posts/item/${post.slug}`}
+						href={siteConfig.links.keystaticPosts + `/${post.slug}`}
 						target="_blank"
 						rel="noopener noreferrer"
 						class={buttonVariants({ variant: "outline", size: "sm" }) + " gap-2 flex-1 lg:flex-none justify-center"}
@@ -217,7 +218,7 @@ const pageUrl = Astro.url.href;
 						<FilePenLine className="h-4 w-4" />
 						编辑此页
 					</a>
-					<ExportButton title={post.data.title} content={post.body || ''} frontmatter={post.data} className="flex-1 lg:flex-none" client:load />
+					<ExportButton title={post.data.title} content={post.body || ''} frontmatter={post.data} className="flex-1 lg:flex-none" client:visible />
 				</div>
 			</div>
 			
@@ -289,14 +290,24 @@ const pageUrl = Astro.url.href;
 
 
             <hr class="mt-2" />
-            <Comments client:load />
+            <Comments client:visible />
         </div>
 
         <script>
-            import mediumZoom from 'medium-zoom';
+            let mediumZoomModulePromise: Promise<typeof import('medium-zoom')> | null = null;
+
+            const loadMediumZoom = () => {
+                mediumZoomModulePromise ??= import('medium-zoom');
+                return mediumZoomModulePromise;
+            };
             
             // Function to initialize zoom and lightbox
-            const initZoom = () => {
+            const initZoom = async () => {
+                const zoomTargets = document.querySelectorAll('.prose img, .cover-image');
+                if (zoomTargets.length === 0) return;
+
+                const { default: mediumZoom } = await loadMediumZoom();
+
                 // Initialize medium-zoom for article images ONLY
                 mediumZoom('.prose img', {
                     margin: 24,
@@ -388,11 +399,22 @@ const pageUrl = Astro.url.href;
                 }
             };
 
-            // Run on initial load
-            initZoom();
+            const runWhenIdle = (task: () => void) => {
+                if ('requestIdleCallback' in window) {
+                    window.requestIdleCallback(task, { timeout: 2000 });
+                    return;
+                }
+
+                window.setTimeout(task, 600);
+            };
+
+            const scheduleZoom = () => runWhenIdle(() => void initZoom());
+
+            // Run after initial rendering has settled
+            scheduleZoom();
 
             // Re-run on View Transitions navigation
-            document.addEventListener('astro:page-load', initZoom);
+            document.addEventListener('astro:page-load', scheduleZoom);
             
             // Handle Video Embeds (Responsive + Captions + Disable Autoplay)
             const initVideos = () => {
@@ -556,9 +578,11 @@ const pageUrl = Astro.url.href;
                 });
             };
             
-            // Run on load and transitions
-            initVideos();
-            document.addEventListener('astro:page-load', initVideos);
+            const scheduleVideos = () => runWhenIdle(initVideos);
+
+            // Run after initial rendering and View Transitions have settled
+            scheduleVideos();
+            document.addEventListener('astro:page-load', scheduleVideos);
         </script>
         
         <div class="hidden lg:block">

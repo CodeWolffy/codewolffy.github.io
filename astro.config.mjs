@@ -8,6 +8,7 @@ import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import keystatic from '@keystatic/astro';
 import cloudflare from '@astrojs/cloudflare';
+import { getSiteUrl } from './src/config/site.js';
 
 // Import custom plugins
 import { rehypeTableWrapper } from './src/plugins/rehype-table-wrapper.mjs';
@@ -102,8 +103,7 @@ export default defineConfig({
     }),
     keystatic()
   ],
-  // 部署到 Cloudflare Pages 后，请更新为你的实际域名
-  site: isGitHubActions ? 'https://codewolffy.github.io' : 'https://codewolffy.pages.dev',
+  site: getSiteUrl({ isGitHubActions }),
 
   // Markdown 代码高亮配置
   markdown: {
