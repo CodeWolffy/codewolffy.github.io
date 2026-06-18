@@ -1,261 +1,295 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react"
-import { Search as SearchIcon, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { Search as SearchIcon, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // 声明 PagefindUI 类型
 declare global {
-    interface Window {
-        PagefindUI?: new (options: {
-            element: string;
-            showSubResults?: boolean;
-            showImages?: boolean;
-            autofocus?: boolean;
-        }) => void;
-    }
+  interface Window {
+    PagefindUI?: new (options: {
+      element: string | HTMLElement;
+      showSubResults?: boolean;
+      showImages?: boolean;
+      autofocus?: boolean;
+    }) => void;
+  }
 }
 
-const PAGEFIND_CSS_ID = "pagefind-ui-css";
-const PAGEFIND_SCRIPT_ID = "pagefind-ui-script";
+const PAGEFIND_CSS_ID = 'pagefind-ui-css';
+const PAGEFIND_SCRIPT_ID = 'pagefind-ui-script';
 let pagefindAssetPromise: Promise<void> | null = null;
 
 function loadPagefindAssets() {
-    if (typeof window === 'undefined') {
-        return Promise.reject(new Error("Pagefind cannot load without window."));
-    }
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('Pagefind cannot load without window.'));
+  }
 
-    if (window.PagefindUI) {
-        return Promise.resolve();
-    }
+  if (window.PagefindUI) {
+    return Promise.resolve();
+  }
 
-    if (import.meta.env?.PROD === false) {
-        return Promise.reject(new Error("Pagefind is only available after production build."));
-    }
+  if (import.meta.env?.PROD === false) {
+    return Promise.reject(new Error('Pagefind is only available after production build.'));
+  }
 
-    if (pagefindAssetPromise) {
-        return pagefindAssetPromise;
-    }
-
-    pagefindAssetPromise = new Promise<void>((resolve, reject) => {
-        if (!document.getElementById(PAGEFIND_CSS_ID)) {
-            const link = document.createElement("link");
-            link.id = PAGEFIND_CSS_ID;
-            link.rel = "stylesheet";
-            link.href = "/pagefind/pagefind-ui.css";
-            document.head.appendChild(link);
-        }
-
-        const resolveIfReady = () => {
-            if (window.PagefindUI) {
-                resolve();
-            } else {
-                reject(new Error("Pagefind UI failed to initialize."));
-            }
-        };
-
-        const existingScript = document.getElementById(PAGEFIND_SCRIPT_ID) as HTMLScriptElement | null;
-        if (existingScript) {
-            existingScript.addEventListener("load", resolveIfReady, { once: true });
-            existingScript.addEventListener("error", () => reject(new Error("Pagefind UI failed to load.")), { once: true });
-            return;
-        }
-
-        const script = document.createElement("script");
-        script.id = PAGEFIND_SCRIPT_ID;
-        script.src = "/pagefind/pagefind-ui.js";
-        script.async = true;
-        script.addEventListener("load", resolveIfReady, { once: true });
-        script.addEventListener("error", () => reject(new Error("Pagefind UI failed to load.")), { once: true });
-        document.head.appendChild(script);
-    }).catch((error) => {
-        pagefindAssetPromise = null;
-        throw error;
-    });
-
+  if (pagefindAssetPromise) {
     return pagefindAssetPromise;
+  }
+
+  pagefindAssetPromise = new Promise<void>((resolve, reject) => {
+    if (!document.getElementById(PAGEFIND_CSS_ID)) {
+      const link = document.createElement('link');
+      link.id = PAGEFIND_CSS_ID;
+      link.rel = 'stylesheet';
+      link.href = '/pagefind/pagefind-ui.css';
+      document.head.appendChild(link);
+    }
+
+    const resolveIfReady = () => {
+      if (window.PagefindUI) {
+        resolve();
+      } else {
+        reject(new Error('Pagefind UI failed to initialize.'));
+      }
+    };
+
+    const existingScript = document.getElementById(PAGEFIND_SCRIPT_ID) as HTMLScriptElement | null;
+    if (existingScript) {
+      existingScript.addEventListener('load', resolveIfReady, { once: true });
+      existingScript.addEventListener(
+        'error',
+        () => reject(new Error('Pagefind UI failed to load.')),
+        { once: true }
+      );
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = PAGEFIND_SCRIPT_ID;
+    script.src = '/pagefind/pagefind-ui.js';
+    script.async = true;
+    script.addEventListener('load', resolveIfReady, { once: true });
+    script.addEventListener('error', () => reject(new Error('Pagefind UI failed to load.')), {
+      once: true,
+    });
+    document.head.appendChild(script);
+  }).catch((error) => {
+    pagefindAssetPromise = null;
+    throw error;
+  });
+
+  return pagefindAssetPromise;
 }
 
 export function Search() {
-    const [isExpanded, setIsExpanded] = useState(false)
-    const [searchValue, setSearchValue] = useState("")
-    const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "ready" | "unavailable">("idle")
-    const searchContainerRef = useRef<HTMLDivElement>(null)
-    const inputRef = useRef<HTMLInputElement>(null)
-    const pagefindCleanupRef = useRef<(() => void) | null>(null)
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>(
+    'idle'
+  );
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pagefindContainerRef = useRef<HTMLDivElement>(null);
+  const pagefindCleanupRef = useRef<(() => void) | null>(null);
 
-    // Handle Cmd+K / Ctrl+K keyboard shortcut
-    useEffect(() => {
-        const down = (e: KeyboardEvent) => {
-            if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                setIsExpanded(true)
-                setTimeout(() => inputRef.current?.focus(), 100)
-            }
-            if (e.key === "Escape" && isExpanded) {
-                setIsExpanded(false)
-                setSearchValue("")
-            }
+  // Handle Cmd+K / Ctrl+K keyboard shortcut
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setIsExpanded(true);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
+      if (e.key === 'Escape' && isExpanded) {
+        setIsExpanded(false);
+        setSearchValue('');
+      }
+    };
+    document.addEventListener('keydown', down);
+    return () => document.removeEventListener('keydown', down);
+  }, [isExpanded]);
+
+  // Initialize Pagefind when expanded
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    // Small delay to ensure the container is rendered
+    const timer = setTimeout(async () => {
+      const pagefindContainer = pagefindContainerRef.current;
+      if (!pagefindContainer) return;
+
+      // 清理之前的实例，避免重复挂载
+      pagefindCleanupRef.current?.();
+      pagefindCleanupRef.current = null;
+
+      try {
+        setSearchStatus('loading');
+        await loadPagefindAssets();
+
+        if (!window.PagefindUI) {
+          throw new Error('Pagefind UI is unavailable.');
         }
-        document.addEventListener("keydown", down)
-        return () => document.removeEventListener("keydown", down)
-    }, [isExpanded])
 
-    // Initialize Pagefind when expanded
-    useEffect(() => {
-        if (isExpanded) {
-            // Small delay to ensure the container is rendered
-            const timer = setTimeout(async () => {
-                const searchResultsDiv = document.getElementById("pagefind-results");
-                if (!searchResultsDiv) return;
+        // 清空容器后再初始化，保持 React 与真实 DOM 一致
+        pagefindContainer.innerHTML = '';
+        new window.PagefindUI({
+          element: pagefindContainer,
+          showSubResults: true,
+          showImages: false,
+          autofocus: false, // We handle focus ourselves
+        });
+        setSearchStatus('ready');
 
-                // 清理之前的实例
-                pagefindCleanupRef.current?.();
-                pagefindCleanupRef.current = null;
+        // PagefindUI 未暴露 destroy 时，回退到清空容器
+        pagefindCleanupRef.current = () => {
+          pagefindContainer.innerHTML = '';
+        };
 
-                try {
-                    setSearchStatus("loading");
-                    await loadPagefindAssets();
-
-                    if (!window.PagefindUI) {
-                        throw new Error("Pagefind UI is unavailable.");
-                    }
-
-                    searchResultsDiv.innerHTML = ""; // Clear previous instance
-                    new window.PagefindUI({
-                        element: "#pagefind-results",
-                        showSubResults: true,
-                        showImages: false,
-                        autofocus: false, // We handle focus ourselves
-                    });
-                    setSearchStatus("ready");
-
-                    // PagefindUI 未暴露 destroy 时，回退到清空容器
-                    pagefindCleanupRef.current = () => {
-                        searchResultsDiv.innerHTML = "";
-                    };
-
-                    // Find the pagefind input and sync it with our controlled input
-                    const pagefindInput = searchResultsDiv.querySelector('.pagefind-ui__search-input') as HTMLInputElement;
-                    if (pagefindInput && searchValue) {
-                        pagefindInput.value = searchValue;
-                        pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                } catch (error) {
-                    console.warn("Pagefind init failed:", error);
-                    setSearchStatus("unavailable");
-                    searchResultsDiv.innerHTML = `
-                        <div class="flex flex-col items-center justify-center py-8 text-center text-muted-foreground space-y-2">
-                            <p>搜索功能仅在生产构建模式下可用。</p>
-                            <p class="text-xs">因为 Pagefind 需要在构建时生成索引。</p>
-                            <p class="text-xs font-mono bg-muted px-2 py-1 rounded">npm run build && npm run preview</p>
-                        </div>
-                    `;
-                }
-            }, 50);
-            return () => {
-                clearTimeout(timer);
-                pagefindCleanupRef.current?.();
-                pagefindCleanupRef.current = null;
-            };
+        // Find the pagefind input and sync it with our controlled input
+        const pagefindInput = pagefindContainer.querySelector(
+          '.pagefind-ui__search-input'
+        ) as HTMLInputElement;
+        if (pagefindInput && searchValue) {
+          pagefindInput.value = searchValue;
+          pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
-    }, [isExpanded]);
+      } catch (error) {
+        console.warn('Pagefind init failed:', error);
+        setSearchStatus('unavailable');
+      }
+    }, 50);
 
-    // Sync search value to pagefind input
-    useEffect(() => {
-        if (isExpanded && searchValue) {
-            const pagefindInput = document.querySelector('#pagefind-results .pagefind-ui__search-input') as HTMLInputElement;
-            if (pagefindInput) {
-                pagefindInput.value = searchValue;
-                pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        }
-    }, [searchValue, isExpanded]);
+    return () => {
+      clearTimeout(timer);
+      pagefindCleanupRef.current?.();
+      pagefindCleanupRef.current = null;
+    };
+    // searchValue 的同步由下面的 useEffect 负责，此处仅在展开时初始化一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
 
-    // Click outside to close
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-                setIsExpanded(false)
-                setSearchValue("")
-            }
-        }
-        if (isExpanded) {
-            document.addEventListener("mousedown", handleClickOutside)
-        }
-        return () => document.removeEventListener("mousedown", handleClickOutside)
-    }, [isExpanded])
-
-    const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setSearchValue(e.target.value)
+  // Sync search value to pagefind input
+  useEffect(() => {
+    if (isExpanded && searchValue && pagefindContainerRef.current) {
+      const pagefindInput = pagefindContainerRef.current.querySelector(
+        '.pagefind-ui__search-input'
+      ) as HTMLInputElement;
+      if (pagefindInput) {
+        pagefindInput.value = searchValue;
+        pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }
+  }, [searchValue, isExpanded]);
 
-    const handleClear = () => {
-        setSearchValue("")
-        inputRef.current?.focus()
-        const pagefindInput = document.querySelector('#pagefind-results .pagefind-ui__search-input') as HTMLInputElement;
-        if (pagefindInput) {
-            pagefindInput.value = "";
-            pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+  // Click outside to close
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsExpanded(false);
+        setSearchValue('');
+      }
+    };
+    if (isExpanded) {
+      document.addEventListener('mousedown', handleClickOutside);
     }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isExpanded]);
 
-    const handleSearchClick = () => {
-        setIsExpanded(true)
-        setTimeout(() => inputRef.current?.focus(), 100)
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setSearchValue(e.target.value);
+  };
+
+  const handleClear = () => {
+    setSearchValue('');
+    inputRef.current?.focus();
+    const pagefindInput = pagefindContainerRef.current?.querySelector(
+      '.pagefind-ui__search-input'
+    ) as HTMLInputElement | undefined;
+    if (pagefindInput) {
+      pagefindInput.value = '';
+      pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
+  };
 
-    return (
-        <div ref={searchContainerRef} className={cn(
-            "transition-all duration-200 ease-in-out",
-            isExpanded
-                ? "fixed left-2 right-2 top-2.5 z-50 md:relative md:top-auto md:left-auto md:right-auto md:inset-auto md:w-full"
-                : "relative w-9 md:w-full flex justify-end md:justify-start"
-        )}>
-            {/* Search Input Container */}
-            <div
-                className={cn(
-                    "flex items-center h-9 rounded-md border border-input bg-background text-sm transition-all duration-200 shadow-sm",
-                    isExpanded ? "w-full shadow-md md:shadow-none" : "w-9 px-0 justify-center border-transparent md:border-input md:w-full md:px-3 md:justify-start cursor-pointer"
-                )}
-                onClick={!isExpanded ? handleSearchClick : undefined}
-            >
-                <SearchIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                <input
-                    ref={inputRef}
-                    type="text"
-                    placeholder="搜索文章..."
-                    value={searchValue}
-                    onChange={handleInputChange}
-                    className={cn(
-                        "flex-1 bg-transparent ml-2 outline-none placeholder:text-muted-foreground",
-                        !isExpanded ? "hidden md:block pointer-events-none" : "block"
-                    )}
-                    readOnly={!isExpanded}
-                />
-                {isExpanded && searchValue && (
-                    <button
-                        onClick={handleClear}
-                        className="p-1 hover:bg-accent rounded"
-                    >
-                        <X className="h-3 w-3 text-muted-foreground" />
-                    </button>
-                )}
-                {!isExpanded && (
-                    <kbd className="hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground ml-2">
-                        <span className="text-xs">⌘</span>K
-                    </kbd>
-                )}
+  const handleSearchClick = () => {
+    setIsExpanded(true);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  return (
+    <div
+      ref={searchContainerRef}
+      className={cn(
+        'transition-all duration-200 ease-in-out',
+        isExpanded
+          ? 'fixed left-2 right-2 top-2.5 z-50 md:relative md:top-auto md:left-auto md:right-auto md:inset-auto md:w-full'
+          : 'relative w-9 md:w-full flex justify-end md:justify-start'
+      )}
+    >
+      {/* Search Input Container */}
+      <div
+        className={cn(
+          'flex items-center h-9 rounded-md border border-input bg-background text-sm transition-all duration-200 shadow-sm',
+          isExpanded
+            ? 'w-full shadow-md md:shadow-none'
+            : 'w-9 px-0 justify-center border-transparent md:border-input md:w-full md:px-3 md:justify-start cursor-pointer'
+        )}
+        onClick={!isExpanded ? handleSearchClick : undefined}
+      >
+        <SearchIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="搜索文章..."
+          aria-label="搜索文章"
+          value={searchValue}
+          onChange={handleInputChange}
+          className={cn(
+            'flex-1 bg-transparent ml-2 outline-none placeholder:text-muted-foreground',
+            !isExpanded ? 'hidden md:block pointer-events-none' : 'block'
+          )}
+          readOnly={!isExpanded}
+        />
+        {isExpanded && searchValue && (
+          <button onClick={handleClear} className="p-1 hover:bg-accent rounded">
+            <X className="h-3 w-3 text-muted-foreground" />
+          </button>
+        )}
+        {!isExpanded && (
+          <kbd className="hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground ml-2">
+            <span className="text-xs">⌘</span>K
+          </kbd>
+        )}
+      </div>
+
+      {/* Search Results Dropdown */}
+      {isExpanded && (
+        <div
+          className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-[70vh] overflow-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-label="搜索结果"
+        >
+          {searchStatus === 'loading' && (
+            <div className="p-2 py-8 text-center text-sm text-muted-foreground">
+              正在加载搜索...
             </div>
-
-            {/* Search Results Dropdown */}
-            {isExpanded && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-[70vh] overflow-auto">
-                    <div id="pagefind-results" className="p-2">
-                        {searchStatus === "loading" && (
-                            <div className="py-8 text-center text-sm text-muted-foreground">正在加载搜索...</div>
-                        )}
-                    </div>
-                </div>
-            )}
+          )}
+          {searchStatus === 'unavailable' && (
+            <div className="p-2 flex flex-col items-center justify-center py-8 text-center text-muted-foreground space-y-2">
+              <p>搜索功能仅在生产构建模式下可用。</p>
+              <p className="text-xs">因为 Pagefind 需要在构建时生成索引。</p>
+              <p className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                npm run build && npm run preview
+              </p>
+            </div>
+          )}
+          {/* Pagefind 挂载容器：React 不管理其内部节点，避免 DOM 冲突 */}
+          <div
+            ref={pagefindContainerRef}
+            className={cn('p-2', searchStatus !== 'ready' && 'hidden')}
+          />
         </div>
-    )
+      )}
+    </div>
+  );
 }

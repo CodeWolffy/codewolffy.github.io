@@ -1,5 +1,4 @@
-
-import { syncContent } from '../src/utils/content-sync.js';
+import { syncContent } from '../src/utils/content-sync.ts';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

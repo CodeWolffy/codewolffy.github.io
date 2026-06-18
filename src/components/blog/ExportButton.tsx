@@ -6,412 +6,418 @@ const loadJsZip = () => import('jszip');
 const loadFileSaver = () => import('file-saver');
 
 interface ExportButtonProps {
+  title: string;
+  content: string; // Markdown 原始内容
+  frontmatter: {
     title: string;
-    content: string;        // Markdown 原始内容
-    frontmatter: {
-        title: string;
-        description?: string;
-        pubDate?: Date;
-        updatedDate?: Date;
-        category?: { id: string };
-        tags?: { id: string }[];
-        coverImage?: string;
-        heroImage?: string;
-        [key: string]: unknown;
-    };
-    className?: string; // Added className prop
+    description?: string;
+    pubDate?: Date;
+    updatedDate?: Date;
+    category?: string;
+    tags?: string[];
+    coverImage?: string;
+    heroImage?: string;
+    draft?: boolean;
+    [key: string]: unknown;
+  };
+  className?: string; // Added className prop
 }
 
 type ExportFormat = 'markdown' | 'html' | 'pdf' | 'zip';
 
 export function ExportButton({ title, content, frontmatter, className }: ExportButtonProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [isExporting, setIsExporting] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // 点击外部关闭下拉菜单
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 生成安全的文件名
+  const getFileName = (ext: string) => {
+    const safeName = title.replace(/[<>:"/\\|?*]/g, '_').slice(0, 50);
+    return `${safeName}.${ext}`;
+  };
+
+  // 辅助：校验图片 URL 是否安全（仅允许 http/https/data 协议）
+  const isSafeImageUrl = (url: string): boolean => {
+    if (!url) return false;
+    if (url.startsWith('data:')) return true;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      // 相对地址在 resolveImageUrl 后再校验
+      return true;
+    }
+  };
+
+  // 辅助：获取图片 Blob
+  const fetchImageBlob = async (url: string): Promise<Blob | null> => {
+    if (!isSafeImageUrl(url)) {
+      console.warn('Unsafe image URL skipped:', url);
+      return null;
+    }
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to fetch image: ${url}`);
+      return await response.blob();
+    } catch (e) {
+      console.warn('Image fetch failed:', url, e);
+      return null;
+    }
+  };
+
+  // 辅助：压缩图片 (Resize + JPEG)
+  const compressImageBlob = async (blob: Blob): Promise<Blob> => {
+    if (blob.type === 'image/svg+xml') return blob;
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1200; // 限制最大长宽
+
+        if (width > maxDim || height > maxDim) {
+          const ratio = width / height;
+          if (width > height) {
+            width = maxDim;
+            height = width / ratio;
+          } else {
+            height = maxDim;
+            width = height * ratio;
+          }
         }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
-    // 生成安全的文件名
-    const getFileName = (ext: string) => {
-        const safeName = title.replace(/[<>:"/\\|?*]/g, '_').slice(0, 50);
-        return `${safeName}.${ext}`;
-    };
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          // 填充白色背景
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
 
-    // 辅助：校验图片 URL 是否安全（仅允许 http/https/data 协议）
-    const isSafeImageUrl = (url: string): boolean => {
-        if (!url) return false;
-        if (url.startsWith('data:')) return true;
-        try {
-            const parsed = new URL(url);
-            return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-        } catch {
-            // 相对地址在 resolveImageUrl 后再校验
-            return true;
-        }
-    };
-
-    // 辅助：获取图片 Blob
-    const fetchImageBlob = async (url: string): Promise<Blob | null> => {
-        if (!isSafeImageUrl(url)) {
-            console.warn('Unsafe image URL skipped:', url);
-            return null;
-        }
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to fetch image: ${url}`);
-            return await response.blob();
-        } catch (e) {
-            console.warn('Image fetch failed:', url, e);
-            return null;
-        }
-    };
-
-    // 辅助：压缩图片 (Resize + JPEG)
-    const compressImageBlob = async (blob: Blob): Promise<Blob> => {
-        if (blob.type === 'image/svg+xml') return blob;
-
-        return new Promise((resolve) => {
-            const img = new Image();
-            const url = URL.createObjectURL(blob);
-
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                const maxDim = 1200; // 限制最大长宽
-
-                if (width > maxDim || height > maxDim) {
-                    const ratio = width / height;
-                    if (width > height) {
-                        width = maxDim;
-                        height = width / ratio;
-                    } else {
-                        height = maxDim;
-                        width = height * ratio;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    // 填充白色背景
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, width, height);
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // 转换为 JPEG 0.75
-                    canvas.toBlob((b) => {
-                        resolve(b || blob);
-                    }, 'image/jpeg', 0.75);
-                } else {
-                    resolve(blob);
-                }
-                URL.revokeObjectURL(url);
-            };
-
-            img.onerror = () => {
-                URL.revokeObjectURL(url);
-                resolve(blob);
-            };
-
-            img.src = url;
-        });
-    };
-
-    // 辅助：Blob 转 Base64
-    const blobToBase64 = async (blob: Blob): Promise<string> => {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-        });
-    };
-
-    // 辅助：URL 转 Base64
-    const urlToBase64 = async (url: string, shouldCompress: boolean = false): Promise<string> => {
-        try {
-            if (url.startsWith('data:')) return url;
-
-            const resolvedUrl = resolveImageUrl(url);
-            if (!isSafeImageUrl(resolvedUrl)) {
-                console.warn('Unsafe image URL skipped:', resolvedUrl);
-                return url;
-            }
-
-            let blob = await fetchImageBlob(resolvedUrl);
-            if (!blob) return url;
-
-            if (shouldCompress) {
-                try {
-                    blob = await compressImageBlob(blob);
-                } catch (err) {
-                    console.warn('Compression failed, using original', err);
-                }
-            }
-
-            return await blobToBase64(blob);
-        } catch (e) {
-            return url;
-        }
-    };
-
-    // 辅助：解析完整的图片 URL
-    const resolveImageUrl = (src: string) => {
-        if (!src) return '';
-        if (src.startsWith('http') || src.startsWith('data:')) return src;
-        try {
-            return new URL(src, window.location.href).href;
-        } catch {
-            return src;
-        }
-    };
-
-    // 生成 frontmatter 字符串
-    const generateFrontmatter = (customCoverImage?: string) => {
-        const lines = ['---'];
-        lines.push(`title: ${frontmatter.title}`);
-        if (frontmatter.description) {
-            if (frontmatter.description.includes('\n')) {
-                lines.push(`description: |-`);
-                frontmatter.description.split('\n').forEach(line => lines.push(`  ${line}`));
-            } else {
-                lines.push(`description: ${frontmatter.description}`);
-            }
-        }
-        if (frontmatter.pubDate) lines.push(`pubDate: ${frontmatter.pubDate.toISOString().split('T')[0]}`);
-        if (frontmatter.updatedDate) lines.push(`updatedDate: ${frontmatter.updatedDate.toISOString().split('T')[0]}`);
-
-        if (customCoverImage) {
-            lines.push(`coverImage: ${customCoverImage}`);
+          // 转换为 JPEG 0.75
+          canvas.toBlob(
+            (b) => {
+              resolve(b || blob);
+            },
+            'image/jpeg',
+            0.75
+          );
         } else {
-            const originalCover = frontmatter.coverImage || frontmatter.heroImage;
-            if (originalCover && !originalCover.trim().startsWith('data:')) {
-                lines.push(`coverImage: ${originalCover}`);
-            }
+          resolve(blob);
         }
+        URL.revokeObjectURL(url);
+      };
 
-        if (frontmatter.draft !== undefined) lines.push(`draft: ${frontmatter.draft}`);
-        if (frontmatter.category) lines.push(`category: ${typeof frontmatter.category === 'object' ? frontmatter.category.id : frontmatter.category}`);
-        if (frontmatter.tags?.length) {
-            lines.push('tags:');
-            frontmatter.tags.forEach(tag => {
-                const tagId = typeof tag === 'object' ? tag.id : tag;
-                lines.push(`  - ${tagId}`);
-            });
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(blob);
+      };
+
+      img.src = url;
+    });
+  };
+
+  // 辅助：Blob 转 Base64
+  const blobToBase64 = async (blob: Blob): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  // 辅助：URL 转 Base64
+  const urlToBase64 = async (url: string, shouldCompress: boolean = false): Promise<string> => {
+    try {
+      if (url.startsWith('data:')) return url;
+
+      const resolvedUrl = resolveImageUrl(url);
+      if (!isSafeImageUrl(resolvedUrl)) {
+        console.warn('Unsafe image URL skipped:', resolvedUrl);
+        return url;
+      }
+
+      let blob = await fetchImageBlob(resolvedUrl);
+      if (!blob) return url;
+
+      if (shouldCompress) {
+        try {
+          blob = await compressImageBlob(blob);
+        } catch (err) {
+          console.warn('Compression failed, using original', err);
         }
-        lines.push('---');
-        return lines.join('\n');
-    };
+      }
 
-    // 辅助：生成 Markdown 可见头部
-    const generateMarkdownHeader = (coverImageSrc?: string, isBase64Mode: boolean = false) => {
-        const parts = [];
-        parts.push(`# ${title}`);
+      return await blobToBase64(blob);
+    } catch {
+      return url;
+    }
+  };
 
-        const metaParts = [];
-        if (frontmatter.pubDate) {
-            metaParts.push(`发布于 ${new Date(frontmatter.pubDate).toLocaleDateString('zh-CN')}`);
+  // 辅助：解析完整的图片 URL
+  const resolveImageUrl = (src: string) => {
+    if (!src) return '';
+    if (src.startsWith('http') || src.startsWith('data:')) return src;
+    try {
+      return new URL(src, window.location.href).href;
+    } catch {
+      return src;
+    }
+  };
+
+  // 生成 frontmatter 字符串
+  const generateFrontmatter = (customCoverImage?: string) => {
+    const lines = ['---'];
+    lines.push(`title: ${frontmatter.title}`);
+    if (frontmatter.description) {
+      if (frontmatter.description.includes('\n')) {
+        lines.push(`description: |-`);
+        frontmatter.description.split('\n').forEach((line) => lines.push(`  ${line}`));
+      } else {
+        lines.push(`description: ${frontmatter.description}`);
+      }
+    }
+    if (frontmatter.pubDate)
+      lines.push(`pubDate: ${frontmatter.pubDate.toISOString().split('T')[0]}`);
+    if (frontmatter.updatedDate)
+      lines.push(`updatedDate: ${frontmatter.updatedDate.toISOString().split('T')[0]}`);
+
+    if (customCoverImage) {
+      lines.push(`coverImage: ${customCoverImage}`);
+    } else {
+      const originalCover = frontmatter.coverImage || frontmatter.heroImage;
+      if (originalCover && !originalCover.trim().startsWith('data:')) {
+        lines.push(`coverImage: ${originalCover}`);
+      }
+    }
+
+    if (frontmatter.draft !== undefined) lines.push(`draft: ${frontmatter.draft}`);
+    if (frontmatter.category) lines.push(`category: ${frontmatter.category}`);
+    if (frontmatter.tags?.length) {
+      lines.push('tags:');
+      frontmatter.tags.forEach((tag) => lines.push(`  - ${tag}`));
+    }
+    lines.push('---');
+    return lines.join('\n');
+  };
+
+  // 辅助：生成 Markdown 可见头部
+  const generateMarkdownHeader = (coverImageSrc?: string, isBase64Mode: boolean = false) => {
+    const parts = [];
+    parts.push(`# ${title}`);
+
+    const metaParts = [];
+    if (frontmatter.pubDate) {
+      metaParts.push(`发布于 ${new Date(frontmatter.pubDate).toLocaleDateString('zh-CN')}`);
+    }
+    if (frontmatter.category) {
+      metaParts.push(`分类: ${frontmatter.category}`);
+    }
+    if (frontmatter.tags && frontmatter.tags.length > 0) {
+      metaParts.push(`标签: ${frontmatter.tags.join(', ')}`);
+    }
+    if (metaParts.length > 0) {
+      parts.push(`> ${metaParts.join(' | ')}`);
+    }
+
+    if (coverImageSrc) {
+      if (isBase64Mode) {
+        // 回归内联，但在 Header 中我们也使用 ![]() 形式，如果需要样式可能得用 HTML
+        // 为了兼容 Typora，标准语法最稳妥。Lag 已经被压缩解决。
+        parts.push(`![封面图](${coverImageSrc})`);
+      } else {
+        parts.push(
+          `<img src="${coverImageSrc}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;" />`
+        );
+      }
+    }
+
+    return parts.join('\n\n');
+  };
+
+  // 导出 Markdown (单文件，内嵌 Base64)
+  const exportMarkdown = async () => {
+    const shouldCompress = true;
+    const image = frontmatter.coverImage || frontmatter.heroImage;
+    let base64Cover = '';
+    if (image) {
+      base64Cover = await urlToBase64(resolveImageUrl(image), shouldCompress);
+    }
+
+    let processedContent = content;
+    const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+    const replacements = [];
+    let match;
+
+    while ((match = imageRegex.exec(content)) !== null) {
+      replacements.push({
+        full: match[0],
+        alt: match[1],
+        src: match[2],
+      });
+    }
+
+    // 转换 Base64
+    const processedImages = await Promise.all(
+      replacements.map(async (item) => {
+        const fullSrc = resolveImageUrl(item.src);
+        const base64 = await urlToBase64(fullSrc, shouldCompress);
+        return { ...item, newSrc: base64 };
+      })
+    );
+
+    // 替换 (使用内联替换，放弃引用式链接以避免 Footer 也显示)
+    processedImages.forEach((item) => {
+      if (processedContent.includes(item.full)) {
+        // 使用 split/join 确保只替换内容中的 URL，保持内联结构
+        processedContent = processedContent.split(item.full).join(`![${item.alt}](${item.newSrc})`);
+      }
+    });
+
+    // 修复 Mermaid 组件为标准的 mermaid 代码块格式
+    // 匹配 <Mermaid code={{"value":"..."}} /> 或 <Mermaid code={{'value':'...'}} />
+    // 使用更宽松的正则来匹配可能的空格和换行
+    processedContent = processedContent.replace(
+      /<Mermaid\s+code=\{\{\s*["']value["']:\s*["']([\s\S]*?)["']\s*\}\}\s*\/>/g,
+      (match, codeValue) => {
+        // 解码转义的字符
+        const decodedCode = codeValue
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"')
+          .replace(/\\'/g, "'")
+          .replace(/<br\/>/g, '\n')
+          .replace(/<br \/>/g, '\n');
+        return `\`\`\`mermaid\n${decodedCode}\n\`\`\``;
+      }
+    );
+
+    // 修复 iframe 高度问题 (仅针对导出)
+    // 查找所有 <iframe ...> 标签，并注入 height="450" 和 style="min-height: 450px"
+    processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
+      // 如果已经有 height 或 style，简单追加或忽略（这里简单强制添加/替换 style 和 height 属性比较复杂，
+      // 简单做法是直接在末尾添加，浏览器/Markdown查看器通常会处理。更稳妥是解析后重组，但正则替换通常够用）
+
+      // 移除已有的 height 和 style 以避免冲突 (简单处理)
+      const newAttrs = attributes
+        .replace(/height=["'][^"']*["']/g, '')
+        .replace(/style=["'][^"']*["']/g, '');
+
+      return `<iframe ${newAttrs} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
+    });
+
+    // 1. Frontmatter
+    const frontmatterStr = generateFrontmatter();
+    // 2. Header
+    const headerStr = generateMarkdownHeader(base64Cover || undefined, true);
+
+    // 3. 构建完整内容 (无 Footer References)
+    const fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
+
+    const { default: FileSaver } = await loadFileSaver();
+    const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
+    FileSaver.saveAs(blob, getFileName('md'));
+  };
+
+  // 导出 HTML (单文件，内嵌 Base64)
+  const exportHtml = async () => {
+    const proseElement = document.querySelector('.prose');
+    if (!proseElement) {
+      alert('无法获取文章内容');
+      return;
+    }
+
+    const clone = proseElement.cloneNode(true) as HTMLElement;
+
+    const images = Array.from(clone.querySelectorAll('img'));
+    await Promise.all(
+      images.map(async (img) => {
+        const src = img.getAttribute('src');
+        if (src) {
+          const fullSrc = resolveImageUrl(src);
+          const base64 = await urlToBase64(fullSrc, true);
+          img.src = base64;
+          img.removeAttribute('srcset');
         }
-        if (frontmatter.category) {
-            // @ts-ignore
-            const catName = typeof frontmatter.category === 'object' ? frontmatter.category.id : frontmatter.category;
-            metaParts.push(`分类: ${catName}`);
+      })
+    );
+
+    const links = clone.querySelectorAll('a');
+    links.forEach((link) => {
+      const href = link.getAttribute('href');
+      if (href && !href.startsWith('http') && !href.startsWith('#')) {
+        try {
+          link.href = new URL(href, window.location.href).href;
+        } catch {
+          /* ignore */
         }
-        if (frontmatter.tags && frontmatter.tags.length > 0) {
-            // @ts-ignore
-            const tagNames = frontmatter.tags.map(t => typeof t === 'object' ? t.id : t).join(', ');
-            metaParts.push(`标签: ${tagNames}`);
-        }
-        if (metaParts.length > 0) {
-            parts.push(`> ${metaParts.join(' | ')}`);
-        }
+      }
+    });
 
-        if (coverImageSrc) {
-            if (isBase64Mode) {
-                // 回归内联，但在 Header 中我们也使用 ![]() 形式，如果需要样式可能得用 HTML
-                // 为了兼容 Typora，标准语法最稳妥。Lag 已经被压缩解决。
-                parts.push(`![封面图](${coverImageSrc})`);
-            } else {
-                parts.push(`<img src="${coverImageSrc}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;" />`);
-            }
-        }
+    // --- Mermaid Cleanup ---
+    // 1. 全局移除模态框 (它是 container 的兄弟元素，不是子元素)
+    const modals = clone.querySelectorAll('.mermaid-modal');
+    modals.forEach((el) => el.remove());
 
-        return parts.join('\n\n');
-    };
+    // 2. 清理 Mermaid 容器内部
+    const mermaidContainers = clone.querySelectorAll('.mermaid-container');
+    mermaidContainers.forEach((container) => {
+      // 移除工具栏
+      const toolbars = container.querySelectorAll('.mermaid-toolbar');
+      toolbars.forEach((el) => el.remove());
 
-    // 导出 Markdown (单文件，内嵌 Base64)
-    const exportMarkdown = async () => {
-        const shouldCompress = true;
-        const image = frontmatter.coverImage || frontmatter.heroImage;
-        let base64Cover = '';
-        if (image) {
-            base64Cover = await urlToBase64(resolveImageUrl(image), shouldCompress);
-        }
+      // 移除代码视图
+      const codeViews = container.querySelectorAll('.mermaid-code-view');
+      codeViews.forEach((el) => el.remove());
 
-        let processedContent = content;
-        const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
-        const replacements = [];
-        let match;
+      // 移除模态框 (它通常在 body 下，或者如果是 append 的话可能不在 content 里，
+      // 但如果它被包含在 container 里，也移除)
+      const modals = container.querySelectorAll('.mermaid-modal');
+      modals.forEach((el) => el.remove());
 
-        while ((match = imageRegex.exec(content)) !== null) {
-            replacements.push({
-                full: match[0],
-                alt: match[1],
-                src: match[2]
-            });
-        }
+      // 重置容器样式，避免高度过高
+      container.removeAttribute('style');
+      if (container instanceof HTMLElement) {
+        container.style.height = 'auto'; // 强制自动高度
+        container.style.minHeight = '0';
+      }
 
-        // 转换 Base64
-        const processedImages = await Promise.all(replacements.map(async (item) => {
-            const fullSrc = resolveImageUrl(item.src);
-            const base64 = await urlToBase64(fullSrc, shouldCompress);
-            return { ...item, newSrc: base64 };
-        }));
+      // 确保内容区域可见且样式正确
+      const content = container.querySelector('.mermaid-content');
+      if (content instanceof HTMLElement) {
+        content.removeAttribute('style'); // 移除缩放等 inline style
+        content.style.transform = 'none';
+      }
+    });
 
-        // 替换 (使用内联替换，放弃引用式链接以避免 Footer 也显示)
-        processedImages.forEach(item => {
-            if (processedContent.includes(item.full)) {
-                // 使用 split/join 确保只替换内容中的 URL，保持内联结构
-                processedContent = processedContent.split(item.full).join(`![${item.alt}](${item.newSrc})`);
-            }
-        });
+    // --- Callout Cleanup ---
+    // 目前 Callout 结构比较干净，主要是 class 依赖 Tailwind。
+    // 上面的 CSS Shim 已经处理了样式。
+    // 这里可以做一些额外的清理，例如如果有 dark mode class 干扰打印，可以移除。
+    // (可选：移除 dark: 类，虽然 CSS Shim 里只是没定义 dark 样式，通常会被忽略)
+    const coverImage = frontmatter.coverImage || frontmatter.heroImage;
 
-        // 修复 Mermaid 组件为标准的 mermaid 代码块格式
-        // 匹配 <Mermaid code={{"value":"..."}} /> 或 <Mermaid code={{'value':'...'}} />
-        // 使用更宽松的正则来匹配可能的空格和换行
-        processedContent = processedContent.replace(/<Mermaid\s+code=\{\{\s*["']value["']:\s*["']([\s\S]*?)["']\s*\}\}\s*\/>/g, (match, codeValue) => {
-            // 解码转义的字符
-            const decodedCode = codeValue
-                .replace(/\\n/g, '\n')
-                .replace(/\\"/g, '"')
-                .replace(/\\'/g, "'")
-                .replace(/<br\/>/g, '\n')
-                .replace(/<br \/>/g, '\n');
-            return `\`\`\`mermaid\n${decodedCode}\n\`\`\``;
-        });
+    let coverImageBase64 = '';
+    if (coverImage) {
+      coverImageBase64 = await urlToBase64(resolveImageUrl(coverImage), true);
+    }
 
-        // 修复 iframe 高度问题 (仅针对导出)
-        // 查找所有 <iframe ...> 标签，并注入 height="450" 和 style="min-height: 450px"
-        processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
-            // 如果已经有 height 或 style，简单追加或忽略（这里简单强制添加/替换 style 和 height 属性比较复杂，
-            // 简单做法是直接在末尾添加，浏览器/Markdown查看器通常会处理。更稳妥是解析后重组，但正则替换通常够用）
-
-            // 移除已有的 height 和 style 以避免冲突 (简单处理)
-            let newAttrs = attributes
-                .replace(/height=["'][^"']*["']/g, '')
-                .replace(/style=["'][^"']*["']/g, '');
-
-            return `<iframe ${newAttrs} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
-        });
-
-        // 1. Frontmatter
-        const frontmatterStr = generateFrontmatter();
-        // 2. Header
-        const headerStr = generateMarkdownHeader(base64Cover || undefined, true);
-
-        // 3. 构建完整内容 (无 Footer References)
-        const fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
-
-        const { default: FileSaver } = await loadFileSaver();
-        const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
-        FileSaver.saveAs(blob, getFileName('md'));
-    };
-
-    // 导出 HTML (单文件，内嵌 Base64)
-    const exportHtml = async () => {
-        const proseElement = document.querySelector('.prose');
-        if (!proseElement) {
-            alert('无法获取文章内容');
-            return;
-        }
-
-        const clone = proseElement.cloneNode(true) as HTMLElement;
-
-        const images = Array.from(clone.querySelectorAll('img'));
-        await Promise.all(images.map(async (img) => {
-            const src = img.getAttribute('src');
-            if (src) {
-                const fullSrc = resolveImageUrl(src);
-                const base64 = await urlToBase64(fullSrc, true);
-                img.src = base64;
-                img.removeAttribute('srcset');
-            }
-        }));
-
-        const links = clone.querySelectorAll('a');
-        links.forEach(link => {
-            const href = link.getAttribute('href');
-            if (href && !href.startsWith('http') && !href.startsWith('#')) {
-                try {
-                    link.href = new URL(href, window.location.href).href;
-                } catch { /* ignore */ }
-            }
-        });
-
-        // --- Mermaid Cleanup ---
-        // 1. 全局移除模态框 (它是 container 的兄弟元素，不是子元素)
-        const modals = clone.querySelectorAll('.mermaid-modal');
-        modals.forEach(el => el.remove());
-
-        // 2. 清理 Mermaid 容器内部
-        const mermaidContainers = clone.querySelectorAll('.mermaid-container');
-        mermaidContainers.forEach(container => {
-            // 移除工具栏
-            const toolbars = container.querySelectorAll('.mermaid-toolbar');
-            toolbars.forEach(el => el.remove());
-
-            // 移除代码视图
-            const codeViews = container.querySelectorAll('.mermaid-code-view');
-            codeViews.forEach(el => el.remove());
-
-            // 移除模态框 (它通常在 body 下，或者如果是 append 的话可能不在 content 里，
-            // 但如果它被包含在 container 里，也移除)
-            const modals = container.querySelectorAll('.mermaid-modal');
-            modals.forEach(el => el.remove());
-
-            // 重置容器样式，避免高度过高
-            container.removeAttribute('style');
-            if (container instanceof HTMLElement) {
-                container.style.height = 'auto'; // 强制自动高度
-                container.style.minHeight = '0';
-            }
-
-            // 确保内容区域可见且样式正确
-            const content = container.querySelector('.mermaid-content');
-            if (content instanceof HTMLElement) {
-                content.removeAttribute('style'); // 移除缩放等 inline style
-                content.style.transform = 'none';
-            }
-        });
-
-        // --- Callout Cleanup ---
-        // 目前 Callout 结构比较干净，主要是 class 依赖 Tailwind。
-        // 上面的 CSS Shim 已经处理了样式。
-        // 这里可以做一些额外的清理，例如如果有 dark mode class 干扰打印，可以移除。
-        // (可选：移除 dark: 类，虽然 CSS Shim 里只是没定义 dark 样式，通常会被忽略)
-        const callouts = clone.querySelectorAll('[class*="bg-"][class*="-50"]'); // 粗略定位 Callout
-        callouts.forEach(el => {
-            // 可以在这里移除 dark mode 类，确保打印版一致性，不过有了 CSS Shim 只要不引入 dark 样式文件就没事
-        });
-
-        const coverImage = frontmatter.coverImage || frontmatter.heroImage;
-
-        let coverImageBase64 = '';
-        if (coverImage) {
-            coverImageBase64 = await urlToBase64(resolveImageUrl(coverImage), true);
-        }
-
-        const html = `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -516,127 +522,150 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
 </body>
 </html>`;
 
-        const { default: FileSaver } = await loadFileSaver();
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        FileSaver.saveAs(blob, getFileName('html'));
-    };
+    const { default: FileSaver } = await loadFileSaver();
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    FileSaver.saveAs(blob, getFileName('html'));
+  };
 
-    // 导出 ZIP 包 (Markdown + Assets)
-    const exportZip = async () => {
-        const { default: JSZip } = await loadJsZip();
-        const { default: FileSaver } = await loadFileSaver();
-        const zip = new JSZip();
-        const assetsFolder = zip.folder('assets');
+  // 导出 ZIP 包 (Markdown + Assets)
+  const exportZip = async () => {
+    const { default: JSZip } = await loadJsZip();
+    const { default: FileSaver } = await loadFileSaver();
+    const zip = new JSZip();
+    const assetsFolder = zip.folder('assets');
 
-        let processedContent = content;
+    let processedContent = content;
 
-        const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
-        const replacements = [];
-        let match;
-        while ((match = imageRegex.exec(content)) !== null) {
-            replacements.push({ full: match[0], alt: match[1], src: match[2] });
+    const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+    const replacements = [];
+    let match;
+    while ((match = imageRegex.exec(content)) !== null) {
+      replacements.push({ full: match[0], alt: match[1], src: match[2] });
+    }
+
+    await Promise.all(
+      replacements.map(async (item, index) => {
+        const fullSrc = resolveImageUrl(item.src);
+        const blob = await fetchImageBlob(fullSrc);
+        if (blob) {
+          const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
+          const fileName = `img-${index}-${Date.now()}.${ext}`;
+          assetsFolder?.file(fileName, blob);
+          processedContent = processedContent.split(item.src).join(`assets/${fileName}`);
         }
-
-        await Promise.all(replacements.map(async (item, index) => {
-            const fullSrc = resolveImageUrl(item.src);
-            const blob = await fetchImageBlob(fullSrc);
-            if (blob) {
-                const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
-                const fileName = `img-${index}-${Date.now()}.${ext}`;
-                assetsFolder?.file(fileName, blob);
-                processedContent = processedContent.split(item.src).join(`assets/${fileName}`);
-            }
-        }));
-
-        // 修复 iframe 高度问题 (仅针对导出)
-        processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
-            let newAttrs = attributes
-                .replace(/height=["'][^"']*["']/g, '')
-                .replace(/style=["'][^"']*["']/g, '');
-            return `<iframe ${newAttrs} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
-        });
-
-        let coverImageName = '';
-        const coverImage = frontmatter.coverImage || frontmatter.heroImage;
-        if (coverImage) {
-            const fullSrc = resolveImageUrl(coverImage);
-            const blob = await fetchImageBlob(fullSrc);
-            if (blob) {
-                const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
-                coverImageName = `cover-${Date.now()}.${ext}`;
-                assetsFolder?.file(coverImageName, blob);
-            }
-        }
-
-        const frontmatterStr = coverImageName
-            ? generateFrontmatter(`assets/${coverImageName}`)
-            : generateFrontmatter();
-
-        const headerStr = generateMarkdownHeader(coverImageName ? `assets/${coverImageName}` : undefined, false);
-
-        const fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
-        zip.file('index.md', fullContent);
-
-        const contentBlob = await zip.generateAsync({ type: 'blob' });
-        FileSaver.saveAs(contentBlob, getFileName('zip'));
-    };
-
-    const handleExport = async (format: ExportFormat) => {
-        setIsOpen(false);
-        setIsExporting(true);
-        try {
-            switch (format) {
-                case 'markdown': await exportMarkdown(); break;
-                case 'zip': await exportZip(); break;
-                case 'html': await exportHtml(); break;
-                case 'pdf': window.print(); break;
-            }
-        } catch (error) {
-            console.error('Export failed:', error);
-            alert('导出过程中发生错误');
-        } finally {
-            setIsExporting(false);
-        }
-    };
-
-    const formatOptions = [
-        { value: 'markdown' as ExportFormat, label: 'Markdown', icon: FileText, desc: '内嵌图片 (单文件)' },
-        { value: 'zip' as ExportFormat, label: 'Markdown 压缩包', icon: Package, desc: '分离素材 (完美版)' },
-        { value: 'html' as ExportFormat, label: 'HTML', icon: FileCode, desc: '离线网页 (单文件)' },
-        { value: 'pdf' as ExportFormat, label: 'PDF', icon: Printer, desc: '打印预览' },
-    ];
-
-    return (
-        <div className={`relative inline-block ${className || ''}`} ref={dropdownRef}>
-            <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 w-full justify-center"
-                onClick={() => setIsOpen(!isOpen)}
-                disabled={isExporting}
-            >
-                <Download className="h-4 w-4" />
-                {isExporting ? '处理中...' : '导出'}
-                <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </Button>
-
-            {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-44 sm:w-56 rounded-lg border border-border bg-background shadow-lg z-50">
-                    {formatOptions.map((option) => (
-                        <button
-                            key={option.value}
-                            className="flex w-full items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm hover:bg-secondary transition-colors first:rounded-t-lg last:rounded-b-lg"
-                            onClick={() => handleExport(option.value)}
-                        >
-                            <option.icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                            <div className="min-w-0">
-                                <div className="font-medium truncate">{option.label}</div>
-                                <div className="text-xs text-muted-foreground truncate">{option.desc}</div>
-                            </div>
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
+      })
     );
+
+    // 修复 iframe 高度问题 (仅针对导出)
+    processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
+      const newAttrs = attributes
+        .replace(/height=["'][^"']*["']/g, '')
+        .replace(/style=["'][^"']*["']/g, '');
+      return `<iframe ${newAttrs} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
+    });
+
+    let coverImageName = '';
+    const coverImage = frontmatter.coverImage || frontmatter.heroImage;
+    if (coverImage) {
+      const fullSrc = resolveImageUrl(coverImage);
+      const blob = await fetchImageBlob(fullSrc);
+      if (blob) {
+        const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
+        coverImageName = `cover-${Date.now()}.${ext}`;
+        assetsFolder?.file(coverImageName, blob);
+      }
+    }
+
+    const frontmatterStr = coverImageName
+      ? generateFrontmatter(`assets/${coverImageName}`)
+      : generateFrontmatter();
+
+    const headerStr = generateMarkdownHeader(
+      coverImageName ? `assets/${coverImageName}` : undefined,
+      false
+    );
+
+    const fullContent = `${frontmatterStr}\n\n${headerStr}\n\n${processedContent}`;
+    zip.file('index.md', fullContent);
+
+    const contentBlob = await zip.generateAsync({ type: 'blob' });
+    FileSaver.saveAs(contentBlob, getFileName('zip'));
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    setIsOpen(false);
+    setIsExporting(true);
+    try {
+      switch (format) {
+        case 'markdown':
+          await exportMarkdown();
+          break;
+        case 'zip':
+          await exportZip();
+          break;
+        case 'html':
+          await exportHtml();
+          break;
+        case 'pdf':
+          window.print();
+          break;
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('导出过程中发生错误');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const formatOptions = [
+    {
+      value: 'markdown' as ExportFormat,
+      label: 'Markdown',
+      icon: FileText,
+      desc: '内嵌图片 (单文件)',
+    },
+    {
+      value: 'zip' as ExportFormat,
+      label: 'Markdown 压缩包',
+      icon: Package,
+      desc: '分离素材 (完美版)',
+    },
+    { value: 'html' as ExportFormat, label: 'HTML', icon: FileCode, desc: '离线网页 (单文件)' },
+    { value: 'pdf' as ExportFormat, label: 'PDF', icon: Printer, desc: '打印预览' },
+  ];
+
+  return (
+    <div className={`relative inline-block ${className || ''}`} ref={dropdownRef}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2 w-full justify-center"
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={isExporting}
+      >
+        <Download className="h-4 w-4" />
+        {isExporting ? '处理中...' : '导出'}
+        <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </Button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-44 sm:w-56 rounded-lg border border-border bg-background shadow-lg z-50">
+          {formatOptions.map((option) => (
+            <button
+              key={option.value}
+              className="flex w-full items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm hover:bg-secondary transition-colors first:rounded-t-lg last:rounded-b-lg"
+              onClick={() => handleExport(option.value)}
+            >
+              <option.icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <div className="font-medium truncate">{option.label}</div>
+                <div className="text-xs text-muted-foreground truncate">{option.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

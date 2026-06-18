@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # claude code runtime files
 .claude/
+
+# AI planning / runtime docs
+.trae/

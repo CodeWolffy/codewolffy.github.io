@@ -13,46 +13,51 @@ import { getSiteUrl } from './src/config/site.js';
 import { rehypeTableWrapper } from './src/plugins/rehype-table-wrapper.mjs';
 
 // Import sync utility
-import { syncContent } from './src/utils/content-sync.js';
+import { syncContent } from './src/utils/content-sync.ts';
 
 // Auto-sync plugin
+function debounce(fn, delay) {
+  let timer = null;
+  return (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn(...args);
+    }, delay);
+  };
+}
+
 const autoSyncContent = () => {
+  const sync = debounce(async (file, eventType) => {
+    await syncContent(process.cwd());
+    console.log(`[AutoSync] Synced after ${eventType}: ${file}`);
+  }, 300);
+
   return {
     name: 'auto-sync-content',
     configureServer(server) {
-      server.watcher.on('change', async (file) => {
+      const handleFileEvent = (eventType) => async (file) => {
         // Normalize path separators for Windows support
         const normalizedFile = file.split(path.sep).join('/');
         if (normalizedFile.includes('src/content/blog') && normalizedFile.endsWith('.mdx')) {
-          console.log(`[AutoSync] Detected change in ${file}`);
-          await syncContent(process.cwd());
+          sync(file, eventType);
         }
-      });
-      server.watcher.on('add', async (file) => {
-        const normalizedFile = file.split(path.sep).join('/');
-        if (normalizedFile.includes('src/content/blog') && normalizedFile.endsWith('.mdx')) {
-          console.log(`[AutoSync] Detected new file ${file}`);
-          await syncContent(process.cwd());
-        }
-      });
-      server.watcher.on('unlink', async (file) => {
-        const normalizedFile = file.split(path.sep).join('/');
-        if (normalizedFile.includes('src/content/blog') && normalizedFile.endsWith('.mdx')) {
-          console.log(`[AutoSync] Detected deleted file ${file}`);
-          await syncContent(process.cwd());
-        }
-      });
-    }
-  }
+      };
+
+      server.watcher.on('change', handleFileEvent('change'));
+      server.watcher.on('add', handleFileEvent('add'));
+      server.watcher.on('unlink', handleFileEvent('unlink'));
+    },
+  };
 };
 
 // https://astro.build/config
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 export default defineConfig({
-  // 路由预加载配置 - 提升导航性能
+  // 路由预加载配置 - 仅预加载视口内/悬停的链接，避免全量预加载浪费带宽
   prefetch: {
-    prefetchAll: true,
-    defaultStrategy: 'hover'
+    prefetchAll: false,
+    defaultStrategy: 'hover',
   },
   // Cloudflare Pages 支持 SSR，所以 Keystatic 可以在生产环境运行
   integrations: [
@@ -63,9 +68,7 @@ export default defineConfig({
     sitemap({
       // 过滤掉不需要索引的页面
       filter: (page) =>
-        !page.includes('/keystatic') &&
-        !page.includes('/api/') &&
-        !page.includes('/search'),
+        !page.includes('/keystatic') && !page.includes('/api/') && !page.includes('/search'),
       // 自定义 sitemap 条目
       serialize(item) {
         const url = item.url;
@@ -99,7 +102,7 @@ export default defineConfig({
         return item;
       },
     }),
-    keystatic()
+    keystatic(),
   ],
   site: getSiteUrl({ isGitHubActions }),
 
@@ -136,7 +139,7 @@ export default defineConfig({
     },
     plugins: [
       tailwindcss(),
-      autoSyncContent() // Register the plugin
+      autoSyncContent(), // Register the plugin
     ],
     build: {
       // 使用 esbuild 压缩（比 terser 快 20-40 倍）
@@ -144,14 +147,13 @@ export default defineConfig({
       // 手动分包优化
       rollupOptions: {
         output: {
-          // manualChunks: {
-          //   vendor: ['react', 'react-dom'],
-          //   icons: ['lucide-react'],
-          // }
-        }
-      }
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            icons: ['lucide-react'],
+          },
+        },
+      },
     },
-
   },
   // Astro 5: static 模式默认支持混合渲染，Keystatic 页面会自动使用 SSR
   adapter: cloudflare(),
