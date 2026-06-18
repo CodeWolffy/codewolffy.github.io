@@ -14,6 +14,12 @@ const PRECACHE_URLS = [
 // 允许缓存的导航页面数量上限，防止动态页面无限膨胀
 const MAX_CACHED_PAGES = 50;
 
+// 不参与离线缓存的动态管理路径
+function isBypassedRequest(request) {
+  const url = new URL(request.url);
+  return url.pathname.startsWith('/keystatic/') || url.pathname.startsWith('/api/keystatic/');
+}
+
 // 判断请求是否为同一站点的导航请求
 function isSameOriginNavigation(request) {
   return request.mode === 'navigate' && new URL(request.url).origin === self.location.origin;
@@ -116,8 +122,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // 跳过非 GET 请求、跨域请求以及浏览器扩展请求
-  if (request.method !== 'GET' || !request.url.startsWith(self.location.origin)) {
+  // 跳过非 GET 请求、跨域请求、后台管理请求以及浏览器扩展请求
+  if (
+    request.method !== 'GET' ||
+    !request.url.startsWith(self.location.origin) ||
+    isBypassedRequest(request)
+  ) {
     return;
   }
 

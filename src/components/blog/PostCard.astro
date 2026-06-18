@@ -1,6 +1,8 @@
 ---
 import type { CollectionEntry } from 'astro:content';
 
+import { getBlogPostPath } from '@/utils/content-paths';
+
 interface Props {
   post: CollectionEntry<'blog'>;
   mainTagLabel?: string;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 const { post, mainTagLabel, index = 0, readingTime } = Astro.props;
+const postPath = getBlogPostPath(post);
 ---
 
 <article
@@ -64,7 +67,7 @@ const { post, mainTagLabel, index = 0, readingTime } = Astro.props;
     <h3
       class="text-base font-bold leading-tight group-hover:text-primary transition-colors duration-300 line-clamp-2"
     >
-      <a href={`/blog/${post.slug}/`}>
+      <a href={postPath}>
         {post.data.title}
       </a>
     </h3>
@@ -72,7 +75,7 @@ const { post, mainTagLabel, index = 0, readingTime } = Astro.props;
       {post.data.description}
     </p>
   </div>
-  <a href={`/blog/${post.slug}/`} class="absolute inset-0 z-20">
+  <a href={postPath} class="absolute inset-0 z-20">
     <span class="sr-only">阅读 {post.data.title}</span>
   </a>
 </article>

@@ -238,15 +238,20 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
 </div>
 
 <script>
-  import mermaid from 'mermaid';
-
   let isInitializing = false;
+  let mermaidPromise: Promise<(typeof import('mermaid'))['default']> | null = null;
+
+  const loadMermaid = () => {
+    mermaidPromise ??= import('mermaid').then((module) => module.default);
+    return mermaidPromise;
+  };
 
   const initMermaid = async () => {
     if (isInitializing) return;
     isInitializing = true;
 
     try {
+      const mermaid = await loadMermaid();
       const isDark = document.documentElement.classList.contains('dark');
 
       mermaid.initialize({
@@ -425,6 +430,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
       if (!chartData.trim()) return;
 
       const elemId = element.id || `mermaid-${Math.random().toString(36).substring(2, 9)}`;
+      const mermaid = await loadMermaid();
       const renderChartData = normalizeErDiagram(chartData);
       const { svg } = await mermaid.render(elemId + '-svg', renderChartData);
       element.innerHTML = svg;

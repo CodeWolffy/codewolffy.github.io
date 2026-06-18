@@ -295,7 +295,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     // 使用更宽松的正则来匹配可能的空格和换行
     processedContent = processedContent.replace(
       /<Mermaid\s+code=\{\{\s*["']value["']:\s*["']([\s\S]*?)["']\s*\}\}\s*\/>/g,
-      (match, codeValue) => {
+      (_match, codeValue) => {
         // 解码转义的字符
         const decodedCode = codeValue
           .replace(/\\n/g, '\n')
@@ -309,7 +309,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
 
     // 修复 iframe 高度问题 (仅针对导出)
     // 查找所有 <iframe ...> 标签，并注入 height="450" 和 style="min-height: 450px"
-    processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
+    processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (_match, attributes) => {
       // 如果已经有 height 或 style，简单追加或忽略（这里简单强制添加/替换 style 和 height 属性比较复杂，
       // 简单做法是直接在末尾添加，浏览器/Markdown查看器通常会处理。更稳妥是解析后重组，但正则替换通常够用）
 
@@ -557,7 +557,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     );
 
     // 修复 iframe 高度问题 (仅针对导出)
-    processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (match, attributes) => {
+    processedContent = processedContent.replace(/<iframe\s+(.*?)>/g, (_match, attributes) => {
       const newAttrs = attributes
         .replace(/height=["'][^"']*["']/g, '')
         .replace(/style=["'][^"']*["']/g, '');

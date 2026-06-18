@@ -14,6 +14,7 @@ import Callout from '../../components/mdx/Callout.astro';
 import Mermaid from '../../components/mdx/Mermaid.astro';
 import Iframe from '../../components/mdx/Iframe.astro';
 import { calculateReadingTime } from '../../utils/reading-time';
+import { getBlogPostPath, getBlogPostSlug } from '@/utils/content-paths';
 import { siteConfig } from '@/config/site';
 
 export const prerender = true;
@@ -23,7 +24,7 @@ export async function getStaticPaths() {
     return import.meta.env.PROD ? data.draft !== true : true;
   });
   return posts.map((post) => ({
-    params: { slug: post.slug },
+    params: { slug: getBlogPostSlug(post) },
     props: { post, allPosts: posts },
   }));
 }
@@ -56,7 +57,7 @@ const readingTime = readingTimeResult.minutes;
 
 // 获取相关文章（智能推荐算法）
 const relatedPosts = allPosts
-  .filter((p) => p.slug !== post.slug) // 排除当前文章
+  .filter((p) => p.id !== post.id) // 排除当前文章
   .map((p) => {
     let score = 0;
     const pTags = p.data.tags || [];
@@ -90,7 +91,7 @@ const relatedPosts = allPosts
 
 // 获取上一篇和下一篇文章
 const sortedPosts = allPosts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
-const currentIndex = sortedPosts.findIndex((p) => p.slug === post.slug);
+const currentIndex = sortedPosts.findIndex((p) => p.id === post.id);
 const prevPost = currentIndex < sortedPosts.length - 1 ? sortedPosts[currentIndex + 1] : null;
 const nextPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
 
@@ -265,7 +266,7 @@ const pageUrl = Astro.url.href;
         />
         <div class="flex gap-2 w-full lg:w-auto">
           <a
-            href={siteConfig.links.keystaticPosts + `/${post.slug}`}
+            href={siteConfig.links.keystaticPosts + `/${getBlogPostSlug(post)}`}
             target="_blank"
             rel="noopener noreferrer"
             class={buttonVariants({ variant: 'outline', size: 'sm' }) +
@@ -290,7 +291,7 @@ const pageUrl = Astro.url.href;
           <div class="mt-2 grid gap-4 sm:grid-cols-2">
             {prevPost ? (
               <a
-                href={`/blog/${prevPost.slug}`}
+                href={getBlogPostPath(prevPost)}
                 class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all"
               >
                 <span class="text-xs text-muted-foreground mb-1 flex items-center gap-1">
@@ -320,7 +321,7 @@ const pageUrl = Astro.url.href;
             )}
             {nextPost ? (
               <a
-                href={`/blog/${nextPost.slug}`}
+                href={getBlogPostPath(nextPost)}
                 class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-right"
               >
                 <span class="text-xs text-muted-foreground mb-1 flex items-center justify-end gap-1">
@@ -375,7 +376,7 @@ const pageUrl = Astro.url.href;
             <div class="grid gap-1">
               {relatedPosts.map((relatedPost) => (
                 <a
-                  href={`/blog/${relatedPost.slug}`}
+                  href={getBlogPostPath(relatedPost)}
                   class="group flex rounded-lg border border-border hover:border-primary/50 hover:bg-secondary/30 transition-all overflow-hidden"
                 >
                   {(relatedPost.data.coverImage || relatedPost.data.heroImage) && (

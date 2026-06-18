@@ -5,7 +5,7 @@
  * - 协议相对地址补全为 https
  * - 禁用自动播放（autoplay=0）
  * - B 站追加宽屏、高清、关闭弹幕等参数
- * - 可选将 B 站播放器替换为移动端版本
+ * - 只允许明确支持的 iframe 来源
  */
 
 export interface NormalizeIframeUrlOptions {
@@ -13,33 +13,63 @@ export interface NormalizeIframeUrlOptions {
   isMobile?: boolean;
 }
 
-/**
- * 规范化 iframe 的 src 地址
- * @param src 原始地址（可能包含协议相对地址、iframe 代码片段等）
- * @param options 可选配置
- * @returns 规范化后的地址
- */
-export function normalizeIframeUrl(src: string, options: NormalizeIframeUrlOptions = {}): string {
-  if (!src) return '';
+const ALLOWED_IFRAME_HOSTS = new Set([
+  'player.bilibili.com',
+  'www.bilibili.com',
+  'www.youtube.com',
+  'youtube.com',
+  'www.youtube-nocookie.com',
+  'giscus.app',
+  'www.douyin.com',
+  'douyin.com',
+]);
 
-  let url = src.trim();
+function extractIframeSrc(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith('<iframe')) return trimmed;
+  return trimmed.match(/src=["']([^"']+)["']/i)?.[1]?.trim() ?? '';
+}
 
-  // 处理协议相对地址
+function toAbsoluteHttpsUrl(input: string): URL | null {
+  let url = extractIframeSrc(input);
+  if (!url) return null;
+
   if (url.startsWith('//')) {
     url = `https:${url}`;
   }
 
   try {
-    if (url.includes('bilibili.com')) {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return null;
+    if (!ALLOWED_IFRAME_HOSTS.has(parsed.hostname.toLowerCase())) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 规范化 iframe 的 src 地址
+ * @param src 原始地址（可能包含协议相对地址、iframe 代码片段等）
+ * @param options 可选配置
+ * @returns 规范化后的地址；不在允许列表内时返回空字符串
+ */
+export function normalizeIframeUrl(src: string, options: NormalizeIframeUrlOptions = {}): string {
+  const parsed = toAbsoluteHttpsUrl(src);
+  if (!parsed) return '';
+
+  const url = parsed.toString();
+
+  try {
+    if (parsed.hostname.endsWith('bilibili.com')) {
       return normalizeBilibiliUrl(url, options.isMobile ?? false);
     }
 
-    if (url.includes('youtube.com')) {
+    if (parsed.hostname.endsWith('youtube.com') || parsed.hostname === 'www.youtube-nocookie.com') {
       return normalizeYouTubeUrl(url);
     }
   } catch {
-    // URL 解析失败时返回原地址，避免破坏内容
-    return url;
+    return '';
   }
 
   return url;

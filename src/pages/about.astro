@@ -1,14 +1,14 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { Button } from '@/components/ui/button';
-import { getEntry } from 'astro:content';
+import { getEntry, render } from 'astro:content';
 import { getIconComponent } from '@/lib/icons';
 
 const aboutPage = await getEntry('pages', 'about');
 if (!aboutPage) {
   throw new Error('About page not found');
 }
-const { Content } = await aboutPage.render();
+const { Content } = await render(aboutPage);
 ---
 
 <BaseLayout title={`${aboutPage.data.title} | 狼码纪`} description={aboutPage.data.subtitle}>

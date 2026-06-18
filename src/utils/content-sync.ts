@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import matter from 'gray-matter';
+import { parse as parseYaml } from 'yaml';
 
 function normalizeReferenceValue(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -30,12 +30,19 @@ interface ExtractedTaxonomies {
   categories: Set<string>;
 }
 
+function parseFrontmatter(content: string): Record<string, unknown> {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) return {};
+  const parsed = parseYaml(match[1]);
+  return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+}
+
 function extractTagsAndCategories(content: string, filePath = ''): ExtractedTaxonomies {
   const tags = new Set<string>();
   const categories = new Set<string>();
 
   try {
-    const { data } = matter(content);
+    const data = parseFrontmatter(content);
 
     collectReferenceValues(data.tags).forEach((tag) => tags.add(tag));
     collectReferenceValues(data.category).forEach((category) => categories.add(category));

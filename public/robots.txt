@@ -10,9 +10,9 @@ Allow: /
 Disallow: /keystatic/
 Disallow: /api/keystatic/
 
-# 禁止爬取系统文件和资源目录
-Disallow: /_astro/
-Disallow: /_image
+# 渲染资源目录保持可访问，便于搜索引擎理解页面
+Allow: /_astro/
+Allow: /_image
 
 # ===========================================
 # 针对特定爬虫的优化规则

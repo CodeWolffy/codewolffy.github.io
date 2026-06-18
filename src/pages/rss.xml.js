@@ -1,5 +1,6 @@
 import rss from '@astrojs/rss';
 import { getCollection } from 'astro:content';
+import { getBlogPostPath } from '@/utils/content-paths';
 import { siteConfig } from '@/config/site';
 
 export async function GET(context) {
@@ -18,7 +19,7 @@ export async function GET(context) {
       title: post.data.title,
       pubDate: post.data.pubDate,
       description: post.data.description,
-      link: `/blog/${post.slug}/`,
+      link: getBlogPostPath(post),
       // 添加作者信息
       customData: `<author>${siteConfig.author.name}</author>`,
     })),

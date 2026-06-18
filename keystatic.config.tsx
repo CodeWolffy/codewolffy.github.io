@@ -2,6 +2,7 @@
 import { config, fields, collection, singleton } from '@keystatic/core';
 import { block } from '@keystatic/core/content-components';
 import { normalizeIframeUrl } from './src/utils/iframe-url';
+import type { ReactNode } from 'react';
 
 // Keystatic GitHub 存储所需变量校验
 // 当配置了 KEYSTATIC_GITHUB_CLIENT_ID 时启用 GitHub 存储模式，否则回退到本地文件系统。
@@ -545,7 +546,10 @@ export default config({
                   links: 'inherit',
                 }),
               },
-              ContentView: (props: any) => {
+              ContentView: (props: {
+                value: { type?: 'info' | 'tip' | 'warning' | 'danger'; title?: string };
+                children?: ReactNode;
+              }) => {
                 const typeMap: Record<string, { color: string; border: string; icon: string }> = {
                   info: { color: '#eff6ff', border: '#bfdbfe', icon: 'ℹ️' },
                   tip: { color: '#ecfdf5', border: '#a7f3d0', icon: '💡' },

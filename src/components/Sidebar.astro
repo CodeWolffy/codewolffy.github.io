@@ -1,7 +1,7 @@
 ---
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
-import { getEntry } from 'astro:content';
+import { getEntry, render } from 'astro:content';
 import { siteConfig } from '@/config/site';
 
 interface Props {
@@ -14,7 +14,7 @@ const { className, tags, categories } = Astro.props;
 
 const aboutPage = await getEntry('pages', 'about');
 const about = aboutPage?.data;
-const { Content: AboutContent } = aboutPage ? await aboutPage.render() : { Content: undefined };
+const { Content: AboutContent } = aboutPage ? await render(aboutPage) : { Content: undefined };
 ---
 
 <aside class:list={['w-full space-y-4', className]}>

@@ -130,7 +130,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
     </script>
 
     <!-- 不蒜子访问统计 - 优化版 -->
-    <script define:vars={{ busuanzi }}>
+    <script is:inline define:vars={{ busuanzi }}>
       // 不蒜子脚本加载函数（带超时处理）
       function loadBusuanzi() {
         // 检查页面是否有不蒜子容器元素（只在文章页加载）

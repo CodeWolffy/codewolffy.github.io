@@ -1,26 +1,41 @@
-import { defineCollection, z } from 'astro:content';
+import { defineCollection } from 'astro/content/config';
+import { glob } from 'astro/loaders';
+import { z } from 'astro/zod';
+
+const contentLoader = (collection: string) =>
+  glob({
+    base: `./src/content/${collection}`,
+    pattern: '**/*.{md,mdx}',
+  });
+
+const stripFileExtension = (entry: string) => entry.replace(/\.[^.]+$/, '').replace(/\\/g, '/');
+
+const dataLoader = (collection: string) =>
+  glob({
+    base: `./src/content/${collection}`,
+    pattern: '**/*.json',
+    generateId: ({ entry }) => stripFileExtension(entry),
+  });
 
 const categories = defineCollection({
-  type: 'data',
+  loader: dataLoader('categories'),
   schema: z.object({
     name: z.string(),
   }),
 });
 
 const tags = defineCollection({
-  type: 'data',
+  loader: dataLoader('tags'),
   schema: z.object({
     name: z.string(),
   }),
 });
 
 const blog = defineCollection({
-  type: 'content',
-  // Type-check frontmatter using a schema
+  loader: contentLoader('blog'),
   schema: z.object({
     title: z.string(),
     description: z.string(),
-    // Transform string to Date object
     pubDate: z.coerce.date(),
     updatedDate: z.coerce.date().optional(),
     heroImage: z.string().optional(),
@@ -65,13 +80,12 @@ const blog = defineCollection({
 });
 
 const pages = defineCollection({
-  type: 'content',
+  loader: contentLoader('pages'),
   schema: z.object({
     title: z.string(),
     tagline: z.string().optional(),
     subtitle: z.string().optional(),
     name: z.string().optional(),
-
     avatar: z.string().optional(),
     skills: z.array(z.string()).default([]),
     socialLinks: z
@@ -87,7 +101,7 @@ const pages = defineCollection({
 });
 
 const friendsPage = defineCollection({
-  type: 'data',
+  loader: dataLoader('friendsPage'),
   schema: z.object({
     title: z.string(),
     description: z.string(),
@@ -106,7 +120,7 @@ const friendsPage = defineCollection({
 });
 
 const friends = defineCollection({
-  type: 'data',
+  loader: dataLoader('friends'),
   schema: z.object({
     name: z.string(),
     description: z.string(),
@@ -118,7 +132,7 @@ const friends = defineCollection({
 });
 
 const projects = defineCollection({
-  type: 'data',
+  loader: dataLoader('projects'),
   schema: z.object({
     title: z.string(),
     description: z.string(),

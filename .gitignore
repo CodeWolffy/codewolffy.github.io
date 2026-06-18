@@ -26,5 +26,8 @@ pnpm-debug.log*
 # claude code runtime files
 .claude/
 
+# cloudflare local runtime state
+.wrangler/
+
 # AI planning / runtime docs
 .trae/

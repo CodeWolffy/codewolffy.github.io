@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import { getBlogPostPath } from '@/utils/content-paths';
 
 const allPosts = (
   await getCollection('blog', ({ data }) => {
@@ -142,7 +143,7 @@ groupedPosts.forEach((yearGroup) => {
                         {/* 悬停实色背景 */}
                         <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 bg-muted/35" />
 
-                        <a href={`/blog/${post.slug}`} class="block relative z-10 p-4 sm:p-5">
+                        <a href={getBlogPostPath(post)} class="block relative z-10 p-4 sm:p-5">
                           <div class="flex flex-col gap-2">
                             {/* Header: Title & Date */}
                             <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
