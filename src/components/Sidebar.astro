@@ -1,6 +1,7 @@
-9---
+---
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { getEntry } from 'astro:content';
 
 interface Props {
   className?: string;
@@ -9,6 +10,10 @@ interface Props {
 }
 
 const { className, tags, categories } = Astro.props;
+
+const aboutPage = await getEntry('pages', 'about');
+const about = aboutPage?.data;
+const { Content: AboutContent } = aboutPage ? await aboutPage.render() : { Content: undefined };
 ---
 
 <aside class:list={["w-full space-y-4", className]}>
@@ -18,19 +23,19 @@ const { className, tags, categories } = Astro.props;
       <div class="relative w-24 h-24 mb-2">
         <div class="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
         <img 
-          src="https://github.com/CodeWolffy.png" 
-          alt="Wolf" 
+          src={about?.avatar || 'https://github.com/CodeWolffy.png'} 
+          alt={about?.name || 'Wolf'} 
           class="relative w-full h-full rounded-full border-2 border-background object-cover shadow-md"
         />
         <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-background rounded-full"></div>
       </div>
       
-      <h3 class="text-xl font-bold text-foreground">CodeWolffy</h3>
-      <p class="text-xs text-muted-foreground mt-1 mb-4">CV高级工程师 & StackOverflow潜水员 & 面向AI编程专家</p>
+      <h3 class="text-xl font-bold text-foreground">{about?.name || 'CodeWolffy'}</h3>
+      <p class="text-xs text-muted-foreground mt-1 mb-4">{about?.tagline || 'CV高级工程师 & StackOverflow潜水员 & 面向AI编程专家'}</p>
       
-      <p class="text-sm text-foreground/80 leading-relaxed mb-6">
-        代码写得好不好，全看 AI 给得妙不妙
-      </p>
+      <div class="text-sm text-foreground/80 leading-relaxed mb-6">
+        {AboutContent ? <AboutContent /> : <p>代码写得好不好，全看 AI 给得妙不妙</p>}
+      </div>
       
       <div class="flex gap-2 w-full">
          <a href="https://github.com/CodeWolffy" target="_blank" class="flex-1">

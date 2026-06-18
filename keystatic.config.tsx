@@ -1,6 +1,26 @@
 // @ts-check
 import { config, fields, collection, singleton } from '@keystatic/core';
 import { block } from '@keystatic/core/content-components';
+import { normalizeIframeUrl } from './src/utils/iframe-url';
+
+// Keystatic GitHub 存储所需变量校验
+// 当配置了 KEYSTATIC_GITHUB_CLIENT_ID 时启用 GitHub 存储模式，否则回退到本地文件系统。
+// 这样静态构建（如 GitHub Pages）不会因为 NODE_ENV=production 而强制要求这些变量。
+const useGitHubStorage = !!process.env.KEYSTATIC_GITHUB_CLIENT_ID;
+if (useGitHubStorage) {
+    const requiredEnvVars = [
+        'KEYSTATIC_GITHUB_CLIENT_ID',
+        'KEYSTATIC_GITHUB_CLIENT_SECRET',
+        'KEYSTATIC_SECRET',
+    ];
+    const missing = requiredEnvVars.filter(name => !process.env[name]);
+    if (missing.length > 0) {
+        throw new Error(
+            `[Keystatic] 启用 GitHub 存储模式时缺少必需的环境变量: ${missing.join(', ')}。\n` +
+            `请参考 .env.example 配置 KEYSTATIC_GITHUB_CLIENT_ID、KEYSTATIC_GITHUB_CLIENT_SECRET 和 KEYSTATIC_SECRET。`
+        );
+    }
+}
 
 export default config({
     ui: {
@@ -47,7 +67,7 @@ export default config({
             '友链管理': ['friends'],
         },
     },
-    storage: process.env.NODE_ENV === 'production'
+    storage: useGitHubStorage
         ? {
             kind: 'github',
             repo: 'CodeWolffy/codewolffy.github.io',
@@ -129,7 +149,7 @@ export default config({
         }),
         friendsPage: singleton({
             label: '🔗 友链页面设置',
-            path: 'src/content/pages/friends',
+            path: 'src/content/friendsPage/index',
             format: { data: 'json' },
             schema: {
                 title: fields.text({ label: '页面标题', defaultValue: '友情链接' }),
@@ -361,26 +381,8 @@ export default config({
                                     }
                                 }
 
-                                // 处理预览用的 URL (尝试禁用自动播放)
-                                const getPreviewSrc = (url: string) => {
-                                    if (!url) return '';
-                                    try {
-                                        // 简单处理 Bilibili 和常见视频网站
-                                        let previewUrl = url;
-                                        if (url.includes('bilibili.com')) {
-                                            // 确保包含 &autoplay=0
-                                            if (!previewUrl.includes('autoplay=0')) {
-                                                const separator = previewUrl.includes('?') ? '&' : '?';
-                                                previewUrl = `${previewUrl}${separator}autoplay=0`;
-                                            }
-                                        }
-                                        return previewUrl;
-                                    } catch (e) {
-                                        return url;
-                                    }
-                                };
-
-                                const previewSrc = getPreviewSrc(src);
+                                // 处理预览用的 URL (禁用自动播放等)
+                                const previewSrc = normalizeIframeUrl(src);
 
                                 return (
                                     <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>

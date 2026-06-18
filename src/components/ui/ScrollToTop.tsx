@@ -1,10 +1,10 @@
-import * as React from 'react';
+import { useEffect, useState } from 'react';
 
 export function ScrollToTop() {
-    const [isVisible, setIsVisible] = React.useState(false);
-    const [progress, setProgress] = React.useState(0);
+    const [isVisible, setIsVisible] = useState(false);
+    const [progress, setProgress] = useState(0);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const updateState = () => {
             // 更新可见性
             setIsVisible(window.scrollY > 300);

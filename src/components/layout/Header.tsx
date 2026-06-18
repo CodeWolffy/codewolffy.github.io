@@ -1,14 +1,15 @@
-import * as React from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { Search } from "@/components/blog/Search";
 import { siteConfig } from "@/config/site";
 
 export function Header() {
-    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-    const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-    React.useEffect(() => {
+    useEffect(() => {
         // Sync state with document class initialized by BaseLayout
         const syncTheme = () => {
             setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
@@ -76,7 +77,9 @@ export function Header() {
                 <div className="flex items-center gap-1 md:flex-1 md:justify-end lg:justify-start">
                     {/* Search - Mobile: Collapsed/Right, Desktop: Fill/Left */}
                     <div className="md:flex-1 shrink-0 md:min-w-0 md:mx-4 flex justify-end md:justify-start">
-                        <Search />
+                        <ErrorBoundary fallback={<div className="w-9 h-9 md:w-full md:h-10" />}>
+                            <Search />
+                        </ErrorBoundary>
                     </div>
 
                     {/* Right Actions - 固定宽度 */}

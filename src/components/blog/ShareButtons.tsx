@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState, useEffect } from 'react';
 import { Link2, Mail, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -9,10 +9,10 @@ interface ShareButtonsProps {
 }
 
 export function ShareButtons({ title, url, description = '' }: ShareButtonsProps) {
-    const [copied, setCopied] = React.useState(false);
-    const [shareUrl, setShareUrl] = React.useState(url);
+    const [copied, setCopied] = useState(false);
+    const [shareUrl, setShareUrl] = useState(url);
 
-    React.useEffect(() => {
+    useEffect(() => {
         setShareUrl(window.location.href);
     }, []);
 

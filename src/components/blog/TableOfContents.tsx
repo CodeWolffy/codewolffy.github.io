@@ -1,5 +1,5 @@
 import type { MarkdownHeading } from 'astro';
-import * as React from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { ChevronRight } from 'lucide-react';
 
@@ -8,10 +8,10 @@ interface TocProps {
 }
 
 export function TableOfContents({ headings }: TocProps) {
-    const [activeId, setActiveId] = React.useState<string>('');
-    const [isOpen, setIsOpen] = React.useState(false);
+    const [activeId, setActiveId] = useState<string>('');
+    const [isOpen, setIsOpen] = useState(false);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {

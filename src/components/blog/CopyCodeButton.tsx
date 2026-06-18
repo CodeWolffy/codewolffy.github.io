@@ -1,7 +1,7 @@
-import * as React from 'react';
+import { useEffect } from 'react';
 
 export function CopyCodeButton() {
-    React.useEffect(() => {
+    useEffect(() => {
         const codeBlocks = document.querySelectorAll('pre');
 
         codeBlocks.forEach((pre) => {

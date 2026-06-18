@@ -1,11 +1,11 @@
-import * as React from 'react';
+import { useState, useEffect } from 'react';
 import Giscus from '@giscus/react';
 import { siteConfig } from '@/config/site';
 
 export function Comments() {
-    const [theme, setTheme] = React.useState('light');
+    const [theme, setTheme] = useState('light');
 
-    React.useEffect(() => {
+    useEffect(() => {
         const isDark = document.documentElement.classList.contains('dark');
         setTheme(isDark ? 'dark' : 'light');
 
@@ -26,7 +26,7 @@ export function Comments() {
     // 处理 GitHub 登录后保持在评论区位置
     // 原理：当用户在评论区可见时离开页面（去 GitHub 登录），保存位置标记
     // 返回后检测标记并恢复位置
-    React.useEffect(() => {
+    useEffect(() => {
         let isCommentsVisible = false;
         const STORAGE_KEY = 'giscus-scroll-position';
 
@@ -78,8 +78,8 @@ export function Comments() {
     // "Smart Eager" Loading: 
     // Wait for the main thread to settle (useEffect runs after paint), then trigger "eager" loading.
     // This prevents the heavy iframe setup from blocking the initial page scroll/interaction.
-    const [shouldLoad, setShouldLoad] = React.useState(false);
-    React.useEffect(() => {
+    const [shouldLoad, setShouldLoad] = useState(false);
+    useEffect(() => {
         const timer = setTimeout(() => setShouldLoad(true), 100);
         return () => clearTimeout(timer);
     }, []);

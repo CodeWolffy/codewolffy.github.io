@@ -73,7 +73,14 @@ const pages = defineCollection({
                 icon: z.string().optional(),
             })
         ).default([]),
-        // Friends page specific fields
+    }),
+});
+
+const friendsPage = defineCollection({
+    type: 'data',
+    schema: z.object({
+        title: z.string(),
+        description: z.string(),
         applyTitle: z.string().optional(),
         applyDescription: z.string().optional(),
         contactMethods: z.array(
@@ -82,7 +89,7 @@ const pages = defineCollection({
                 url: z.string(),
                 icon: z.string().optional(),
             })
-        ).optional(),
+        ).default([]),
     }),
 });
 
@@ -112,4 +119,4 @@ const projects = defineCollection({
     }),
 });
 
-export const collections = { blog, pages, friends, projects, categories, tags };
+export const collections = { blog, pages, friendsPage, friends, projects, categories, tags };

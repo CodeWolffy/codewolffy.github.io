@@ -46,8 +46,25 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
         return `${safeName}.${ext}`;
     };
 
+    // 辅助：校验图片 URL 是否安全（仅允许 http/https/data 协议）
+    const isSafeImageUrl = (url: string): boolean => {
+        if (!url) return false;
+        if (url.startsWith('data:')) return true;
+        try {
+            const parsed = new URL(url);
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        } catch {
+            // 相对地址在 resolveImageUrl 后再校验
+            return true;
+        }
+    };
+
     // 辅助：获取图片 Blob
     const fetchImageBlob = async (url: string): Promise<Blob | null> => {
+        if (!isSafeImageUrl(url)) {
+            console.warn('Unsafe image URL skipped:', url);
+            return null;
+        }
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Failed to fetch image: ${url}`);
@@ -125,7 +142,13 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
         try {
             if (url.startsWith('data:')) return url;
 
-            let blob = await fetchImageBlob(url);
+            const resolvedUrl = resolveImageUrl(url);
+            if (!isSafeImageUrl(resolvedUrl)) {
+                console.warn('Unsafe image URL skipped:', resolvedUrl);
+                return url;
+            }
+
+            let blob = await fetchImageBlob(resolvedUrl);
             if (!blob) return url;
 
             if (shouldCompress) {

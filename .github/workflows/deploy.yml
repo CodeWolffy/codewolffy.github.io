@@ -16,6 +16,17 @@ jobs:
     steps:
       - name: Checkout your repository using git
         uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Content consistency checks
+        run: |
+          npm run sync-content
+          npm run clean-content -- --dry-run
       - name: Install, build, and upload your site
         uses: withastro/action@v2
         with:

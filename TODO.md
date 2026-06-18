@@ -4,10 +4,10 @@
 
 ---
 
-## 🟠 中优先级
+## ✅ 已完成
 
-- [ ] **实现 Service Worker（PWA 离线支持）**  
-  `manifest.json` 已完善，但缺少 Service Worker 导致无法真正离线安装。推荐安装 `@vite-pwa/astro` 插件，配置静态资源永久缓存 + 文章页 Network First 策略。注意缓存更新机制，避免用户看到旧内容。
+- [x] **实现 Service Worker（PWA 离线支持）**  
+  `manifest.json` 与 `public/sw.js` 已配置，并在 `BaseLayout.astro` 中完成注册。采用静态资源 Cache First + 页面 Network First + `/offline/` 回退策略。
 
 ---
 

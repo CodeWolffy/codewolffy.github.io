@@ -9,6 +9,7 @@
     "astro": "astro",
     "sync-content": "node scripts/sync-content.js",
     "clean-content": "node scripts/clean-content.js",
+    "clean-content:dry-run": "node scripts/clean-content.js --dry-run",
     "check:mermaid": "node scripts/check-mermaid-regression.mjs"
   },
   "dependencies": {

@@ -2,13 +2,14 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { Button } from "@/components/ui/button";
 import { getIconComponent } from '@/lib/icons';
-import friendsPageConfig from '@/content/pages/friends.json';
 
-import { getCollection } from 'astro:content';
+import { getCollection, getEntry } from 'astro:content';
 
 const friends = (await getCollection('friends'))
     .map(item => item.data)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+
+const friendsPageConfig = await getEntry('friendsPage', 'index');
 
 type ContactMethod = {
 	name: string;
@@ -26,8 +27,8 @@ const defaultPageConfig = {
 
 const pageConfig = {
 	...defaultPageConfig,
-	...friendsPageConfig,
-	contactMethods: friendsPageConfig.contactMethods ?? defaultPageConfig.contactMethods,
+	...(friendsPageConfig?.data ?? {}),
+	contactMethods: friendsPageConfig?.data.contactMethods ?? defaultPageConfig.contactMethods,
 };
 ---
 

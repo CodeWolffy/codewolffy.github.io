@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useEffect, useRef, useState, type ChangeEvent } from "react"
 import { Search as SearchIcon, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -19,11 +19,15 @@ const PAGEFIND_SCRIPT_ID = "pagefind-ui-script";
 let pagefindAssetPromise: Promise<void> | null = null;
 
 function loadPagefindAssets() {
+    if (typeof window === 'undefined') {
+        return Promise.reject(new Error("Pagefind cannot load without window."));
+    }
+
     if (window.PagefindUI) {
         return Promise.resolve();
     }
 
-    if (!import.meta.env.PROD) {
+    if (import.meta.env?.PROD === false) {
         return Promise.reject(new Error("Pagefind is only available after production build."));
     }
 
@@ -71,14 +75,15 @@ function loadPagefindAssets() {
 }
 
 export function Search() {
-    const [isExpanded, setIsExpanded] = React.useState(false)
-    const [searchValue, setSearchValue] = React.useState("")
-    const [searchStatus, setSearchStatus] = React.useState<"idle" | "loading" | "ready" | "unavailable">("idle")
-    const searchContainerRef = React.useRef<HTMLDivElement>(null)
-    const inputRef = React.useRef<HTMLInputElement>(null)
+    const [isExpanded, setIsExpanded] = useState(false)
+    const [searchValue, setSearchValue] = useState("")
+    const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "ready" | "unavailable">("idle")
+    const searchContainerRef = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+    const pagefindCleanupRef = useRef<(() => void) | null>(null)
 
     // Handle Cmd+K / Ctrl+K keyboard shortcut
-    React.useEffect(() => {
+    useEffect(() => {
         const down = (e: KeyboardEvent) => {
             if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault()
@@ -95,12 +100,16 @@ export function Search() {
     }, [isExpanded])
 
     // Initialize Pagefind when expanded
-    React.useEffect(() => {
+    useEffect(() => {
         if (isExpanded) {
             // Small delay to ensure the container is rendered
             const timer = setTimeout(async () => {
                 const searchResultsDiv = document.getElementById("pagefind-results");
                 if (!searchResultsDiv) return;
+
+                // 清理之前的实例
+                pagefindCleanupRef.current?.();
+                pagefindCleanupRef.current = null;
 
                 try {
                     setSearchStatus("loading");
@@ -119,13 +128,19 @@ export function Search() {
                     });
                     setSearchStatus("ready");
 
+                    // PagefindUI 未暴露 destroy 时，回退到清空容器
+                    pagefindCleanupRef.current = () => {
+                        searchResultsDiv.innerHTML = "";
+                    };
+
                     // Find the pagefind input and sync it with our controlled input
                     const pagefindInput = searchResultsDiv.querySelector('.pagefind-ui__search-input') as HTMLInputElement;
                     if (pagefindInput && searchValue) {
                         pagefindInput.value = searchValue;
                         pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
                     }
-                } catch {
+                } catch (error) {
+                    console.warn("Pagefind init failed:", error);
                     setSearchStatus("unavailable");
                     searchResultsDiv.innerHTML = `
                         <div class="flex flex-col items-center justify-center py-8 text-center text-muted-foreground space-y-2">
@@ -136,12 +151,16 @@ export function Search() {
                     `;
                 }
             }, 50);
-            return () => clearTimeout(timer);
+            return () => {
+                clearTimeout(timer);
+                pagefindCleanupRef.current?.();
+                pagefindCleanupRef.current = null;
+            };
         }
     }, [isExpanded]);
 
     // Sync search value to pagefind input
-    React.useEffect(() => {
+    useEffect(() => {
         if (isExpanded && searchValue) {
             const pagefindInput = document.querySelector('#pagefind-results .pagefind-ui__search-input') as HTMLInputElement;
             if (pagefindInput) {
@@ -152,7 +171,7 @@ export function Search() {
     }, [searchValue, isExpanded]);
 
     // Click outside to close
-    React.useEffect(() => {
+    useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
                 setIsExpanded(false)
@@ -165,7 +184,7 @@ export function Search() {
         return () => document.removeEventListener("mousedown", handleClickOutside)
     }, [isExpanded])
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         setSearchValue(e.target.value)
     }
 

@@ -83,12 +83,19 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
 
 		<ClientRouter />
 
-		<!-- Service Worker 注册 -->
+		<!-- Service Worker 注册：仅在非开发环境注册，避免 localhost 缓存旧 chunk 导致 React hooks 报错 -->
 		<script is:inline>
 			if ('serviceWorker' in navigator) {
-				navigator.serviceWorker.register('/sw.js').catch((err) => {
-					console.error('Service Worker 注册失败:', err);
-				});
+				const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+				if (isLocalhost) {
+					navigator.serviceWorker.getRegistrations().then((registrations) => {
+						registrations.forEach((registration) => registration.unregister());
+					});
+				} else {
+					navigator.serviceWorker.register('/sw.js').catch((err) => {
+						console.error('Service Worker 注册失败:', err);
+					});
+				}
 			}
 		</script>
 		

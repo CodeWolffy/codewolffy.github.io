@@ -1,7 +1,6 @@
 // Astro 配置文件
 import { defineConfig } from 'astro/config';
 import path from 'path';
-
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 import mdx from '@astrojs/mdx';
@@ -128,6 +127,13 @@ export default defineConfig({
   },
 
   vite: {
+    // 强制 dedupe React 相关包，避免开发模式下出现多个 React 实例导致 hooks 失效
+    resolve: {
+      dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+    },
     plugins: [
       tailwindcss(),
       autoSyncContent() // Register the plugin
