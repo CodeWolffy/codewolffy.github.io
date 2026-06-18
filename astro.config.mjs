@@ -135,7 +135,19 @@ export default defineConfig({
       dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+      exclude: [
+        '@keystatic/astro',
+        '@keystatic/astro/internal/keystatic-api.js',
+        '@keystatic/astro/internal/keystatic-page.js',
+        'astro/virtual-modules/transitions.js',
+        'astro/virtual-modules/transitions-router.js',
+        'astro/virtual-modules/transitions-types.js',
+        'astro/virtual-modules/transitions-events.js',
+        'astro/virtual-modules/transitions-swap-functions.js',
+      ],
+      esbuildOptions: {
+        external: ['virtual:keystatic-config', 'astro:toolbar:internal'],
+      },
     },
     plugins: [
       tailwindcss(),
