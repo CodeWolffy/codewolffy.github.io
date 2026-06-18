@@ -103,9 +103,28 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
             registrations.forEach((registration) => registration.unregister());
           });
         } else {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
-            console.error('Service Worker 注册失败:', err);
-          });
+          navigator.serviceWorker
+            .register('/sw.js', {
+              scope: '/',
+              updateViaCache: 'none',
+            })
+            .then((registration) => {
+              console.log('[SW] 注册成功:', registration.scope);
+              // 发现新 SW 等待激活时提示刷新（可选，避免旧缓存长期生效）
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                if (newWorker) {
+                  newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      console.log('[SW] 新版本已下载，刷新页面后生效');
+                    }
+                  });
+                }
+              });
+            })
+            .catch((err) => {
+              console.error('[SW] 注册失败:', err);
+            });
         }
       }
     </script>

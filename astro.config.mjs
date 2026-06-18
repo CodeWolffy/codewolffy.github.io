@@ -156,5 +156,7 @@ export default defineConfig({
     },
   },
   // Astro 5: static 模式默认支持混合渲染，Keystatic 页面会自动使用 SSR
+  // 注意：GitHub Pages 作为静态备用节点时，Cloudflare adapter 仍会生成静态 HTML，
+  // SSR/Keystatic 动态路由在 GitHub Pages 上不可用，这是预期行为。
   adapter: cloudflare(),
 });
