@@ -12,7 +12,6 @@ import { getSiteUrl } from './src/config/site.js';
 
 // Import custom plugins
 import { rehypeTableWrapper } from './src/plugins/rehype-table-wrapper.mjs';
-import { rehypeVideoWrapper } from './src/plugins/rehype-video-wrapper.mjs';
 
 // Import sync utility
 import { syncContent } from './src/utils/content-sync.js';

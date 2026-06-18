@@ -1,4 +1,4 @@
-import { defineCollection, reference, z } from 'astro:content';
+import { defineCollection, z } from 'astro:content';
 
 const categories = defineCollection({
     type: 'data',
@@ -104,6 +104,7 @@ const projects = defineCollection({
         title: z.string(),
         description: z.string(),
         coverImage: z.string().optional(),
+        image: z.string().optional(),
         tags: z.array(z.string()),
         github: z.string(),
         demo: z.string().nullable().optional(),

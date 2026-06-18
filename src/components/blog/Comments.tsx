@@ -93,17 +93,17 @@ export function Comments() {
             {shouldLoad && (
                 <Giscus
                     id={siteConfig.comments.giscus.id}
-                    repo={siteConfig.comments.giscus.repo}
+                    repo={siteConfig.comments.giscus.repo as `${string}/${string}`}
                     repoId={siteConfig.comments.giscus.repoId}
                     category={siteConfig.comments.giscus.category}
                     categoryId={siteConfig.comments.giscus.categoryId}
-                    mapping={siteConfig.comments.giscus.mapping}
-                    reactionsEnabled={siteConfig.comments.giscus.reactionsEnabled}
-                    emitMetadata={siteConfig.comments.giscus.emitMetadata}
-                    inputPosition={siteConfig.comments.giscus.inputPosition}
+                    mapping={siteConfig.comments.giscus.mapping as 'pathname'}
+                    reactionsEnabled={siteConfig.comments.giscus.reactionsEnabled as '0' | '1'}
+                    emitMetadata={siteConfig.comments.giscus.emitMetadata as '0' | '1'}
+                    inputPosition={siteConfig.comments.giscus.inputPosition as 'top' | 'bottom'}
                     theme={theme}
-                    lang={siteConfig.comments.giscus.lang}
-                    loading={siteConfig.comments.giscus.loading} // Load immediately once component is mounted
+                    lang={siteConfig.comments.giscus.lang as 'zh-CN'}
+                    loading={siteConfig.comments.giscus.loading as 'eager'} // Load immediately once component is mounted
                 />
             )}
         </div>

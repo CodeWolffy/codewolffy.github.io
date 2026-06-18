@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { Check, Copy } from 'lucide-react';
 
 export function CopyCodeButton() {
     React.useEffect(() => {

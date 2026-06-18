@@ -3,7 +3,6 @@ import { type CollectionEntry, getCollection, render } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { TableOfContents } from '@/components/blog/TableOfContents';
 import { Comments } from '@/components/blog/Comments';
-import { BackButton } from '@/components/ui/BackButton';
 import { CopyCodeButton } from '@/components/blog/CopyCodeButton';
 import { ShareButtons } from '@/components/blog/ShareButtons';
 import { ExportButton } from '@/components/blog/ExportButton';
@@ -111,7 +110,7 @@ const pageUrl = Astro.url.href;
 	author={siteConfig.author.name}
 >
 	<!-- JSON-LD 结构化数据 -->
-	<script type="application/ld+json" set:html={JSON.stringify({
+	<script is:inline type="application/ld+json" set:html={JSON.stringify({
 		"@context": "https://schema.org",
 		"@type": "BlogPosting",
 		"headline": post.data.title,
@@ -218,7 +217,7 @@ const pageUrl = Astro.url.href;
 						<FilePenLine className="h-4 w-4" />
 						编辑此页
 					</a>
-					<ExportButton title={post.data.title} content={post.body || ''} frontmatter={post.data} className="flex-1 lg:flex-none" client:visible />
+					<ExportButton title={post.data.title} content={post.body || ''} frontmatter={post.data as any} className="flex-1 lg:flex-none" client:visible />
 				</div>
 			</div>
 			
@@ -286,7 +285,7 @@ const pageUrl = Astro.url.href;
 				</div>
 			)}
 			
-            <Copyright title={post.data.title} url={pageUrl} />
+            <Copyright />
 
 
             <hr class="mt-2" />
@@ -405,7 +404,7 @@ const pageUrl = Astro.url.href;
                     return;
                 }
 
-                window.setTimeout(task, 600);
+                setTimeout(task, 600);
             };
 
             const scheduleZoom = () => runWhenIdle(() => void initZoom());
@@ -574,7 +573,9 @@ const pageUrl = Astro.url.href;
                     }
 
                     // Replace Old Iframe
-                    oldIframe.parentNode.replaceChild(wrapper, oldIframe);
+                    if (oldIframe.parentNode) {
+                        oldIframe.parentNode.replaceChild(wrapper, oldIframe);
+                    }
                 });
             };
             

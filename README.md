@@ -78,27 +78,46 @@
 │   ├── images/             # 图片存放目录
 │   ├── manifest.json       # PWA 配置文件
 │   ├── robots.txt          # SEO 爬虫规则
-│   └── sitemap-0.xml       # 自动生成的站点地图
+│   └── sitemap-*.xml       # 自动生成的站点地图
+├── scripts/                # 构建/开发辅助脚本
+│   ├── check-mermaid-regression.mjs # Mermaid 回归检查
+│   ├── clean-content.js    # 清理未使用的标签/分类
+│   └── sync-content.js     # 手动全量内容同步
 ├── src/
 │   ├── components/         # 组件库
-│   │   ├── blog/           # 业务组件: Comments, TOC, ExportButton
-│   │   ├── layout/         # 布局组件: Header, Footer
-│   │   └── ui/             # 基础组件: Button, Card (shadcn-like)
+│   │   ├── blog/           # 业务组件: Comments, TOC, ExportButton, Search...
+│   │   ├── layout/         # 布局组件: Header
+│   │   ├── mdx/            # MDX 自定义组件: Callout, Mermaid, Iframe
+│   │   └── ui/             # 基础组件: Button, BackButton, Breadcrumbs...
+│   ├── config/             # 站点配置文件
+│   │   └── site.js         # 站点 URL、导航、评论、社交链接等
 │   ├── content/            # 内容数据源 (Keystatic 管理)
 │   │   ├── blog/           # .mdx 文章文件
+│   │   ├── categories/     # 分类定义 (.json)
+│   │   ├── friends/        # 友情链接定义 (.json)
+│   │   ├── pages/          # 单页面内容 (about, friends)
+│   │   ├── projects/       # 项目展示定义 (.json)
+│   │   ├── tags/           # 标签定义 (.json)
 │   │   └── config.ts       # Astro Content Collections 定义
 │   ├── layouts/            # 页面骨架
-│   │   ├── BaseLayout.astro # 基础 HTML 结构, SEO Meta, Theme Script
-│   │   └── BlogPost.astro   # 文章详情页布局
-│   ├── lib/                # 工具函数 (格式化日期等)
+│   │   └── BaseLayout.astro # 基础 HTML 结构, SEO Meta, Theme Script
+│   ├── lib/                # 工具函数 (图标映射、类名合并等)
 │   ├── pages/              # 路由入口
-│   │   ├── api/            # API 端点 (Keystatic API)
-│   │   ├── blog/[...slug].astro # 文章详情页 (动态路由)
-│   │   └── rss.xml.js      # RSS 生成逻辑
-│   └── styles/             # 全局样式
+│   │   ├── blog/[...slug].astro    # 文章详情页 (动态路由)
+│   │   ├── categories/             # 分类列表/详情页
+│   │   ├── tags/                   # 标签列表/详情页
+│   │   ├── about.astro             # 关于我
+│   │   ├── archives.astro          # 归档
+│   │   ├── friends.astro           # 友链
+│   │   ├── index.astro             # 首页
+│   │   ├── projects.astro          # 项目展示
+│   │   └── rss.xml.js              # RSS 生成逻辑
+│   ├── plugins/            # 自定义 rehype 插件
+│   ├── styles/             # 全局样式 (Tailwind v4 CSS-first 配置)
+│   └── utils/              # 内容同步、阅读时间等工具
 ├── astro.config.mjs        # Astro 主配置文件 (集成插件配置)
+├── components.json         # shadcn/ui 风格组件配置
 ├── keystatic.config.ts     # Keystatic CMS 数据模型配置
-├── tailwind.config.mjs     # Tailwind 样式配置 (主题, 排版插件)
 └── package.json            # 依赖管理
 ```
 
@@ -153,9 +172,11 @@
 修改 `src/layouts/BaseLayout.astro` 中的默认 `title` 和 `description`。
 
 ### 2. 调整 UI 主题
-本项目使用 Tailwind CSS 配置主题。编辑 `tailwind.config.mjs`：
-- `theme.extend.colors`: 修改 HSL 颜色变量 (对应 `src/styles/global.css` 中的 CSS 变量)。
-- `typography`: 调整 `@tailwindcss/typography` 插件的 Markdown 排版样式（如代码块背景、链接颜色）。
+本项目使用 **Tailwind CSS v4** 的 CSS-first 配置，主题变量定义在 `src/styles/global.css` 中：
+- `:root` / `.dark`: 修改 HSL 颜色变量。
+- `@theme inline`: 将 CSS 变量映射为 Tailwind 工具类。
+- `@plugin "tailwindcss-animate"` / `@plugin "@tailwindcss/typography"`: 注册动画与排版插件。
+- 自定义排版、代码块、表格、动画等样式直接写在 `@layer base` 或普通 CSS 规则中。
 
 ### 3. 修改 CMS 字段
 编辑 `keystatic.config.ts` 可以增删 CMS 的字段模型：
@@ -177,11 +198,14 @@
 
 ---
 
-## ☁️ 部署详解 (Cloudflare Pages)
+## ☁️ 部署详解
 
-本项目针对 **Cloudflare Pages** 进行了深度优化，支持 **CI/CD 自动化部署**。
+本项目支持 **双平台部署**（Cloudflare Pages + GitHub Pages）：
 
-### 部署步骤
+- **Cloudflare Pages**：由 `astro.config.mjs` 中的 `@astrojs/cloudflare` adapter 支持，可用于生产环境的 SSR / Keystatic GitHub 登录。
+- **GitHub Pages**：由 `.github/workflows/deploy.yml` 自动部署，作为备用节点。
+
+### Cloudflare Pages 部署步骤
 1. 登录 Cloudflare Dashboard，进入 **Workers & Pages**。
 2. 创建应用 -> **Connect to Git** -> 选择本仓库。
 3. **构建配置 (Build Settings)**:
@@ -194,9 +218,15 @@
         - `KEYSTATIC_GITHUB_CLIENT_SECRET`
         - `KEYSTATIC_SECRET` (生成方式: `openssl rand -base64 32`)
 
+### GitHub Pages 部署步骤
+1. 仓库 **Settings -> Pages -> Source** 选择 **GitHub Actions**。
+2. 推送 `main` 分支后，`.github/workflows/deploy.yml` 会自动构建并部署。
+
+> 提示：双部署模式下，Cloudflare Pages 承担主站功能（含 Keystatic 后台），GitHub Pages 作为静态备用节点。
+
 ### 常见问题
 - **构建失败？** 检查 Node.js 版本设置，建议在 Cloudflare 环境变量中添加 `NODE_VERSION: 20`。
-- **样式丢失？** 确保 `tailwind.config.mjs` 中的 `content` 路径覆盖了所有文件。
+- **样式丢失？** 确保 `src/styles/global.css` 中的 `@source` 路径覆盖了所有模板文件。
 
 ---
 

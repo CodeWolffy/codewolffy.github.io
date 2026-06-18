@@ -1,12 +1,8 @@
-import React from 'react';
-
 interface CopyrightProps {
-    title: string;
-    url: string;
     author?: string;
 }
 
-export function Copyright({ title, url, author = "CodeWolffy" }: CopyrightProps) {
+export function Copyright({ author = "CodeWolffy" }: CopyrightProps) {
     return (
         <div className="my-2 p-2 rounded-lg bg-secondary/50 border border-border text-sm">
             <div className="flex flex-col gap-2">

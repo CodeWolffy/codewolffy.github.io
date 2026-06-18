@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.0.0",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "astro dev --host",
     "build": "npm run check:mermaid && astro build && npx pagefind --site dist",
     "preview": "astro preview",
     "astro": "astro",
@@ -24,9 +24,6 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.18",
-    "@types/file-saver": "^2.0.7",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
     "astro": "^5.18.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -46,6 +43,9 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.6",
+    "@types/file-saver": "^2.0.7",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
     "png-to-ico": "^3.0.1"
   }
 }

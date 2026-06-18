@@ -82,6 +82,15 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
         <meta name="twitter:image" content={ogImage} />
 
 		<ClientRouter />
+
+		<!-- Service Worker 注册 -->
+		<script is:inline>
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.register('/sw.js').catch((err) => {
+					console.error('Service Worker 注册失败:', err);
+				});
+			}
+		</script>
 		
 		<!-- 不蒜子访问统计 - 优化版 -->
 		<script define:vars={{ busuanzi }}>
@@ -184,7 +193,6 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
 				}
 			});
 		</script>
-        )}
 	</head>
 	<body class="min-h-screen bg-background font-sans antialiased">
 		<!-- 跳过导航链接 - 改进可访问性 -->

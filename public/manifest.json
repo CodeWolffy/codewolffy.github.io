@@ -4,8 +4,12 @@
     "description": "CodeWolffy的个人技术博客，分享前端开发、Astro、React等技术。",
     "start_url": "/",
     "display": "standalone",
+    "orientation": "portrait",
     "background_color": "#ffffff",
     "theme_color": "#ffffff",
+    "categories": ["technology", "blog", "programming"],
+    "lang": "zh-CN",
+    "dir": "ltr",
     "icons": [
         {
             "src": "/icon-192x192.png",
