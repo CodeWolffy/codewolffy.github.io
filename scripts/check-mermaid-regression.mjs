@@ -71,4 +71,6 @@ fixtures.forEach(({ name, source }) => {
   }
 });
 
-console.log(`Mermaid 回归检查通过：${assertions.length} 条结构约束，${fixtures.length} 个最小样例。`);
+console.log(
+  `Mermaid 回归检查通过：${assertions.length} 条结构约束，${fixtures.length} 个最小样例。`
+);

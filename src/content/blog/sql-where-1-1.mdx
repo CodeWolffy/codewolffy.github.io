@@ -14,6 +14,7 @@ tags:
   - discriminant: custom
     value: MySQL
 ---
+
 在 SQL 语句的 `WHERE` 条件后写上 `1=1`，通常是一种**编程技巧**，主要用于**简化动态 SQL 的拼接逻辑**。\
 以下是详细的解析，包括它的作用、代码对比、性能影响以及现代开发中的替代方案。
 
@@ -72,7 +73,7 @@ if (startDate != null) {
 
 在某些临时查询或调试场景下，`1=1` 也能提供方便。
 
-* **注释掉特定条件：** 当你想测试 SQL 语句，临时屏蔽某个查询条件时，如果后面都有 `AND`，直接注释掉某一行不会破坏语法。
+- **注释掉特定条件：** 当你想测试 SQL 语句，临时屏蔽某个查询条件时，如果后面都有 `AND`，直接注释掉某一行不会破坏语法。
 
 ```sql
 SELECT * FROM users WHERE 1=1
@@ -110,7 +111,7 @@ MyBatis 提供了 `<where>` 标签，它会智能地处理 `AND` 前缀。如果
 </select>
 ```
 
-*这里不需要写* `1=1`*，代码依然很干净。*
+_这里不需要写_ `1=1`_，代码依然很干净。_
 
 #### 2. 使用 持久层框架 (Hibernate / JPA / Spring Data JPA)
 
@@ -131,10 +132,13 @@ List<User> results = userRepository.findAll(example);
 
 ### 总结
 
-* **为什么写？** 为了在**手动拼接动态 SQL** 时，省去判断“是否是第一个条件”的繁琐逻辑，统一在每条条件前加 `AND`。
-* **性能有影响吗？** 没有，数据库优化器会忽略它。
-* **现在还用吗？** 在使用 MyBatis `<where>` 标签、Hibernate 或 ORM 框架时，**不需要**也不建议使用 `1=1`。但在纯字符串拼接 SQL 的简单脚本或旧代码维护中，依然非常常见。
+- **为什么写？** 为了在**手动拼接动态 SQL** 时，省去判断“是否是第一个条件”的繁琐逻辑，统一在每条条件前加 `AND`。
+- **性能有影响吗？** 没有，数据库优化器会忽略它。
+- **现在还用吗？** 在使用 MyBatis `<where>` 标签、Hibernate 或 ORM 框架时，**不需要**也不建议使用 `1=1`。但在纯字符串拼接 SQL 的简单脚本或旧代码维护中，依然非常常见。
 
 <iframe src="https://www.youtube.com/embed/RjEEEUHvaD4?si=ypPzNgvHgCrjb2dy" title="YouTube" />
 
-<iframe src="//player.bilibili.com/player.html?isOutside=true&aid=112773979702011&bvid=BV1cwbxezEZb&cid=500001613353119&p=1" title="哔哩哔哩" />
+<iframe
+  src="//player.bilibili.com/player.html?isOutside=true&aid=112773979702011&bvid=BV1cwbxezEZb&cid=500001613353119&p=1"
+  title="哔哩哔哩"
+/>

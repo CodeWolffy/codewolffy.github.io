@@ -1,14 +1,14 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
-    children: ReactNode;
-    fallback?: ReactNode;
-    onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  children: ReactNode;
+  fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
-    hasError: boolean;
-    error?: Error;
+  hasError: boolean;
+  error?: Error;
 }
 
 /**
@@ -18,24 +18,24 @@ interface State {
  * 导致整个父级（如 Header）被 React 卸载。
  */
 export class ErrorBoundary extends Component<Props, State> {
-    constructor(props: Props) {
-        super(props);
-        this.state = { hasError: false };
-    }
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-    static getDerivedStateFromError(error: Error): State {
-        return { hasError: true, error };
-    }
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
 
-    override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.error("ErrorBoundary caught an error:", error, errorInfo);
-        this.props.onError?.(error, errorInfo);
-    }
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.props.onError?.(error, errorInfo);
+  }
 
-    override render() {
-        if (this.state.hasError) {
-            return this.props.fallback ?? null;
-        }
-        return this.props.children;
+  override render() {
+    if (this.state.hasError) {
+      return this.props.fallback ?? null;
     }
+    return this.props.children;
+  }
 }

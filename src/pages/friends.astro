@@ -1,124 +1,149 @@
 ---
-import BaseLayout from "@/layouts/BaseLayout.astro";
-import { Button } from "@/components/ui/button";
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { Button } from '@/components/ui/button';
 import { getIconComponent } from '@/lib/icons';
 
 import { getCollection, getEntry } from 'astro:content';
 
 const friends = (await getCollection('friends'))
-    .map(item => item.data)
-    .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  .map((item) => item.data)
+  .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
 
 const friendsPageConfig = await getEntry('friendsPage', 'index');
 
 type ContactMethod = {
-	name: string;
-	url: string;
-	icon: string;
+  name: string;
+  url: string;
+  icon: string;
 };
 
 const defaultPageConfig = {
-	title: '友情链接',
-	description: '优质资源与友站推荐',
-	applyTitle: '申请友链',
-	applyDescription: '如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。',
-	contactMethods: [] as ContactMethod[],
+  title: '友情链接',
+  description: '优质资源与友站推荐',
+  applyTitle: '申请友链',
+  applyDescription: '如果您想交换友链，请通过以下方式联系我，并提供您的站点名称、描述和头像。',
+  contactMethods: [] as ContactMethod[],
 };
 
 const pageConfig = {
-	...defaultPageConfig,
-	...(friendsPageConfig?.data ?? {}),
-	contactMethods: friendsPageConfig?.data.contactMethods ?? defaultPageConfig.contactMethods,
+  ...defaultPageConfig,
+  ...(friendsPageConfig?.data ?? {}),
+  contactMethods: friendsPageConfig?.data.contactMethods ?? defaultPageConfig.contactMethods,
 };
 ---
 
 <BaseLayout title={`${pageConfig.title} | 狼码纪`} description={pageConfig.description}>
-	<!-- 装饰背景 -->
-	<div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-		<div class="absolute top-1/4 -left-20 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]"></div>
-		<div class="absolute bottom-1/4 -right-20 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[100px]"></div>
-	</div>
-
-    <div class="container mx-auto max-w-4xl py-8 lg:py-12">
-        <!-- 页面标题 -->
-		<div class="space-y-4 mb-12 text-center">
-            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
-                {pageConfig.title}
-            </h1>
-            <p class="text-xl text-muted-foreground">
-                {pageConfig.description}
-            </p>
-        </div>
-        
-        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {friends.map((friend, index) => (
-                <a 
-                    href={friend.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-					class="group relative flex flex-col items-center p-5 rounded-2xl bg-card border border-border/60 shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up opacity-0"
-					style={`animation-delay: ${index * 100}ms;`}
-                >
-					<div class="absolute inset-0 rounded-2xl bg-card -z-5"></div>
-					
-					<!-- 悬停背景渐变 -->
-					<div class="absolute inset-0 bg-muted/35 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0"></div>
-					
-					<!-- 头像带旋转边框 -->
-					<div class="relative mb-3 z-10">
-						<div class="absolute -inset-1 rounded-full bg-primary/20 opacity-0 group-hover:opacity-70 blur-sm transition-opacity duration-300"></div>
-                    	<div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-all duration-300">
-                        	<img 
-                            	src={friend.avatar || friend.avatarUrl} 
-                            	alt={friend.name}
-                            	class="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
-                            	loading="lazy"
-                        	/>
-                    	</div>
-					</div>
-					
-                    <h3 class="font-semibold text-base group-hover:text-primary transition-colors duration-300 relative z-10">
-                        {friend.name}
-                    </h3>
-                    <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2 relative z-10">
-                        {friend.description}
-                    </p>
-					
-					<!-- 外链图标 -->
-                    <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                            <polyline points="15 3 21 3 21 9"></polyline>
-                            <line x1="10" y1="14" x2="21" y2="3"></line>
-                        </svg>
-                    </div>
-                </a>
-            ))}
-        </div>
-        
-		<!-- 申请友链区域 -->
-        <div class="mt-16 p-8 rounded-2xl glass-effect text-center relative overflow-hidden">
-			<!-- 装饰元素 -->
-			<div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-primary/50 rounded-full"></div>
-			
-            <h2 class="text-2xl font-bold mb-4 text-foreground">{pageConfig.applyTitle}</h2>
-            <p class="text-muted-foreground mb-6">
-                {pageConfig.applyDescription}
-            </p>
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
-                {pageConfig.contactMethods.map((contact) => {
-					const IconComponent = getIconComponent(contact.icon);
-					return (
-						<a href={contact.url} target="_blank" rel="noopener noreferrer">
-							<Button size="lg" variant="outline" className="rounded-full px-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
-								<IconComponent className="mr-2 h-5 w-5" />
-								{contact.name}
-							</Button>
-						</a>
-					);
-				})}
-            </div>
-        </div>
+  {/* 装饰背景 */}
+  <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+    <div
+      class="absolute top-1/4 -left-20 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]"
+    >
     </div>
-</BaseLayout>
+    <div
+      class="absolute bottom-1/4 -right-20 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[100px]"
+    >
+    </div>
+  </div>
 
+  <div class="container mx-auto max-w-4xl py-8 lg:py-12">
+    {/* 页面标题 */}
+    <div class="space-y-4 mb-12 text-center">
+      <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
+        {pageConfig.title}
+      </h1>
+      <p class="text-xl text-muted-foreground">
+        {pageConfig.description}
+      </p>
+    </div>
+
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        friends.map((friend, index) => (
+          <a
+            href={friend.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="group relative flex flex-col items-center p-5 rounded-2xl bg-card border border-border/60 shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up opacity-0"
+            style={`animation-delay: ${index * 100}ms;`}
+          >
+            <div class="absolute inset-0 rounded-2xl bg-card -z-5" />
+
+            {/* 悬停背景渐变 */}
+            <div class="absolute inset-0 bg-muted/35 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0" />
+
+            {/* 头像带旋转边框 */}
+            <div class="relative mb-3 z-10">
+              <div class="absolute -inset-1 rounded-full bg-primary/20 opacity-0 group-hover:opacity-70 blur-sm transition-opacity duration-300" />
+              <div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-all duration-300">
+                <img
+                  src={friend.avatar || friend.avatarUrl}
+                  alt={friend.name}
+                  class="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+
+            <h3 class="font-semibold text-base group-hover:text-primary transition-colors duration-300 relative z-10">
+              {friend.name}
+            </h3>
+            <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2 relative z-10">
+              {friend.description}
+            </p>
+
+            {/* 外链图标 */}
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="text-primary"
+              >
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </div>
+          </a>
+        ))
+      }
+    </div>
+
+    {/* 申请友链区域 */}
+    <div class="mt-16 p-8 rounded-2xl glass-effect text-center relative overflow-hidden">
+      {/* 装饰元素 */}
+      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-primary/50 rounded-full">
+      </div>
+
+      <h2 class="text-2xl font-bold mb-4 text-foreground">{pageConfig.applyTitle}</h2>
+      <p class="text-muted-foreground mb-6">
+        {pageConfig.applyDescription}
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
+        {
+          pageConfig.contactMethods.map((contact) => {
+            const IconComponent = getIconComponent(contact.icon);
+            return (
+              <a href={contact.url} target="_blank" rel="noopener noreferrer">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="rounded-full px-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  <IconComponent className="mr-2 h-5 w-5" />
+                  {contact.name}
+                </Button>
+              </a>
+            );
+          })
+        }
+      </div>
+    </div>
+  </div>
+</BaseLayout>

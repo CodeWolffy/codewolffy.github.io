@@ -1,54 +1,54 @@
 ---
-import BaseLayout from "@/layouts/BaseLayout.astro";
-import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
-import PostCard from "@/components/blog/PostCard.astro";
-import Sidebar from "@/components/Sidebar.astro";
-import { getCollection, getEntry } from "astro:content";
-import { getReadingTimeMinutes } from "@/utils/reading-time";
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
+import PostCard from '@/components/blog/PostCard.astro';
+import Sidebar from '@/components/Sidebar.astro';
+import { getCollection, getEntry } from 'astro:content';
+import { getReadingTimeMinutes } from '@/utils/reading-time';
 
 const aboutPage = await getEntry('pages', 'about');
 const about = aboutPage?.data;
 
-const posts = (await getCollection("blog", ({ data }) => {
+const posts = (
+  await getCollection('blog', ({ data }) => {
     return import.meta.env.PROD ? data.draft !== true : true;
-})).sort(
-	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
-);
+  })
+).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 
 const allCategories = await getCollection('categories');
 const allTags = await getCollection('tags');
 
-const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
-const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
+const categoryMap = new Map(allCategories.map((c) => [c.id, c.data.name]));
+const tagMap = new Map(allTags.map((t) => [t.id, t.data.name]));
 
 const latestPosts = posts.slice(0, 8);
 
 // Calculate Tag Counts
-const tagCounts: Record<string, { name: string, count: number, id: string }> = {};
-posts.forEach(post => {
-    post.data.tags?.forEach(tagId => {
-        // Tag is now a string
-        const tagName = tagMap.get(tagId) || tagId;
-        if (!tagCounts[tagId]) {
-             tagCounts[tagId] = { name: tagName, count: 0, id: tagId };
-        }
-        tagCounts[tagId].count++;
-    });
+const tagCounts: Record<string, { name: string; count: number; id: string }> = {};
+posts.forEach((post) => {
+  post.data.tags?.forEach((tagId) => {
+    // Tag is now a string
+    const tagName = tagMap.get(tagId) || tagId;
+    if (!tagCounts[tagId]) {
+      tagCounts[tagId] = { name: tagName, count: 0, id: tagId };
+    }
+    tagCounts[tagId].count++;
+  });
 });
 const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
 
 // Calculate Category Counts
-const categoryCounts: Record<string, { name: string, count: number, id: string }> = {};
-posts.forEach(post => {
-    if (post.data.category) {
-        const catId = post.data.category; // Category is now a string
-        const catName = categoryMap.get(catId) || catId;
-        if (!categoryCounts[catId]) {
-            categoryCounts[catId] = { name: catName, count: 0, id: catId };
-        }
-        categoryCounts[catId].count++;
+const categoryCounts: Record<string, { name: string; count: number; id: string }> = {};
+posts.forEach((post) => {
+  if (post.data.category) {
+    const catId = post.data.category; // Category is now a string
+    const catName = categoryMap.get(catId) || catId;
+    if (!categoryCounts[catId]) {
+      categoryCounts[catId] = { name: catName, count: 0, id: catId };
     }
+    categoryCounts[catId].count++;
+  }
 });
 const sortedCategories = Object.values(categoryCounts).sort((a, b) => b.count - a.count);
 
@@ -58,91 +58,102 @@ const topTags = sortedTags.slice(0, 8);
 ---
 
 <BaseLayout title="狼码纪">
-	<!-- Hero Section -->
+  <!-- Hero Section -->
 
+  <!-- Main Content Grid -->
+  <section class="container mx-auto pt-0 pb-8 px-4 md:px-6">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
+      <!-- Mobile Sidebar Content (Moved to bottom) -->
 
-    <!-- Main Content Grid -->
-    <section class="container mx-auto pt-0 pb-8 px-4 md:px-6">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
-            <!-- Mobile Sidebar Content (Moved to bottom) -->
-
-
-            <!-- Left Column: Posts List -->
-            <div class="lg:col-span-8 space-y-2">
-                <!-- Hero Text Block (Moved) -->
-				<div class="space-y-4 text-center md:text-left max-w-3xl mb-2">
-					<div class="space-y-2">
-                        <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20">
-                            ✨ 探索 · 记录 · 分享
-                        </div>
-						<h1 class="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none pb-3 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-						{about?.tagline || 'StackOverflow 野生代言人'}
-					</h1>
-					<p class="mx-auto md:mx-0 max-w-[600px] text-muted-foreground text-lg md:text-xl leading-relaxed">
-						{about?.subtitle || '如果代码一次就跑通了，那一定是哪里出 bug 了'}
-					</p>
-					</div>
-					<div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-						<a href="#latest-posts">
-							<Button size="lg" variant="outline" className="rounded-full px-8 bg-white hover:bg-gray-100 text-black shadow-sm border transition-all">
-								开始阅读 <ArrowRight className="ml-2 w-4 h-4" />
-							</Button>
-						</a>
-						<a href="/archives">
-							<Button size="lg" className="rounded-full px-8 bg-black hover:bg-gray-800 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
-								归档列表
-							</Button>
-						</a>
-					</div>
-				</div>
-
-                <div id="latest-posts" class="flex items-center justify-between border-b pb-1 scroll-mt-20">
-                    <h2 class="text-2xl font-bold tracking-tight flex items-center gap-2">
-                        最新文章
-                    </h2>
-                    <a href="/archives" class="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
-                        查看全部 <ArrowRight className="w-4 h-4" />
-                    </a>
-                </div>
-
-                <div class="grid gap-2 sm:grid-cols-2">
-                    {latestPosts.map((post, index) => (
-                        <PostCard 
-                            post={post}
-                            index={index}
-                            mainTagLabel={post.data.tags && post.data.tags.length > 0 ? (tagMap.get(post.data.tags[0]) || post.data.tags[0]) : undefined}
-                            readingTime={getReadingTimeMinutes(post.body || '')}
-                        />
-                    ))}
-                </div>
-                
-                {posts.length === 0 && (
-                    <div class="text-center py-20 bg-muted/30 rounded-xl border border-dashed">
-                        <p class="text-muted-foreground">暂无文章，待更新...</p>
-                    </div>
-                )}
+      <!-- Left Column: Posts List -->
+      <div class="lg:col-span-8 space-y-2">
+        <!-- Hero Text Block (Moved) -->
+        <div class="space-y-4 text-center md:text-left max-w-3xl mb-2">
+          <div class="space-y-2">
+            <div
+              class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20"
+            >
+              ✨ 探索 · 记录 · 分享
             </div>
-
-            <!-- Mobile Sidebar Content (Moved to bottom) -->
-            <div class="lg:hidden w-full mt-2">
-                 <Sidebar 
-                    tags={topTags} 
-                    categories={topCategories} 
-                    className="w-full"
-                />
-            </div>
-
-            <!-- Right Column: Sidebar -->
-            <div class="hidden lg:block lg:col-span-4 pl-4">
-                <div class="sticky top-24">
-                     <Sidebar 
-                        tags={topTags} 
-                        categories={topCategories} 
-                    />
-                </div>
-            </div>
-            
-
+            <h1
+              class="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none pb-3 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70"
+            >
+              {about?.tagline || 'StackOverflow 野生代言人'}
+            </h1>
+            <p
+              class="mx-auto md:mx-0 max-w-[600px] text-muted-foreground text-lg md:text-xl leading-relaxed"
+            >
+              {about?.subtitle || '如果代码一次就跑通了，那一定是哪里出 bug 了'}
+            </p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+            <a href="#latest-posts">
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-full px-8 bg-white hover:bg-gray-100 text-black shadow-sm border transition-all"
+              >
+                开始阅读 <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+            </a>
+            <a href="/archives">
+              <Button
+                size="lg"
+                className="rounded-full px-8 bg-black hover:bg-gray-800 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
+              >
+                归档列表
+              </Button>
+            </a>
+          </div>
         </div>
-    </section>
+
+        <div id="latest-posts" class="flex items-center justify-between border-b pb-1 scroll-mt-20">
+          <h2 class="text-2xl font-bold tracking-tight flex items-center gap-2">最新文章</h2>
+          <a
+            href="/archives"
+            class="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+          >
+            查看全部 <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+
+        <div class="grid gap-2 sm:grid-cols-2">
+          {
+            latestPosts.map((post, index) => (
+              <PostCard
+                post={post}
+                index={index}
+                mainTagLabel={
+                  post.data.tags && post.data.tags.length > 0
+                    ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
+                    : undefined
+                }
+                readingTime={getReadingTimeMinutes(post.body || '')}
+              />
+            ))
+          }
+        </div>
+
+        {
+          posts.length === 0 && (
+            <div class="text-center py-20 bg-muted/30 rounded-xl border border-dashed">
+              <p class="text-muted-foreground">暂无文章，待更新...</p>
+            </div>
+          )
+        }
+      </div>
+
+      <!-- Mobile Sidebar Content (Moved to bottom) -->
+      <div class="lg:hidden w-full mt-2">
+        <Sidebar tags={topTags} categories={topCategories} className="w-full" />
+      </div>
+
+      <!-- Right Column: Sidebar -->
+      <div class="hidden lg:block lg:col-span-4 pl-4">
+        <div class="sticky top-24">
+          <Sidebar tags={topTags} categories={topCategories} />
+        </div>
+      </div>
+    </div>
+  </section>
 </BaseLayout>

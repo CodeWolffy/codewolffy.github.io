@@ -1,171 +1,218 @@
 ---
-import BaseLayout from "@/layouts/BaseLayout.astro";
-import { getCollection } from "astro:content";
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
 
-const allPosts = (await getCollection("blog", ({ data }) => {
+const allPosts = (
+  await getCollection('blog', ({ data }) => {
     return import.meta.env.PROD ? data.draft !== true : true;
-})).sort(
-    (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
-);
+  })
+).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 
 // 获取所有标签
 const allTags = await getCollection('tags');
-const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
+const tagMap = new Map(allTags.map((t) => [t.id, t.data.name]));
 
 // 获取所有分类
 const allCategories = await getCollection('categories');
-const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
+const categoryMap = new Map(allCategories.map((c) => [c.id, c.data.name]));
 
 // 重构数据结构：按年份 -> 月份分组，并计算统计数据
-const groupedPosts = allPosts.reduce((acc, post) => {
+const groupedPosts = allPosts.reduce(
+  (acc, post) => {
     const year = post.data.pubDate.getFullYear();
     const month = post.data.pubDate.getMonth() + 1;
 
-    let yearGroup = acc.find(y => y.year === year);
+    let yearGroup = acc.find((y) => y.year === year);
     if (!yearGroup) {
-        yearGroup = { year, months: [], totalPosts: 0 };
-        acc.push(yearGroup);
+      yearGroup = { year, months: [], totalPosts: 0 };
+      acc.push(yearGroup);
     }
 
-    let monthGroup = yearGroup.months.find(m => m.month === month);
+    let monthGroup = yearGroup.months.find((m) => m.month === month);
     if (!monthGroup) {
-        monthGroup = { month, posts: [], postCount: 0 };
-        yearGroup.months.push(monthGroup);
+      monthGroup = { month, posts: [], postCount: 0 };
+      yearGroup.months.push(monthGroup);
     }
 
     monthGroup.posts.push(post);
     monthGroup.postCount++;
     yearGroup.totalPosts++;
     return acc;
-}, [] as { year: number; months: { month: number; posts: typeof allPosts; postCount: number }[]; totalPosts: number }[]);
+  },
+  [] as {
+    year: number;
+    months: { month: number; posts: typeof allPosts; postCount: number }[];
+    totalPosts: number;
+  }[]
+);
 
 // 排序：年份倒序，月份倒序
 groupedPosts.sort((a, b) => b.year - a.year);
-groupedPosts.forEach(yearGroup => {
-    yearGroup.months.sort((a, b) => b.month - a.month);
+groupedPosts.forEach((yearGroup) => {
+  yearGroup.months.sort((a, b) => b.month - a.month);
 });
 ---
 
 <BaseLayout title="文章归档 | 狼码纪" description="按时间线浏览所有文章">
-    <div class="container mx-auto max-w-4xl py-8 lg:py-12">
-        <!-- 页面标题区域 -->
-        <div class="space-y-4 mb-12 text-center">
-            <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
-                文章归档
-            </h1>
-            <p class="text-xl text-muted-foreground">
-                共 <span class="font-bold text-foreground">{allPosts.length}</span> 篇文章
-            </p>
-        </div>
-        
-        <div class="relative">
-            <!-- 时间线 (Default: Border Color) -->
-            <div class="absolute left-4 top-0 bottom-0 w-0.5 md:left-8 bg-border"></div>
-            
-            {groupedPosts.map((yearGroup, yearIndex) => (
-                <details class="group mb-8 animate-slide-up opacity-0" style={`animation-delay: ${yearIndex * 150}ms;`} open={yearIndex === 0}>
-                    <summary class="list-none cursor-pointer relative flex items-center mb-4 select-none outline-none">
-                        <div class="absolute left-0 w-8 h-8 md:w-16 md:h-8 flex items-center justify-center">
-                            <!-- 光点 (Default: Primary Color) -->
-                            <div class="w-3 h-3 md:w-4 md:h-4 rounded-full z-10 bg-primary shadow-sm group-hover:scale-110 transition-transform duration-300"></div>
-                            <!-- 横向连接线 (Default: Border Color) -->
-                            <div class="absolute left-1/2 top-1/2 h-0.5 w-6 md:w-10 -z-0 bg-border"></div>
-                        </div>
-                        <!-- 年份标签 -->
-                        <div class="ml-10 md:ml-20 flex items-center gap-2">
-                            <div class="px-4 py-1 rounded-full bg-secondary/50 border border-indigo-500/20 backdrop-blur-sm group-active:scale-95 transition-transform">
-                                <div class="flex items-center gap-2">
-                                    <h2 class="text-2xl font-bold text-foreground tracking-tight">{yearGroup.year}</h2>
-                                    <span class="text-sm font-medium text-muted-foreground bg-primary/10 px-2 py-0.5 rounded-full border border-primary/10">
-                                        {yearGroup.totalPosts} 篇
-                                    </span>
-                                </div>
-                            </div>
-                            <!-- 折叠指示图标 -->
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down opacity-50 transition-transform duration-300 group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-                        </div>
-                    </summary>
-                    
-                    <!-- 文章列表（按月份分组） -->
-                    <div class="ml-10 md:ml-20 space-y-6">
-                        {yearGroup.months.map((monthGroup) => (
-                            <div class="relative">
-                                <!-- 月份标题 -->
-                                <div class="flex items-center gap-3 mb-3">
-                                    <span class="text-2xl font-bold text-muted-foreground/30">{monthGroup.month.toString().padStart(2, '0')}</span>
-                                    <span class="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                                        {new Date(yearGroup.year, monthGroup.month - 1).toLocaleString('zh-CN', { month: 'long' })}
-                                    </span>
-                                    <span class="text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full border border-border/50">
-                                        {monthGroup.postCount} 篇
-                                    </span>
-                                    <div class="h-px flex-1 bg-gradient-to-r from-border/50 to-transparent"></div>
-                                </div>
-
-                                <div class="space-y-3">
-                                    {monthGroup.posts.map((post) => (
-                                        <article
-                                            class="group/card relative rounded-2xl bg-card border border-border/60 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg overflow-hidden"
-                                        >
-                                            <!-- 左侧实色边框 (使用更鲜明的主题色) -->
-                                            <div class="absolute left-0 top-0 bottom-0 w-1 opacity-80 group-hover/card:opacity-100 transition-opacity duration-300 bg-primary"></div>
-
-                                            <!-- 悬停实色背景 -->
-                                            <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 bg-muted/35"></div>
-                                            
-                                            <a href={`/blog/${post.slug}`} class="block relative z-10 p-4 sm:p-5">
-                                                <div class="flex flex-col gap-2">
-                                                    <!-- Header: Title & Date -->
-                                                    <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
-                                                        <h3 class="font-bold text-xl leading-snug tracking-tight group-hover/card:text-primary transition-colors duration-300">
-                                                            {post.data.title}
-                                                        </h3>
-                                                        <time
-                                                            datetime={post.data.pubDate.toISOString()}
-                                                            class="text-xs text-muted-foreground shrink-0 whitespace-nowrap font-medium pt-1"
-                                                        >
-                                                            {post.data.pubDate.getDate()}日
-                                                        </time>
-                                                    </div>
-
-                                                    <!-- Footer: Metadata (Category & Tags) -->
-                                                    <div class="flex flex-wrap items-center gap-2 mt-0.5">
-                                                        {/* Category (使用主题色彩) */}
-                                                        {post.data.category && (
-                                                            <div class="flex items-center gap-1 text-xs font-medium text-accent-foreground bg-accent px-2 py-0.5 rounded-full border border-accent/30">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                                                                <span>{categoryMap.get(post.data.category) || post.data.category}</span>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Tags */}
-                                                        {post.data.tags && post.data.tags.length > 0 && (
-                                                            <div class="flex flex-wrap gap-2">
-                                                                {post.data.tags.map((tagId) => (
-                                                                    <span class="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-                                                                        <span class="opacity-50 mr-0.5">#</span>
-                                                                        {tagMap.get(tagId) || tagId}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </a>
-                                        </article>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </details>
-            ))}
-        </div>
-        
-        {allPosts.length === 0 && (
-            <div class="text-center py-20 text-muted-foreground">
-                <p>暂无文章。</p>
-            </div>
-        )}
+  <div class="container mx-auto max-w-4xl py-8 lg:py-12">
+    {/* 页面标题区域 */}
+    <div class="space-y-4 mb-12 text-center">
+      <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
+        文章归档
+      </h1>
+      <p class="text-xl text-muted-foreground">
+        共 <span class="font-bold text-foreground">{allPosts.length}</span> 篇文章
+      </p>
     </div>
+
+    <div class="relative">
+      {/* 时间线 (Default: Border Color) */}
+      <div class="absolute left-4 top-0 bottom-0 w-0.5 md:left-8 bg-border"></div>
+
+      {
+        groupedPosts.map((yearGroup, yearIndex) => (
+          <details
+            class="group mb-8 animate-slide-up opacity-0"
+            style={`animation-delay: ${yearIndex * 150}ms;`}
+            open={yearIndex === 0}
+          >
+            <summary class="list-none cursor-pointer relative flex items-center mb-4 select-none outline-none">
+              <div class="absolute left-0 w-8 h-8 md:w-16 md:h-8 flex items-center justify-center">
+                {/* 光点 (Default: Primary Color) */}
+                <div class="w-3 h-3 md:w-4 md:h-4 rounded-full z-10 bg-primary shadow-sm group-hover:scale-110 transition-transform duration-300" />
+                {/* 横向连接线 (Default: Border Color) */}
+                <div class="absolute left-1/2 top-1/2 h-0.5 w-6 md:w-10 -z-0 bg-border" />
+              </div>
+              {/* 年份标签 */}
+              <div class="ml-10 md:ml-20 flex items-center gap-2">
+                <div class="px-4 py-1 rounded-full bg-secondary/50 border border-indigo-500/20 backdrop-blur-sm group-active:scale-95 transition-transform">
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-2xl font-bold text-foreground tracking-tight">
+                      {yearGroup.year}
+                    </h2>
+                    <span class="text-sm font-medium text-muted-foreground bg-primary/10 px-2 py-0.5 rounded-full border border-primary/10">
+                      {yearGroup.totalPosts} 篇
+                    </span>
+                  </div>
+                </div>
+                {/* 折叠指示图标 */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="lucide lucide-chevron-down opacity-50 transition-transform duration-300 group-open:rotate-180"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </div>
+            </summary>
+
+            {/* 文章列表（按月份分组） */}
+            <div class="ml-10 md:ml-20 space-y-6">
+              {yearGroup.months.map((monthGroup) => (
+                <div class="relative">
+                  {/* 月份标题 */}
+                  <div class="flex items-center gap-3 mb-3">
+                    <span class="text-2xl font-bold text-muted-foreground/30">
+                      {monthGroup.month.toString().padStart(2, '0')}
+                    </span>
+                    <span class="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                      {new Date(yearGroup.year, monthGroup.month - 1).toLocaleString('zh-CN', {
+                        month: 'long',
+                      })}
+                    </span>
+                    <span class="text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full border border-border/50">
+                      {monthGroup.postCount} 篇
+                    </span>
+                    <div class="h-px flex-1 bg-gradient-to-r from-border/50 to-transparent" />
+                  </div>
+
+                  <div class="space-y-3">
+                    {monthGroup.posts.map((post) => (
+                      <article class="group/card relative rounded-2xl bg-card border border-border/60 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg overflow-hidden">
+                        {/* 左侧实色边框 (使用更鲜明的主题色) */}
+                        <div class="absolute left-0 top-0 bottom-0 w-1 opacity-80 group-hover/card:opacity-100 transition-opacity duration-300 bg-primary" />
+
+                        {/* 悬停实色背景 */}
+                        <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 bg-muted/35" />
+
+                        <a href={`/blog/${post.slug}`} class="block relative z-10 p-4 sm:p-5">
+                          <div class="flex flex-col gap-2">
+                            {/* Header: Title & Date */}
+                            <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+                              <h3 class="font-bold text-xl leading-snug tracking-tight group-hover/card:text-primary transition-colors duration-300">
+                                {post.data.title}
+                              </h3>
+                              <time
+                                datetime={post.data.pubDate.toISOString()}
+                                class="text-xs text-muted-foreground shrink-0 whitespace-nowrap font-medium pt-1"
+                              >
+                                {post.data.pubDate.getDate()}日
+                              </time>
+                            </div>
+
+                            {/* Footer: Metadata (Category & Tags) */}
+                            <div class="flex flex-wrap items-center gap-2 mt-0.5">
+                              {/* Category (使用主题色彩) */}
+                              {post.data.category && (
+                                <div class="flex items-center gap-1 text-xs font-medium text-accent-foreground bg-accent px-2 py-0.5 rounded-full border border-accent/30">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-folder"
+                                  >
+                                    <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                                  </svg>
+                                  <span>
+                                    {categoryMap.get(post.data.category) || post.data.category}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Tags */}
+                              {post.data.tags && post.data.tags.length > 0 && (
+                                <div class="flex flex-wrap gap-2">
+                                  {post.data.tags.map((tagId) => (
+                                    <span class="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+                                      <span class="opacity-50 mr-0.5">#</span>
+                                      {tagMap.get(tagId) || tagId}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </a>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        ))
+      }
+    </div>
+
+    {
+      allPosts.length === 0 && (
+        <div class="text-center py-20 text-muted-foreground">
+          <p>暂无文章。</p>
+        </div>
+      )
+    }
+  </div>
 </BaseLayout>

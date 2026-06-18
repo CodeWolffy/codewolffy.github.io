@@ -16,39 +16,37 @@ import Iframe from '../../components/mdx/Iframe.astro';
 import { calculateReadingTime } from '../../utils/reading-time';
 import { siteConfig } from '@/config/site';
 
-
 export const prerender = true;
 
 export async function getStaticPaths() {
-	const posts = await getCollection('blog', ({ data }) => {
-		return import.meta.env.PROD ? data.draft !== true : true;
-	});
-	return posts.map((post) => ({
-		params: { slug: post.slug },
-		props: { post, allPosts: posts },
-	}));
+  const posts = await getCollection('blog', ({ data }) => {
+    return import.meta.env.PROD ? data.draft !== true : true;
+  });
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post, allPosts: posts },
+  }));
 }
 
 interface Props {
-	post: CollectionEntry<'blog'>;
-	allPosts: CollectionEntry<'blog'>[];
+  post: CollectionEntry<'blog'>;
+  allPosts: CollectionEntry<'blog'>[];
 }
 
 const { post, allPosts } = Astro.props;
 const { Content, headings } = await render(post);
 
-
 // Resolve Category
 const allCategories = await getCollection('categories');
-const categoryMap = new Map(allCategories.map(c => [c.id, c.data.name]));
+const categoryMap = new Map(allCategories.map((c) => [c.id, c.data.name]));
 const categoryId = post.data.category;
-const categoryName = categoryId ? (categoryMap.get(categoryId) || categoryId) : null;
+const categoryName = categoryId ? categoryMap.get(categoryId) || categoryId : null;
 
 // Resolve Tags
 const allTags = await getCollection('tags');
-const tagMap = new Map(allTags.map(t => [t.id, t.data.name]));
+const tagMap = new Map(allTags.map((t) => [t.id, t.data.name]));
 const tagIds = post.data.tags || [];
-const tagNames = tagIds.map(tagId => tagMap.get(tagId) || tagId); // Used for SEO
+const tagNames = tagIds.map((tagId) => tagMap.get(tagId) || tagId); // Used for SEO
 
 // 计算阅读时间（精细化计算：考虑图片、代码、Mermaid等）
 const content = post.body || '';
@@ -58,41 +56,41 @@ const readingTime = readingTimeResult.minutes;
 
 // 获取相关文章（智能推荐算法）
 const relatedPosts = allPosts
-	.filter(p => p.slug !== post.slug) // 排除当前文章
-	.map(p => {
-		let score = 0;
-		const pTags = p.data.tags || [];
-		const pCategory = p.data.category;
+  .filter((p) => p.slug !== post.slug) // 排除当前文章
+  .map((p) => {
+    let score = 0;
+    const pTags = p.data.tags || [];
+    const pCategory = p.data.category;
 
-		// 标签匹配得分：每个共同标签 +1 分
-		const sharedTags = pTags.filter(tag => tagIds.includes(tag));
-		score += sharedTags.length;
+    // 标签匹配得分：每个共同标签 +1 分
+    const sharedTags = pTags.filter((tag) => tagIds.includes(tag));
+    score += sharedTags.length;
 
-		// 分类匹配得分：同分类 +1 分 (作为辅助加权)
-		if (categoryId && pCategory && categoryId === pCategory) {
-			score += 1;
-		}
+    // 分类匹配得分：同分类 +1 分 (作为辅助加权)
+    if (categoryId && pCategory && categoryId === pCategory) {
+      score += 1;
+    }
 
-		return {
-			post: p,
-			score: score
-		};
-	})
-	.filter(item => item.score > 0) // 只保留至少有一点相关性的文章
-	.sort((a, b) => {
-		// 优先按分数降序排序
-		if (b.score !== a.score) {
-			return b.score - a.score;
-		}
-		// 分数相同，按发布时间降序排序（新的在前）
-		return b.post.data.pubDate.valueOf() - a.post.data.pubDate.valueOf();
-	})
-	.map(item => item.post)
-	.slice(0, 3);
+    return {
+      post: p,
+      score: score,
+    };
+  })
+  .filter((item) => item.score > 0) // 只保留至少有一点相关性的文章
+  .sort((a, b) => {
+    // 优先按分数降序排序
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    // 分数相同，按发布时间降序排序（新的在前）
+    return b.post.data.pubDate.valueOf() - a.post.data.pubDate.valueOf();
+  })
+  .map((item) => item.post)
+  .slice(0, 3);
 
 // 获取上一篇和下一篇文章
 const sortedPosts = allPosts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
-const currentIndex = sortedPosts.findIndex(p => p.slug === post.slug);
+const currentIndex = sortedPosts.findIndex((p) => p.slug === post.slug);
 const prevPost = currentIndex < sortedPosts.length - 1 ? sortedPosts[currentIndex + 1] : null;
 const nextPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
 
@@ -100,237 +98,354 @@ const nextPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
 const pageUrl = Astro.url.href;
 ---
 
-<BaseLayout 
-	title={post.data.title} 
-	description={post.data.description}
-	image={post.data.coverImage || post.data.heroImage}
-	type="article"
-	publishedTime={post.data.pubDate}
-	modifiedTime={post.data.updatedDate}
-	author={siteConfig.author.name}
+<BaseLayout
+  title={post.data.title}
+  description={post.data.description}
+  image={post.data.coverImage || post.data.heroImage}
+  type="article"
+  publishedTime={post.data.pubDate}
+  modifiedTime={post.data.updatedDate}
+  author={siteConfig.author.name}
 >
-	<!-- JSON-LD 结构化数据 -->
-	<script is:inline type="application/ld+json" set:html={JSON.stringify({
-		"@context": "https://schema.org",
-		"@type": "BlogPosting",
-		"headline": post.data.title,
-		"description": post.data.description,
-		"datePublished": post.data.pubDate.toISOString(),
-		"dateModified": post.data.updatedDate?.toISOString() || post.data.pubDate.toISOString(),
-		"author": {
-			"@type": "Person",
-			"name": siteConfig.author.name,
-			"url": Astro.site?.href || siteConfig.urls.primary
-		},
-		"publisher": {
-			"@type": "Organization",
-			"name": siteConfig.name,
-			"url": Astro.site?.href || siteConfig.urls.primary
-		},
-		"mainEntityOfPage": {
-			"@type": "WebPage",
-			"@id": pageUrl
-		},
-		"image": post.data.coverImage || post.data.heroImage || "/og-image.jpg",
-		"keywords": tagNames.join(", "),
-		"articleSection": categoryName || "技术文章",
-		"wordCount": wordCount,
-		"timeRequired": `PT${readingTime}M`
-	})} />
-	<div class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6 relative lg:gap-8 lg:grid lg:grid-cols-[1fr_330px]">
-        <div class="w-full min-w-0">
-            <div class="mb-1">
-                <Breadcrumbs 
-                    items={[
-                         ...(categoryName ? [{ label: categoryName, href: `/categories/${categoryId}` }] : [])
-                    ]} 
-                />
-            </div>
+  <!-- JSON-LD 结构化数据 -->
+  <script
+    is:inline
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: post.data.title,
+      description: post.data.description,
+      datePublished: post.data.pubDate.toISOString(),
+      dateModified: post.data.updatedDate?.toISOString() || post.data.pubDate.toISOString(),
+      author: {
+        '@type': 'Person',
+        name: siteConfig.author.name,
+        url: Astro.site?.href || siteConfig.urls.primary,
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: siteConfig.name,
+        url: Astro.site?.href || siteConfig.urls.primary,
+      },
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': pageUrl,
+      },
+      image: post.data.coverImage || post.data.heroImage || '/og-image.jpg',
+      keywords: tagNames.join(', '),
+      articleSection: categoryName || '技术文章',
+      wordCount: wordCount,
+      timeRequired: `PT${readingTime}M`,
+    })}
+  />
+  <div
+    class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6 relative lg:gap-8 lg:grid lg:grid-cols-[1fr_330px]"
+  >
+    <div class="w-full min-w-0">
+      <div class="mb-1">
+        <Breadcrumbs
+          items={[
+            ...(categoryName ? [{ label: categoryName, href: `/categories/${categoryId}` }] : []),
+          ]}
+        />
+      </div>
 
-                <h1 class="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-1">
-                    {post.data.title}
-                </h1>
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-base text-muted-foreground mb-1">
+      <h1 class="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-1">
+        {post.data.title}
+      </h1>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-base text-muted-foreground mb-1">
+        {
+          post.data.pubDate && (
+            <time datetime={post.data.pubDate.toISOString()}>
+              发布于{' '}
+              {post.data.pubDate.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </time>
+          )
+        }
+        {
+          post.data.updatedDate && (
+            <time datetime={post.data.updatedDate.toISOString()}>
+              更新于{' '}
+              {post.data.updatedDate.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </time>
+          )
+        }
+        <!-- 阅读时间 -->
+        <span class="inline-flex items-center gap-1.5">
+          <svg
+            class="size-4"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"
+            ></polyline></svg
+          >
+          约 {readingTime} 分钟
+        </span>
+        <!-- 阅读量 - 不蒜子 (优化：加载中显示骨架) -->
+        <span
+          class="inline-flex items-center gap-1.5 busuanzi-loading"
+          id="busuanzi_container_page_pv"
+        >
+          <svg
+            class="size-4"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle
+              cx="12"
+              cy="12"
+              r="3"></circle></svg
+          >
+          <span id="busuanzi_value_page_pv" class="min-w-[1.5rem] text-center">...</span>次浏览
+        </span>
+      </div>
+      {
+        tagIds.length > 0 && (
+          <div class="mb-1 flex flex-wrap items-center gap-2">
+            <span class="text-base text-muted-foreground">标签：</span>
+            {tagIds.map((tagId) => (
+              <a href={`/tags/${tagId}`} class="text-base font-medium text-primary hover:underline">
+                #{tagMap.get(tagId) || tagId}
+              </a>
+            ))}
+          </div>
+        )
+      }
+      <div
+        class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-11 md:top-14 z-[60] border border-border/50 w-full"
+      >
+        <TableOfContents headings={headings} client:idle />
+      </div>
+      {
+        (post.data.coverImage || post.data.heroImage) && (
+          <img
+            src={post.data.coverImage || post.data.heroImage}
+            alt={post.data.title}
+            width={720}
+            height={405}
+            class="mb-4 rounded-md border bg-muted transition-colors w-auto max-w-full max-h-[650px] mx-auto cursor-zoom-in cover-image"
+          />
+        )
+      }
 
-                    {post.data.pubDate && (
-                        <time datetime={post.data.pubDate.toISOString()}>
-                            发布于 {post.data.pubDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </time>
-                    )}
-                    {post.data.updatedDate && (
-                        <time datetime={post.data.updatedDate.toISOString()}>
-                            更新于 {post.data.updatedDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </time>
-                    )}
-                    <!-- 阅读时间 -->
-                    <span class="inline-flex items-center gap-1.5">
-                        <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        约 {readingTime} 分钟
-                    </span>
-                    <!-- 阅读量 - 不蒜子 (优化：加载中显示骨架) -->
-                    <span class="inline-flex items-center gap-1.5 busuanzi-loading" id="busuanzi_container_page_pv">
-                        <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                        <span id="busuanzi_value_page_pv" class="min-w-[1.5rem] text-center">...</span>次浏览
-                    </span>
-                </div>
-                {tagIds.length > 0 && (
-                    <div class="mb-1 flex flex-wrap items-center gap-2">
-                        <span class="text-base text-muted-foreground">标签：</span>
-                        {tagIds.map((tagId) => (
-                            <a href={`/tags/${tagId}`} class="text-base font-medium text-primary hover:underline">
-                                #{tagMap.get(tagId) || tagId}
-                            </a>
-                        ))}
-                    </div>
-                )}
-                <div class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-11 md:top-14 z-[60] border border-border/50 w-full">
-                    <TableOfContents headings={headings} client:idle />
-                </div>
-                {(post.data.coverImage || post.data.heroImage) && (
-                    <img
-                        src={post.data.coverImage || post.data.heroImage}
-                        alt={post.data.title}
-                        width={720}
-                        height={405}
-                        class="mb-4 rounded-md border bg-muted transition-colors w-auto max-w-full max-h-[650px] mx-auto cursor-zoom-in cover-image"
-                    />
-                )}
+      <div class="prose dark:prose-invert max-w-none" data-pagefind-body>
+        <Content components={{ Callout, Mermaid, Iframe }} />
+      </div>
 
+      <!-- 代码复制按钮初始化 -->
+      <CopyCodeButton client:idle />
 
-            <div class="prose dark:prose-invert max-w-none" data-pagefind-body>
-                <Content components={{ Callout, Mermaid, Iframe }} />
-            </div>
-			
-			<!-- 代码复制按钮初始化 -->
-			<CopyCodeButton client:idle />
-			
-			<!-- 分享与导出按钮 -->
-			<div class="mt-2 pt-2 border-t border-border flex flex-wrap items-center justify-between gap-4">
-				<ShareButtons title={post.data.title} description={post.data.description} url={pageUrl} client:visible />
-				<div class="flex gap-2 w-full lg:w-auto">
-					<a
-						href={siteConfig.links.keystaticPosts + `/${post.slug}`}
-						target="_blank"
-						rel="noopener noreferrer"
-						class={buttonVariants({ variant: "outline", size: "sm" }) + " gap-2 flex-1 lg:flex-none justify-center"}
-					>
-						<FilePenLine className="h-4 w-4" />
-						编辑此页
-					</a>
-					<ExportButton title={post.data.title} content={post.body || ''} frontmatter={post.data as any} className="flex-1 lg:flex-none" client:visible />
-				</div>
-			</div>
-			
-			<!-- 上一篇/下一篇导航 -->
-			{(prevPost || nextPost) && (
-				<div class="mt-2 grid gap-4 sm:grid-cols-2">
-					{prevPost ? (
-						<a 
-							href={`/blog/${prevPost.slug}`}
-							class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all"
-						>
-							<span class="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:-translate-x-1 transition-transform"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-								上一篇
-							</span>
-							<span class="font-medium group-hover:text-primary transition-colors line-clamp-1">{prevPost.data.title}</span>
-						</a>
-					) : <div />}
-					{nextPost ? (
-						<a 
-							href={`/blog/${nextPost.slug}`}
-							class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-right"
-						>
-							<span class="text-xs text-muted-foreground mb-1 flex items-center justify-end gap-1">
-								下一篇
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:translate-x-1 transition-transform"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-							</span>
-							<span class="font-medium group-hover:text-primary transition-colors line-clamp-1">{nextPost.data.title}</span>
-						</a>
-					) : <div />}
-				</div>
-			)}
-			
-			<!-- 相关文章推荐 -->
-			{relatedPosts.length > 0 && (
-				<div class="mt-2">
-					<h3 class="text-lg font-bold mb-2 flex items-center gap-2">
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-						相关文章
-					</h3>
-					<div class="grid gap-1">
-						{relatedPosts.map((relatedPost) => (
-							<a 
-								href={`/blog/${relatedPost.slug}`}
-								class="group flex rounded-lg border border-border hover:border-primary/50 hover:bg-secondary/30 transition-all overflow-hidden"
-							>
-								{(relatedPost.data.coverImage || relatedPost.data.heroImage) && (
-									<img 
-										src={relatedPost.data.coverImage || relatedPost.data.heroImage}
-										alt={relatedPost.data.title}
-										class="w-32 aspect-video object-cover shrink-0"
-									/>
-								)}
-								<div class="min-w-0 p-3 flex flex-col justify-center">
-									<h4 class="font-bold text-sm group-hover:text-primary transition-colors line-clamp-1 mb-1">
-										{relatedPost.data.title}
-									</h4>
-									<p class="text-xs text-muted-foreground line-clamp-2">
-										{relatedPost.data.description}
-									</p>
-								</div>
-							</a>
-						))}
-					</div>
-				</div>
-			)}
-			
-            <Copyright />
-
-
-            <hr class="mt-2" />
-            <Comments client:visible />
+      <!-- 分享与导出按钮 -->
+      <div
+        class="mt-2 pt-2 border-t border-border flex flex-wrap items-center justify-between gap-4"
+      >
+        <ShareButtons
+          title={post.data.title}
+          description={post.data.description}
+          url={pageUrl}
+          client:visible
+        />
+        <div class="flex gap-2 w-full lg:w-auto">
+          <a
+            href={siteConfig.links.keystaticPosts + `/${post.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            class={buttonVariants({ variant: 'outline', size: 'sm' }) +
+              ' gap-2 flex-1 lg:flex-none justify-center'}
+          >
+            <FilePenLine className="h-4 w-4" />
+            编辑此页
+          </a>
+          <ExportButton
+            title={post.data.title}
+            content={post.body || ''}
+            frontmatter={post.data}
+            className="flex-1 lg:flex-none"
+            client:visible
+          />
         </div>
+      </div>
 
-        <script>
-            import { normalizeIframeUrl } from '@/utils/iframe-url';
+      <!-- 上一篇/下一篇导航 -->
+      {
+        (prevPost || nextPost) && (
+          <div class="mt-2 grid gap-4 sm:grid-cols-2">
+            {prevPost ? (
+              <a
+                href={`/blog/${prevPost.slug}`}
+                class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all"
+              >
+                <span class="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="group-hover:-translate-x-1 transition-transform"
+                  >
+                    <path d="m12 19-7-7 7-7" />
+                    <path d="M19 12H5" />
+                  </svg>
+                  上一篇
+                </span>
+                <span class="font-medium group-hover:text-primary transition-colors line-clamp-1">
+                  {prevPost.data.title}
+                </span>
+              </a>
+            ) : (
+              <div />
+            )}
+            {nextPost ? (
+              <a
+                href={`/blog/${nextPost.slug}`}
+                class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-right"
+              >
+                <span class="text-xs text-muted-foreground mb-1 flex items-center justify-end gap-1">
+                  下一篇
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="group-hover:translate-x-1 transition-transform"
+                  >
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </span>
+                <span class="font-medium group-hover:text-primary transition-colors line-clamp-1">
+                  {nextPost.data.title}
+                </span>
+              </a>
+            ) : (
+              <div />
+            )}
+          </div>
+        )
+      }
 
-            const isMobileDevice = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      <!-- 相关文章推荐 -->
+      {
+        relatedPosts.length > 0 && (
+          <div class="mt-2">
+            <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+              </svg>
+              相关文章
+            </h3>
+            <div class="grid gap-1">
+              {relatedPosts.map((relatedPost) => (
+                <a
+                  href={`/blog/${relatedPost.slug}`}
+                  class="group flex rounded-lg border border-border hover:border-primary/50 hover:bg-secondary/30 transition-all overflow-hidden"
+                >
+                  {(relatedPost.data.coverImage || relatedPost.data.heroImage) && (
+                    <img
+                      src={relatedPost.data.coverImage || relatedPost.data.heroImage}
+                      alt={relatedPost.data.title}
+                      class="w-32 aspect-video object-cover shrink-0"
+                    />
+                  )}
+                  <div class="min-w-0 p-3 flex flex-col justify-center">
+                    <h4 class="font-bold text-sm group-hover:text-primary transition-colors line-clamp-1 mb-1">
+                      {relatedPost.data.title}
+                    </h4>
+                    <p class="text-xs text-muted-foreground line-clamp-2">
+                      {relatedPost.data.description}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )
+      }
 
-            let mediumZoomModulePromise: Promise<typeof import('medium-zoom')> | null = null;
+      <Copyright />
 
-            const loadMediumZoom = () => {
-                mediumZoomModulePromise ??= import('medium-zoom');
-                return mediumZoomModulePromise;
-            };
-            
-            // Function to initialize zoom and lightbox
-            const initZoom = async () => {
-                const zoomTargets = document.querySelectorAll('.prose img, .cover-image');
-                if (zoomTargets.length === 0) return;
+      <hr class="mt-2" />
+      <Comments client:visible />
+    </div>
 
-                const { default: mediumZoom } = await loadMediumZoom();
+    <script>
+      import { normalizeIframeUrl } from '@/utils/iframe-url';
 
-                // Initialize medium-zoom for article images ONLY
-                mediumZoom('.prose img', {
-                    margin: 24,
-                    background: 'rgba(0,0,0,0.8)',
-                    scrollOffset: 0,
-                });
+      const isMobileDevice = () =>
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-                // Custom Lightbox for Cover Image
-                const coverImage = document.querySelector('.cover-image') as HTMLImageElement;
-                if (coverImage) {
-                    // Remove any existing listeners to prevent duplicates on view transitions
-                    const newCoverImage = coverImage.cloneNode(true) as HTMLImageElement;
-                    if (coverImage.parentNode) {
-                        coverImage.parentNode.replaceChild(newCoverImage, coverImage);
-                    }
-                    
-                    newCoverImage.addEventListener('click', () => {
-                        // Create overlay
-                        const overlay = document.createElement('div');
-                        overlay.style.cssText = `
+      let mediumZoomModulePromise: Promise<typeof import('medium-zoom')> | null = null;
+
+      const loadMediumZoom = () => {
+        mediumZoomModulePromise ??= import('medium-zoom');
+        return mediumZoomModulePromise;
+      };
+
+      // Function to initialize zoom and lightbox
+      const initZoom = async () => {
+        const zoomTargets = document.querySelectorAll('.prose img, .cover-image');
+        if (zoomTargets.length === 0) return;
+
+        const { default: mediumZoom } = await loadMediumZoom();
+
+        // Initialize medium-zoom for article images ONLY
+        mediumZoom('.prose img', {
+          margin: 24,
+          background: 'rgba(0,0,0,0.8)',
+          scrollOffset: 0,
+        });
+
+        // Custom Lightbox for Cover Image
+        const coverImage = document.querySelector('.cover-image') as HTMLImageElement;
+        if (coverImage) {
+          // Remove any existing listeners to prevent duplicates on view transitions
+          const newCoverImage = coverImage.cloneNode(true) as HTMLImageElement;
+          if (coverImage.parentNode) {
+            coverImage.parentNode.replaceChild(newCoverImage, coverImage);
+          }
+
+          newCoverImage.addEventListener('click', () => {
+            // Create overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
                             position: fixed;
                             top: 0; left: 0; width: 100vw; height: 100vh;
                             background: rgba(0,0,0,0.9);
@@ -342,10 +457,10 @@ const pageUrl = Astro.url.href;
                             opacity: 0;
                             transition: opacity 0.3s;
                         `;
-                        
-                        const img = document.createElement('img');
-                        img.src = newCoverImage.src;
-                        img.style.cssText = `
+
+            const img = document.createElement('img');
+            img.src = newCoverImage.src;
+            img.style.cssText = `
                             width: 100%;
                             height: 100%;
                             max-width: 95vw;
@@ -355,223 +470,237 @@ const pageUrl = Astro.url.href;
                             transform: scale(0.9);
                             transition: transform 0.3s;
                         `;
-                        
-                        overlay.appendChild(img);
-                        document.body.appendChild(overlay);
-                        
-                        // Prevent scrolling on body, but we need to listen for scroll events to close
-                        document.body.style.overflow = 'hidden';
-                        
-                        // Animate in
-                        requestAnimationFrame(() => {
-                            overlay.style.opacity = '1';
-                            img.style.transform = 'scale(1)';
-                        });
-                        
-                        // Close logic
-                        const close = () => {
-                            overlay.style.opacity = '0';
-                            img.style.transform = 'scale(0.9)';
-                            document.body.style.overflow = ''; // Restore scrolling
-                            
-                            // Remove listeners
-                            window.removeEventListener('wheel', onWheel);
-                            document.removeEventListener('keydown', onEsc);
-                            
-                            setTimeout(() => {
-                                if (overlay.parentNode) overlay.remove();
-                            }, 300);
-                        };
 
-                        // Scroll to close
-                        const onWheel = () => {
-                            close();
-                        };
-                        window.addEventListener('wheel', onWheel, { passive: true });
+            overlay.appendChild(img);
+            document.body.appendChild(overlay);
 
-                        overlay.onclick = close;
-                        
-                        // Close on Escape key
-                        const onEsc = (e: KeyboardEvent) => {
-                            if (e.key === 'Escape') {
-                                close();
-                            }
-                        };
-                        document.addEventListener('keydown', onEsc);
-                    });
-                }
+            // Prevent scrolling on body, but we need to listen for scroll events to close
+            document.body.style.overflow = 'hidden';
+
+            // Animate in
+            requestAnimationFrame(() => {
+              overlay.style.opacity = '1';
+              img.style.transform = 'scale(1)';
+            });
+
+            // Close logic
+            const close = () => {
+              overlay.style.opacity = '0';
+              img.style.transform = 'scale(0.9)';
+              document.body.style.overflow = ''; // Restore scrolling
+
+              // Remove listeners
+              window.removeEventListener('wheel', onWheel);
+              document.removeEventListener('keydown', onEsc);
+
+              setTimeout(() => {
+                if (overlay.parentNode) overlay.remove();
+              }, 300);
             };
 
-            const runWhenIdle = (task: () => void) => {
-                if ('requestIdleCallback' in window) {
-                    window.requestIdleCallback(task, { timeout: 2000 });
-                    return;
-                }
-
-                setTimeout(task, 600);
+            // Scroll to close
+            const onWheel = () => {
+              close();
             };
+            window.addEventListener('wheel', onWheel, { passive: true });
 
-            const scheduleZoom = () => runWhenIdle(() => void initZoom());
+            overlay.onclick = close;
 
-            // Run after initial rendering has settled
-            scheduleZoom();
-
-            // Re-run on View Transitions navigation
-            document.addEventListener('astro:page-load', scheduleZoom);
-            
-            // Handle Video Embeds (Responsive + Captions + Disable Autoplay)
-            const initVideos = () => {
-                const iframes = document.querySelectorAll('.prose iframe');
-                iframes.forEach(oldIframe => {
-                    // Check if already processed (支持 rehype 插件的 video-wrapper 和 JS 的 video-container)
-                    const parent = oldIframe.parentElement;
-                    if (parent && (parent.classList.contains('video-container') || parent.classList.contains('video-wrapper'))) {
-                        // 如果是 video-wrapper，需要添加必要的属性确保全屏工作
-                        if (parent.classList.contains('video-wrapper')) {
-                            parent.classList.add('video-container');
-                            // 更新 iframe 属性
-                            oldIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation');
-                            oldIframe.setAttribute('allowfullscreen', 'true');
-                            oldIframe.setAttribute('webkitallowfullscreen', 'true');
-                            oldIframe.setAttribute('mozallowfullscreen', 'true');
-                            oldIframe.removeAttribute('sandbox');
-                            
-                            // B站移动端播放器替换 + 禁用自动播放
-                            const src = oldIframe.getAttribute('src') || '';
-                            if (src) {
-                                oldIframe.setAttribute('src', normalizeIframeUrl(src, { isMobile: isMobileDevice() }));
-                            }
-                        }
-                        return;
-                    }
-
-                    // Create new Iframe (Cloning/Rebuilding ensures attributes apply correctly from start)
-                    const newIframe = document.createElement('iframe');
-                    
-                    // Copy original attributes
-                    Array.from(oldIframe.attributes).forEach(attr => {
-                        newIframe.setAttribute(attr.name, attr.value);
-                    });
-
-                    // Update Src (Autoplay handling + Mobile player)
-                    const src = newIframe.getAttribute('src') || '';
-                    if (src) {
-                        newIframe.setAttribute('src', normalizeIframeUrl(src, { isMobile: isMobileDevice() }));
-                    }
-
-                    // Enforce Fullscreen & Mobile Attributes
-                    newIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation');
-                    newIframe.setAttribute('allowfullscreen', 'true');
-                    newIframe.setAttribute('webkitallowfullscreen', 'true');
-                    newIframe.setAttribute('mozallowfullscreen', 'true');
-                    
-                    // 移除 sandbox 属性以确保移动端全屏功能正常
-                    // 视频来自可信源（B站、YouTube），无需 sandbox 安全限制
-                    newIframe.removeAttribute('sandbox');
-
-                    // iOS specific
-                    newIframe.setAttribute('playsinline', 'true');
-                    newIframe.setAttribute('webkit-playsinline', 'true');
-
-                    newIframe.style.width = '100%';
-                    newIframe.style.height = '100%';
-                    newIframe.style.border = '0';
-                    newIframe.style.zIndex = '10'; // Ensure it sits on top for touch events
-                    newIframe.style.position = 'absolute'; // Reinforce absolute positioning
-                    newIframe.style.top = '0';
-                    newIframe.style.left = '0';
-
-                    // Create Wrapper
-                    const wrapper = document.createElement('figure');
-                    wrapper.className = 'my-4';
-                    
-                    const container = document.createElement('div');
-                    container.className = 'video-container';
-                    
-                    // Assembly: Wrapper -> Container -> NewIframe
-                    container.appendChild(newIframe);
-                    wrapper.appendChild(container);
-
-                    // Add Caption
-                    const title = newIframe.getAttribute('title');
-                    if (title) {
-                        const caption = document.createElement('figcaption');
-                        caption.className = 'text-center text-sm text-muted-foreground mt-2';
-                        caption.textContent = title;
-                        wrapper.appendChild(caption);
-                    }
-
-                    // Add Bilibili Link (Mobile Only)
-                    let currentSrc = newIframe.getAttribute('src') || '';
-                    if (currentSrc.includes('bilibili.com')) {
-                         const match = currentSrc.match(/video\/(BV\w+)/) || currentSrc.match(/bvid=(BV\w+)/);
-                         const bvid = match ? match[1] : null;
-
-                         if (bvid) {
-                             // Remove bottom margin from container to make it hug the link
-                             container.style.marginBottom = '0';
-                             container.style.marginTop = '0'; // Ensure it's tight inside the wrapper
-
-                             const link = document.createElement('a');
-                             link.href = `https://www.bilibili.com/video/${bvid}`;
-                             link.target = "_blank";
-                             link.rel = "noopener noreferrer";
-                             link.className = "text-xs text-muted-foreground hover:text-primary transition-colors mt-0.5 block text-right lg:hidden";
-                             link.textContent = "📺 去 Bilibili 观看高清原视频 >";
-                             wrapper.appendChild(link);
-                         }
-                    }
-
-                    // Replace Old Iframe
-                    if (oldIframe.parentNode) {
-                        oldIframe.parentNode.replaceChild(wrapper, oldIframe);
-                    }
-                });
+            // Close on Escape key
+            const onEsc = (e: KeyboardEvent) => {
+              if (e.key === 'Escape') {
+                close();
+              }
             };
-            
-            const scheduleVideos = () => runWhenIdle(initVideos);
+            document.addEventListener('keydown', onEsc);
+          });
+        }
+      };
 
-            // Run after initial rendering and View Transitions have settled
-            scheduleVideos();
-            document.addEventListener('astro:page-load', scheduleVideos);
-        </script>
-        
-        <div class="hidden lg:block">
-            <div class="sticky top-24 pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto">
-                <TableOfContents headings={headings} client:visible />
-            </div>
-        </div>
-	</div>
+      const runWhenIdle = (task: () => void) => {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(task, { timeout: 2000 });
+          return;
+        }
+
+        setTimeout(task, 600);
+      };
+
+      const scheduleZoom = () => runWhenIdle(() => void initZoom());
+
+      // Run after initial rendering has settled
+      scheduleZoom();
+
+      // Re-run on View Transitions navigation
+      document.addEventListener('astro:page-load', scheduleZoom);
+
+      // Handle Video Embeds (Responsive + Captions + Disable Autoplay)
+      const initVideos = () => {
+        const iframes = document.querySelectorAll('.prose iframe');
+        iframes.forEach((oldIframe) => {
+          // Check if already processed (支持 rehype 插件的 video-wrapper 和 JS 的 video-container)
+          const parent = oldIframe.parentElement;
+          if (
+            parent &&
+            (parent.classList.contains('video-container') ||
+              parent.classList.contains('video-wrapper'))
+          ) {
+            // 如果是 video-wrapper，需要添加必要的属性确保全屏工作
+            if (parent.classList.contains('video-wrapper')) {
+              parent.classList.add('video-container');
+              // 更新 iframe 属性
+              oldIframe.setAttribute(
+                'allow',
+                'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation'
+              );
+              oldIframe.setAttribute('allowfullscreen', 'true');
+              oldIframe.setAttribute('webkitallowfullscreen', 'true');
+              oldIframe.setAttribute('mozallowfullscreen', 'true');
+              oldIframe.removeAttribute('sandbox');
+
+              // B站移动端播放器替换 + 禁用自动播放
+              const src = oldIframe.getAttribute('src') || '';
+              if (src) {
+                oldIframe.setAttribute(
+                  'src',
+                  normalizeIframeUrl(src, { isMobile: isMobileDevice() })
+                );
+              }
+            }
+            return;
+          }
+
+          // Create new Iframe (Cloning/Rebuilding ensures attributes apply correctly from start)
+          const newIframe = document.createElement('iframe');
+
+          // Copy original attributes
+          Array.from(oldIframe.attributes).forEach((attr) => {
+            newIframe.setAttribute(attr.name, attr.value);
+          });
+
+          // Update Src (Autoplay handling + Mobile player)
+          const src = newIframe.getAttribute('src') || '';
+          if (src) {
+            newIframe.setAttribute('src', normalizeIframeUrl(src, { isMobile: isMobileDevice() }));
+          }
+
+          // Enforce Fullscreen & Mobile Attributes
+          newIframe.setAttribute(
+            'allow',
+            'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation'
+          );
+          newIframe.setAttribute('allowfullscreen', 'true');
+          newIframe.setAttribute('webkitallowfullscreen', 'true');
+          newIframe.setAttribute('mozallowfullscreen', 'true');
+
+          // 移除 sandbox 属性以确保移动端全屏功能正常
+          // 视频来自可信源（B站、YouTube），无需 sandbox 安全限制
+          newIframe.removeAttribute('sandbox');
+
+          // iOS specific
+          newIframe.setAttribute('playsinline', 'true');
+          newIframe.setAttribute('webkit-playsinline', 'true');
+
+          newIframe.style.width = '100%';
+          newIframe.style.height = '100%';
+          newIframe.style.border = '0';
+          newIframe.style.zIndex = '10'; // Ensure it sits on top for touch events
+          newIframe.style.position = 'absolute'; // Reinforce absolute positioning
+          newIframe.style.top = '0';
+          newIframe.style.left = '0';
+
+          // Create Wrapper
+          const wrapper = document.createElement('figure');
+          wrapper.className = 'my-4';
+
+          const container = document.createElement('div');
+          container.className = 'video-container';
+
+          // Assembly: Wrapper -> Container -> NewIframe
+          container.appendChild(newIframe);
+          wrapper.appendChild(container);
+
+          // Add Caption
+          const title = newIframe.getAttribute('title');
+          if (title) {
+            const caption = document.createElement('figcaption');
+            caption.className = 'text-center text-sm text-muted-foreground mt-2';
+            caption.textContent = title;
+            wrapper.appendChild(caption);
+          }
+
+          // Add Bilibili Link (Mobile Only)
+          const currentSrc = newIframe.getAttribute('src') || '';
+          if (currentSrc.includes('bilibili.com')) {
+            const match = currentSrc.match(/video\/(BV\w+)/) || currentSrc.match(/bvid=(BV\w+)/);
+            const bvid = match ? match[1] : null;
+
+            if (bvid) {
+              // Remove bottom margin from container to make it hug the link
+              container.style.marginBottom = '0';
+              container.style.marginTop = '0'; // Ensure it's tight inside the wrapper
+
+              const link = document.createElement('a');
+              link.href = `https://www.bilibili.com/video/${bvid}`;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
+              link.className =
+                'text-xs text-muted-foreground hover:text-primary transition-colors mt-0.5 block text-right lg:hidden';
+              link.textContent = '📺 去 Bilibili 观看高清原视频 >';
+              wrapper.appendChild(link);
+            }
+          }
+
+          // Replace Old Iframe
+          if (oldIframe.parentNode) {
+            oldIframe.parentNode.replaceChild(wrapper, oldIframe);
+          }
+        });
+      };
+
+      const scheduleVideos = () => runWhenIdle(initVideos);
+
+      // Run after initial rendering and View Transitions have settled
+      scheduleVideos();
+      document.addEventListener('astro:page-load', scheduleVideos);
+    </script>
+
+    <div class="hidden lg:block">
+      <div class="sticky top-24 pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto">
+        <TableOfContents headings={headings} client:visible />
+      </div>
+    </div>
+  </div>
 </BaseLayout>
 
 <style is:global>
-    /* Force Critical Video Styles - 支持 video-wrapper 和 video-container */
-    .video-container,
-    .video-wrapper {
-        position: relative;
-        width: 100%;
-        padding-bottom: 56.25%; /* 16:9 */
-        height: 0;
-        margin: 1.5rem 0;
-        border-radius: 0.5rem;
-        /* 移除 overflow:hidden 以允许全屏功能正常工作 */
-        overflow: visible;
-        background: var(--muted);
-        /* 确保移动端触摸交互正常 */
-        touch-action: manipulation;
-    }
+  /* Force Critical Video Styles - 支持 video-wrapper 和 video-container */
+  .video-container,
+  .video-wrapper {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* 16:9 */
+    height: 0;
+    margin: 1.5rem 0;
+    border-radius: 0.5rem;
+    /* 移除 overflow:hidden 以允许全屏功能正常工作 */
+    overflow: visible;
+    background: var(--muted);
+    /* 确保移动端触摸交互正常 */
+    touch-action: manipulation;
+  }
 
-    .video-container iframe,
-    .video-wrapper iframe {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100% !important;
-        height: 100% !important;
-        border: 0;
-        border-radius: 0.5rem;
-        /* 确保 iframe 可以接收所有触摸事件 */
-        touch-action: auto;
-        pointer-events: auto;
-    }
+  .video-container iframe,
+  .video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    height: 100% !important;
+    border: 0;
+    border-radius: 0.5rem;
+    /* 确保 iframe 可以接收所有触摸事件 */
+    touch-action: auto;
+    pointer-events: auto;
+  }
 </style>

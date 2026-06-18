@@ -1,32 +1,34 @@
 ---
 import { ClientRouter } from 'astro:transitions'; // Using ClientRouter for ViewTransitions in modern Astro
-import { Header } from "@/components/layout/Header";
-import { ScrollToTop } from "@/components/ui/ScrollToTop";
+import { Header } from '@/components/layout/Header';
+import { ScrollToTop } from '@/components/ui/ScrollToTop';
 import { siteConfig } from '@/config/site';
 import '@/styles/global.css';
 
 interface Props {
-	title: string;
-	description?: string;
-	image?: string;
-	type?: 'website' | 'article';
-	publishedTime?: Date;
-	modifiedTime?: Date;
-	author?: string;
+  title: string;
+  description?: string;
+  image?: string;
+  type?: 'website' | 'article';
+  publishedTime?: Date;
+  modifiedTime?: Date;
+  author?: string;
 }
 
-const { 
-	title, 
-	description = siteConfig.description, 
-	image,
-	type = 'website',
-	publishedTime,
-	modifiedTime,
-	author = siteConfig.author.name
+const {
+  title,
+  description = siteConfig.description,
+  image,
+  type = 'website',
+  publishedTime,
+  modifiedTime,
+  author = siteConfig.author.name,
 } = Astro.props;
 
 // 构建完整的 OG 图片 URL
-const ogImage = image ? new URL(image, Astro.site || Astro.url) : new URL(siteConfig.og.defaultImage, Astro.site || Astro.url);
+const ogImage = image
+  ? new URL(image, Astro.site || Astro.url)
+  : new URL(siteConfig.og.defaultImage, Astro.site || Astro.url);
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 const busuanzi = siteConfig.analytics.busuanzi;
 const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.label, item.href]));
@@ -34,243 +36,342 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
 
 <!doctype html>
 <html lang="zh-CN">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="description" content={description} />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" href="/favicon.ico" sizes="any" />
-		<link rel="apple-touch-icon" href="/icon-192x192.png" />
-		<link rel="manifest" href="/manifest.json" />
-		<link rel="alternate" type="application/rss+xml" title={siteConfig.rss.title} href={siteConfig.links.rss} />
-		<!-- 不蒜子预连接优化 -->
-		<link rel="dns-prefetch" href={busuanzi.origin} />
-		<link rel="preconnect" href={busuanzi.origin} crossorigin />
-		<meta name="generator" content={Astro.generator} />
-		<title>{title}</title>
-		{siteConfig.verification.google.map((token) => (
-			<meta name="google-site-verification" content={token} />
-		))}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/icon-192x192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={siteConfig.rss.title}
+      href={siteConfig.links.rss}
+    />
+    <!-- 不蒜子预连接优化 -->
+    <link rel="dns-prefetch" href={busuanzi.origin} />
+    <link rel="preconnect" href={busuanzi.origin} crossorigin />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    {
+      siteConfig.verification.google.map((token) => (
+        <meta name="google-site-verification" content={token} />
+      ))
+    }
 
-        <!-- Canonical URL -->
-        <link rel="canonical" href={canonicalUrl} />
+    <!-- Canonical URL -->
+    <link rel="canonical" href={canonicalUrl} />
 
-        <!-- Open Graph / Facebook -->
-        <meta property="og:type" content={type} />
-        <meta property="og:url" content={canonicalUrl} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:image" content={ogImage} />
-        <meta property="og:site_name" content={siteConfig.name} />
-        <meta property="og:locale" content={siteConfig.og.locale} />
-        
-        {/* Article 扩展标签 - 仅用于文章页 */}
-        {type === 'article' && publishedTime && (
-            <meta property="article:published_time" content={publishedTime.toISOString()} />
-        )}
-        {type === 'article' && modifiedTime && (
-            <meta property="article:modified_time" content={modifiedTime.toISOString()} />
-        )}
-        {type === 'article' && author && (
-            <meta property="article:author" content={author} />
-        )}
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content={type} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:site_name" content={siteConfig.name} />
+    <meta property="og:locale" content={siteConfig.og.locale} />
 
-        <!-- Twitter -->
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content={canonicalUrl} />
-        <meta name="twitter:title" content={title} />
-        <meta name="twitter:description" content={description} />
-        <meta name="twitter:image" content={ogImage} />
+    {/* Article 扩展标签 - 仅用于文章页 */}
+    {
+      type === 'article' && publishedTime && (
+        <meta property="article:published_time" content={publishedTime.toISOString()} />
+      )
+    }
+    {
+      type === 'article' && modifiedTime && (
+        <meta property="article:modified_time" content={modifiedTime.toISOString()} />
+      )
+    }
+    {type === 'article' && author && <meta property="article:author" content={author} />}
 
-		<ClientRouter />
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content={canonicalUrl} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
 
-		<!-- Service Worker 注册：仅在非开发环境注册，避免 localhost 缓存旧 chunk 导致 React hooks 报错 -->
-		<script is:inline>
-			if ('serviceWorker' in navigator) {
-				const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-				if (isLocalhost) {
-					navigator.serviceWorker.getRegistrations().then((registrations) => {
-						registrations.forEach((registration) => registration.unregister());
-					});
-				} else {
-					navigator.serviceWorker.register('/sw.js').catch((err) => {
-						console.error('Service Worker 注册失败:', err);
-					});
-				}
-			}
-		</script>
-		
-		<!-- 不蒜子访问统计 - 优化版 -->
-		<script define:vars={{ busuanzi }}>
-			// 不蒜子脚本加载函数（带超时处理）
-			function loadBusuanzi() {
-				// 检查页面是否有不蒜子容器元素（只在文章页加载）
-				const container = document.getElementById(busuanzi.pagePvContainerId);
-				const valueEl = document.getElementById(busuanzi.pagePvValueId);
-				if (!container) return;
-				
-				// 移除旧脚本（如果存在）
-				const oldScript = document.getElementById(busuanzi.scriptId);
-				if (oldScript) oldScript.remove();
-				
-				// 显示加载状态
-				container.style.display = 'inline-flex';
-				if (valueEl) valueEl.textContent = '...';
-				
-				// 超时处理标志
-				let loaded = false;
-				
-				// 创建新脚本
-				const script = document.createElement('script');
-				script.id = busuanzi.scriptId;
-				script.src = busuanzi.scriptSrc;
-				script.async = true;
-				
-				// 加载成功回调
-				script.onload = () => {
-					loaded = true;
-					// 不蒜子会自动更新 valueEl，等待一小段时间确保更新完成
-					setTimeout(() => {
-						if (valueEl && valueEl.textContent === '...') {
-							// 如果值还没更新，可能是第一次访问
-							valueEl.textContent = '1';
-						}
-					}, 300);
-				};
-				
-				// 加载失败回调
-				script.onerror = () => {
-					loaded = true;
-					container.style.display = 'none';
-				};
-				
-				// 5秒超时隐藏（网络太慢时）
-				setTimeout(() => {
-					if (!loaded) {
-						container.style.display = 'none';
-					}
-				}, busuanzi.timeoutMs);
-				
-				document.head.appendChild(script);
-			}
-			
-			// 只监听 astro:page-load（首次加载和导航都会触发）
-			document.addEventListener('astro:page-load', loadBusuanzi);
-		</script>
+    <ClientRouter />
 
-		{/* Theme Initialization Script to prevent FOUC */}
-		<script is:inline>
-			const getThemePreference = () => {
-				if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-					return localStorage.getItem('theme');
-				}
-				return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-			};
-			
-			const applyTheme = () => {
-				const isDark = getThemePreference() === 'dark';
-				document.documentElement.classList[isDark ? 'add' : 'remove']('dark');
-			};
-			
-			// Apply theme on initial load
-			applyTheme();
-	
-			if (typeof localStorage !== 'undefined') {
-				const observer = new MutationObserver(() => {
-					const isDark = document.documentElement.classList.contains('dark');
-					localStorage.setItem('theme', isDark ? 'dark' : 'light');
-				});
-				observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-			}
-			
-			// Preserve theme across View Transitions by copying dark class to new document
-			document.addEventListener('astro:before-swap', (event) => {
-				const isDark = document.documentElement.classList.contains('dark');
-				event.newDocument.documentElement.classList[isDark ? 'add' : 'remove']('dark');
-			});
-			
-			// Re-apply theme after View Transitions navigation (fallback)
-			document.addEventListener('astro:after-swap', applyTheme);
-			
-			// 导航追踪：在导航前保存当前路径，用于"返回"按钮
-			document.addEventListener('astro:before-preparation', () => {
-				const currentPath = window.location.pathname;
-				// 只在非文章页面时保存路径（避免文章页之间的跳转覆盖来源）
-				if (!currentPath.startsWith('/blog/')) {
-					sessionStorage.setItem('blog_previous_path', currentPath);
-				}
-			});
-		</script>
-	</head>
-	<body class="min-h-screen bg-background font-sans antialiased">
-		<!-- 跳过导航链接 - 改进可访问性 -->
-		<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none">
-			跳过导航
-		</a>
-		<div class="relative flex min-h-screen flex-col">
-			<Header client:idle />
-			<main id="main-content" class:list={["flex-1", type !== 'article' ? "pb-8 md:pb-20" : "pb-8"]}>
-				<slot />
-			</main>
-			
-			<!-- Footer 美化版 -->
-			<footer class:list={[
-				"border-t py-1 md:px-8 bg-background z-50 left-0 right-0",
-				type !== 'article' ? "md:fixed md:bottom-0" : "relative"
-			]}>
-			<div class="container mx-auto flex flex-col items-center justify-center gap-0.5">
-					<div class="flex items-center gap-4">
-						<a href={socialLinks.Bilibili} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
-							<span class="sr-only">Bilibili</span>
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.996 1.524 2.249 1.56 3.758v4.806c-.054 1.51-.602 2.769-1.646 3.774-1.044 1.004-2.3 1.492-3.766 1.463H5.412c-1.503.029-2.756-.459-3.766-1.463C.602 17.56.054 16.3.001 14.79V9.985c.029-1.503.517-2.756 1.463-3.758C2.51 5.231 3.769 4.707 5.234 4.653h.854l-2.05-2.049A1.065 1.065 0 0 1 5.546 1.09l2.84 2.848h7.228l2.84-2.848a1.065 1.065 0 0 1 1.509 1.513l-2.05 2.05zm-3.875 5.004h-3.876c-.521-.019-.922.398-.902.937v2.5a.916.916 0 0 0 .902.934h3.876a.916.916 0 0 0 .902-.934v-2.5c.019-.539-.382-.956-.902-.937z"/>
-							</svg>
-						</a>
-						<a href={socialLinks.Douyin} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
-							<span class="sr-only">Douyin</span>
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 1024 1024" fill="currentColor">
-								<path d="M937.386667 423.850667a387.84 387.84 0 0 1-232.874667-77.824v352.341333C704.512 878.250667 565.930667 1024 394.922667 1024S85.333333 878.250667 85.333333 698.368c0-179.882667 138.581333-325.632 309.589334-325.632 17.066667 0 33.706667 1.450667 49.92 4.266667v186.624a131.754667 131.754667 0 0 0-48.64-9.216c-76.288 0-138.154667 65.024-138.154667 145.322666 0 80.213333 61.866667 145.322667 138.24 145.322667 76.202667 0 138.069333-65.109333 138.069333-145.322667V0h172.714667c0 134.485333 103.68 243.541333 231.594667 243.541333v180.309334h-1.28"/>
-							</svg>
-						</a>
-						<a href={socialLinks.Instagram} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
-							<span class="sr-only">Instagram</span>
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-								<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-								<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-							</svg>
-						</a>
-						<a href={socialLinks.GitHub} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
-							<span class="sr-only">GitHub</span>
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-							</svg>
-						</a>
-						<a href={socialLinks.Juejin} target="_blank" rel="noreferrer" class="text-muted-foreground hover:text-primary transition-colors">
-							<span class="sr-only">Juejin</span>
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M2 12l10 7.422l10 -7.422"/>
-								<path d="M7 9l5 4l5 -4"/>
-								<path d="M11 6l1 .8l1 -.8l-1 -.8z"/>
-							</svg>
-						</a>
-						<a href={siteConfig.links.rss} class="text-muted-foreground hover:text-primary transition-colors">
-							<span class="sr-only">RSS</span>
-							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<path d="M4 11a9 9 0 0 1 9 9"></path>
-								<path d="M4 4a16 16 0 0 1 16 16"></path>
-								<circle cx="5" cy="19" r="1"></circle>
-							</svg>
-						</a>
-					</div>
-					
-					<p class="text-balance text-center text-sm leading-none text-muted-foreground mt-1">
-						© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
-					</p>
-				</div>
-			</footer>
-			
-			<!-- 滚动到顶部按钮 -->
-			<ScrollToTop client:idle />
-		</div>
-	</body>
+    <!-- Service Worker 注册：仅在非开发环境注册，避免 localhost 缓存旧 chunk 导致 React hooks 报错 -->
+    <script is:inline>
+      if ('serviceWorker' in navigator) {
+        const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        if (isLocalhost) {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            registrations.forEach((registration) => registration.unregister());
+          });
+        } else {
+          navigator.serviceWorker.register('/sw.js').catch((err) => {
+            console.error('Service Worker 注册失败:', err);
+          });
+        }
+      }
+    </script>
+
+    <!-- 不蒜子访问统计 - 优化版 -->
+    <script define:vars={{ busuanzi }}>
+      // 不蒜子脚本加载函数（带超时处理）
+      function loadBusuanzi() {
+        // 检查页面是否有不蒜子容器元素（只在文章页加载）
+        const container = document.getElementById(busuanzi.pagePvContainerId);
+        const valueEl = document.getElementById(busuanzi.pagePvValueId);
+        if (!container) return;
+
+        // 移除旧脚本（如果存在）
+        const oldScript = document.getElementById(busuanzi.scriptId);
+        if (oldScript) oldScript.remove();
+
+        // 显示加载状态
+        container.style.display = 'inline-flex';
+        if (valueEl) valueEl.textContent = '...';
+
+        // 超时处理标志
+        let loaded = false;
+
+        // 创建新脚本
+        const script = document.createElement('script');
+        script.id = busuanzi.scriptId;
+        script.src = busuanzi.scriptSrc;
+        script.async = true;
+
+        // 加载成功回调
+        script.onload = () => {
+          loaded = true;
+          // 不蒜子会自动更新 valueEl，等待一小段时间确保更新完成
+          setTimeout(() => {
+            if (valueEl && valueEl.textContent === '...') {
+              // 如果值还没更新，可能是第一次访问
+              valueEl.textContent = '1';
+            }
+          }, 300);
+        };
+
+        // 加载失败回调
+        script.onerror = () => {
+          loaded = true;
+          container.style.display = 'none';
+        };
+
+        // 5秒超时隐藏（网络太慢时）
+        setTimeout(() => {
+          if (!loaded) {
+            container.style.display = 'none';
+          }
+        }, busuanzi.timeoutMs);
+
+        document.head.appendChild(script);
+      }
+
+      // 只监听 astro:page-load（首次加载和导航都会触发）
+      document.addEventListener('astro:page-load', loadBusuanzi);
+    </script>
+
+    {/* Theme Initialization Script to prevent FOUC */}
+    <script is:inline>
+      const getThemePreference = () => {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+          return localStorage.getItem('theme');
+        }
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      };
+
+      const applyTheme = () => {
+        const isDark = getThemePreference() === 'dark';
+        document.documentElement.classList[isDark ? 'add' : 'remove']('dark');
+      };
+
+      // Apply theme on initial load
+      applyTheme();
+
+      if (typeof localStorage !== 'undefined') {
+        const observer = new MutationObserver(() => {
+          const isDark = document.documentElement.classList.contains('dark');
+          localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['class'],
+        });
+      }
+
+      // Preserve theme across View Transitions by copying dark class to new document
+      document.addEventListener('astro:before-swap', (event) => {
+        const isDark = document.documentElement.classList.contains('dark');
+        event.newDocument.documentElement.classList[isDark ? 'add' : 'remove']('dark');
+      });
+
+      // Re-apply theme after View Transitions navigation (fallback)
+      document.addEventListener('astro:after-swap', applyTheme);
+
+      // 导航追踪：在导航前保存当前路径，用于"返回"按钮
+      document.addEventListener('astro:before-preparation', () => {
+        const currentPath = window.location.pathname;
+        // 只在非文章页面时保存路径（避免文章页之间的跳转覆盖来源）
+        if (!currentPath.startsWith('/blog/')) {
+          sessionStorage.setItem('blog_previous_path', currentPath);
+        }
+      });
+    </script>
+  </head>
+  <body class="min-h-screen bg-background font-sans antialiased">
+    <!-- 跳过导航链接 - 改进可访问性 -->
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none"
+    >
+      跳过导航
+    </a>
+    <div class="relative flex min-h-screen flex-col">
+      <Header client:idle />
+      <main
+        id="main-content"
+        class:list={['flex-1', type !== 'article' ? 'pb-8 md:pb-20' : 'pb-8']}
+      >
+        <slot />
+      </main>
+
+      <!-- Footer 美化版 -->
+      <footer
+        class:list={[
+          'border-t py-1 md:px-8 bg-background z-50 left-0 right-0',
+          type !== 'article' ? 'md:fixed md:bottom-0' : 'relative',
+        ]}
+      >
+        <div class="container mx-auto flex flex-col items-center justify-center gap-0.5">
+          <div class="flex items-center gap-4">
+            <a
+              href={socialLinks.Bilibili}
+              target="_blank"
+              rel="noreferrer"
+              class="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <span class="sr-only">Bilibili</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.996 1.524 2.249 1.56 3.758v4.806c-.054 1.51-.602 2.769-1.646 3.774-1.044 1.004-2.3 1.492-3.766 1.463H5.412c-1.503.029-2.756-.459-3.766-1.463C.602 17.56.054 16.3.001 14.79V9.985c.029-1.503.517-2.756 1.463-3.758C2.51 5.231 3.769 4.707 5.234 4.653h.854l-2.05-2.049A1.065 1.065 0 0 1 5.546 1.09l2.84 2.848h7.228l2.84-2.848a1.065 1.065 0 0 1 1.509 1.513l-2.05 2.05zm-3.875 5.004h-3.876c-.521-.019-.922.398-.902.937v2.5a.916.916 0 0 0 .902.934h3.876a.916.916 0 0 0 .902-.934v-2.5c.019-.539-.382-.956-.902-.937z"
+                ></path>
+              </svg>
+            </a>
+            <a
+              href={socialLinks.Douyin}
+              target="_blank"
+              rel="noreferrer"
+              class="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <span class="sr-only">Douyin</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 1024 1024"
+                fill="currentColor"
+              >
+                <path
+                  d="M937.386667 423.850667a387.84 387.84 0 0 1-232.874667-77.824v352.341333C704.512 878.250667 565.930667 1024 394.922667 1024S85.333333 878.250667 85.333333 698.368c0-179.882667 138.581333-325.632 309.589334-325.632 17.066667 0 33.706667 1.450667 49.92 4.266667v186.624a131.754667 131.754667 0 0 0-48.64-9.216c-76.288 0-138.154667 65.024-138.154667 145.322666 0 80.213333 61.866667 145.322667 138.24 145.322667 76.202667 0 138.069333-65.109333 138.069333-145.322667V0h172.714667c0 134.485333 103.68 243.541333 231.594667 243.541333v180.309334h-1.28"
+                ></path>
+              </svg>
+            </a>
+            <a
+              href={socialLinks.Instagram}
+              target="_blank"
+              rel="noreferrer"
+              class="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <span class="sr-only">Instagram</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+              </svg>
+            </a>
+            <a
+              href={socialLinks.GitHub}
+              target="_blank"
+              rel="noreferrer"
+              class="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <span class="sr-only">GitHub</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+                ></path>
+              </svg>
+            </a>
+            <a
+              href={socialLinks.Juejin}
+              target="_blank"
+              rel="noreferrer"
+              class="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <span class="sr-only">Juejin</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M2 12l10 7.422l10 -7.422"></path>
+                <path d="M7 9l5 4l5 -4"></path>
+                <path d="M11 6l1 .8l1 -.8l-1 -.8z"></path>
+              </svg>
+            </a>
+            <a
+              href={siteConfig.links.rss}
+              class="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <span class="sr-only">RSS</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M4 11a9 9 0 0 1 9 9"></path>
+                <path d="M4 4a16 16 0 0 1 16 16"></path>
+                <circle cx="5" cy="19" r="1"></circle>
+              </svg>
+            </a>
+          </div>
+
+          <p class="text-balance text-center text-sm leading-none text-muted-foreground mt-1">
+            © {new Date().getFullYear()}
+            {siteConfig.name}. All rights reserved.
+          </p>
+        </div>
+      </footer>
+
+      <!-- 滚动到顶部按钮 -->
+      <ScrollToTop client:idle />
+    </div>
+  </body>
 </html>

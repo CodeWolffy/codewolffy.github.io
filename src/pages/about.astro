@@ -1,96 +1,118 @@
 ---
-import BaseLayout from "@/layouts/BaseLayout.astro";
-import { Button } from "@/components/ui/button";
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { Button } from '@/components/ui/button';
 import { getEntry } from 'astro:content';
 import { getIconComponent } from '@/lib/icons';
 
 const aboutPage = await getEntry('pages', 'about');
 if (!aboutPage) {
-    throw new Error('About page not found');
+  throw new Error('About page not found');
 }
 const { Content } = await aboutPage.render();
 ---
 
 <BaseLayout title={`${aboutPage.data.title} | 狼码纪`} description={aboutPage.data.subtitle}>
-	<div class="container mx-auto max-w-4xl py-8 lg:py-12">
-		<!-- 头部区域 - 左右布局 -->
-		<div class="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-16 animate-slide-up opacity-0">
-			<!-- 左侧列：头像和名字 -->
-			<div class="flex flex-col items-center shrink-0 mx-auto md:mx-0">
-				<!-- 头像 -->
-				<div class="relative group">
-					<!-- 旋转光环 -->
-					<div class="absolute -inset-1 rounded-full bg-primary/30 blur-sm"></div>
-					<div class="relative h-56 w-56 lg:h-64 lg:w-64 rounded-full bg-card border-4 border-background flex items-center justify-center text-6xl shadow-xl overflow-hidden">
-						{aboutPage.data.avatar ? (
-							<img src={aboutPage.data.avatar} alt={aboutPage.data.title} class="w-full h-full object-cover" />
-						) : (
-							<span>👋</span>
-						)}
-					</div>
-				</div>
-				<!-- 名字 -->
-				{aboutPage.data.name && (
-					<div class="mt-6 text-center">
-						<div class="text-3xl font-bold text-primary tracking-wide">{aboutPage.data.name}</div>
-					</div>
-				)}
-			</div>
-			
-			<!-- 右侧内容区域 -->
-			<div class="text-center md:text-left space-y-4 flex-1">
-				<h1 class="font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
-					{aboutPage.data.title}
-				</h1>
-				{aboutPage.data.tagline && (
-					<p class="text-2xl font-semibold text-primary mt-2">
-						{aboutPage.data.tagline}
-					</p>
-				)}
-				<p class="text-xl text-muted-foreground font-medium mt-2">
-					{aboutPage.data.subtitle || '软件工程师 & 技术爱好者'}
-				</p>
-				<!-- 简介内容 -->
-				<div class="prose dark:prose-invert max-w-none text-base leading-relaxed text-muted-foreground/90 pt-2">
-					<Content />
-				</div>
-			</div>
-		</div>
-		
-		<!-- 技能标签区域 -->
-		<div class="mb-12 animate-slide-up opacity-0" style="animation-delay: 150ms;">
-			<h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
-				<span class="text-2xl">🛠️</span> 技术栈
-			</h2>
-			<div class="flex flex-wrap gap-3">
-				{aboutPage.data.skills.map((skill) => (
-					<span class="px-4 py-2 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors duration-300 cursor-default">
-						{skill}
-					</span>
-				))}
-			</div>
-		</div>
-		
-		<!-- 联系方式 -->
-		{aboutPage.data.socialLinks && aboutPage.data.socialLinks.length > 0 && (
-			<div class="mb-12 animate-slide-up opacity-0" style="animation-delay: 300ms;">
-				<h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
-					<span class="text-2xl">📬</span> 联系方式
-				</h2>
-				<div class="flex flex-col sm:flex-row items-center gap-4 flex-wrap">
-					{aboutPage.data.socialLinks.map((link) => {
-						const IconComponent = getIconComponent(link.icon);
-						return (
-							<a href={link.url} target="_blank" rel="noopener noreferrer">
-								<Button size="lg" variant="outline" className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-									<IconComponent className="mr-2 h-5 w-5" />
-									{link.name}
-								</Button>
-							</a>
-						);
-					})}
-				</div>
-			</div>
-		)}
-	</div>
+  <div class="container mx-auto max-w-4xl py-8 lg:py-12">
+    {/* 头部区域 - 左右布局 */}
+    <div
+      class="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-16 animate-slide-up opacity-0"
+    >
+      {/* 左侧列：头像和名字 */}
+      <div class="flex flex-col items-center shrink-0 mx-auto md:mx-0">
+        {/* 头像 */}
+        <div class="relative group">
+          {/* 旋转光环 */}
+          <div class="absolute -inset-1 rounded-full bg-primary/30 blur-sm"></div>
+          <div
+            class="relative h-56 w-56 lg:h-64 lg:w-64 rounded-full bg-card border-4 border-background flex items-center justify-center text-6xl shadow-xl overflow-hidden"
+          >
+            {
+              aboutPage.data.avatar ? (
+                <img
+                  src={aboutPage.data.avatar}
+                  alt={aboutPage.data.title}
+                  class="w-full h-full object-cover"
+                />
+              ) : (
+                <span>👋</span>
+              )
+            }
+          </div>
+        </div>
+        {/* 名字 */}
+        {
+          aboutPage.data.name && (
+            <div class="mt-6 text-center">
+              <div class="text-3xl font-bold text-primary tracking-wide">{aboutPage.data.name}</div>
+            </div>
+          )
+        }
+      </div>
+
+      {/* 右侧内容区域 */}
+      <div class="text-center md:text-left space-y-4 flex-1">
+        <h1 class="font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
+          {aboutPage.data.title}
+        </h1>
+        {
+          aboutPage.data.tagline && (
+            <p class="text-2xl font-semibold text-primary mt-2">{aboutPage.data.tagline}</p>
+          )
+        }
+        <p class="text-xl text-muted-foreground font-medium mt-2">
+          {aboutPage.data.subtitle || '软件工程师 & 技术爱好者'}
+        </p>
+        {/* 简介内容 */}
+        <div
+          class="prose dark:prose-invert max-w-none text-base leading-relaxed text-muted-foreground/90 pt-2"
+        >
+          <Content />
+        </div>
+      </div>
+    </div>
+
+    {/* 技能标签区域 */}
+    <div class="mb-12 animate-slide-up opacity-0" style="animation-delay: 150ms;">
+      <h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
+        <span class="text-2xl">🛠️</span> 技术栈
+      </h2>
+      <div class="flex flex-wrap gap-3">
+        {
+          aboutPage.data.skills.map((skill) => (
+            <span class="px-4 py-2 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors duration-300 cursor-default">
+              {skill}
+            </span>
+          ))
+        }
+      </div>
+    </div>
+
+    {/* 联系方式 */}
+    {
+      aboutPage.data.socialLinks && aboutPage.data.socialLinks.length > 0 && (
+        <div class="mb-12 animate-slide-up opacity-0" style="animation-delay: 300ms;">
+          <h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
+            <span class="text-2xl">📬</span> 联系方式
+          </h2>
+          <div class="flex flex-col sm:flex-row items-center gap-4 flex-wrap">
+            {aboutPage.data.socialLinks.map((link) => {
+              const IconComponent = getIconComponent(link.icon);
+              return (
+                <a href={link.url} target="_blank" rel="noopener noreferrer">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+                  >
+                    <IconComponent className="mr-2 h-5 w-5" />
+                    {link.name}
+                  </Button>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )
+    }
+  </div>
 </BaseLayout>
