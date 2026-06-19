@@ -1,11 +1,17 @@
 ---
+export const prerender = true;
+
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { Button } from '@/components/ui/button';
 
 import { getCollection } from 'astro:content';
+import { siteConfig } from '@/config/site';
 
 const projects = (await getCollection('projects'))
-  .map((item) => item.data)
+  .map((item) => ({
+    ...item.data,
+    displayImage: item.data.coverImage || item.data.image || siteConfig.og.defaultImage,
+  }))
   .sort((a, b) => b.priority - a.priority);
 ---
 
@@ -48,10 +54,11 @@ const projects = (await getCollection('projects'))
               {/* 图片遮罩 */}
               <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
               <img
-                src={project.coverImage || project.image}
+                src={project.displayImage}
                 alt={project.title}
                 class="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
                 loading="lazy"
+                decoding="async"
               />
             </div>
 

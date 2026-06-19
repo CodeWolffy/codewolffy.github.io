@@ -20,7 +20,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background">
-      <div className="flex w-full h-11 md:h-12 items-center justify-between md:justify-start px-1 md:px-8 max-w-[1600px] mx-auto">
+      <div className="flex w-full h-11 md:h-12 items-center justify-between md:justify-start px-1 md:px-8 max-w-[1400px] mx-auto">
         {/* Left Side: Desktop Nav + Mobile Menu + Mobile Logo */}
         <div className="flex items-center gap-1 md:mr-4">
           {/* Desktop: Logo + Nav */}
@@ -70,7 +70,7 @@ export function Header() {
         <div className="flex items-center gap-1 md:flex-1 md:justify-end lg:justify-start">
           {/* Search - Mobile: Collapsed/Right, Desktop: Fill/Left */}
           <div className="md:flex-1 shrink-0 md:min-w-0 md:mx-4 flex justify-end md:justify-start">
-            <ErrorBoundary fallback={<div className="w-9 h-9 md:w-full md:h-10" />}>
+            <ErrorBoundary fallback={<div className="w-9 h-9 md:w-full md:h-9" />}>
               <Search />
             </ErrorBoundary>
           </div>

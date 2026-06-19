@@ -1,21 +1,20 @@
 ---
+export const prerender = true;
+
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { getBlogPostPath } from '@/utils/content-paths';
+import { createTaxonomyNameMap, getPublicBlogPostsSorted } from '@/utils/posts';
 
-const allPosts = (
-  await getCollection('blog', ({ data }) => {
-    return import.meta.env.PROD ? data.draft !== true : true;
-  })
-).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const allPosts = await getPublicBlogPostsSorted();
 
 // 获取所有标签
 const allTags = await getCollection('tags');
-const tagMap = new Map(allTags.map((t) => [t.id, t.data.name]));
+const tagMap = createTaxonomyNameMap(allTags);
 
 // 获取所有分类
 const allCategories = await getCollection('categories');
-const categoryMap = new Map(allCategories.map((c) => [c.id, c.data.name]));
+const categoryMap = createTaxonomyNameMap(allCategories);
 
 // 重构数据结构：按年份 -> 月份分组，并计算统计数据
 const groupedPosts = allPosts.reduce(

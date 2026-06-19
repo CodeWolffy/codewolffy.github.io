@@ -25,12 +25,13 @@ jobs:
         run: npm ci
       - name: Run code quality checks
         run: |
+          npm run format
           npm run typecheck
           npm run lint
           npm run format:check
       - name: Content consistency checks
         run: |
-          npm run sync-content
+          npm run sync-content:check
           npm run clean-content -- --dry-run
       - name: Install, build, and upload your site
         uses: withastro/action@v2

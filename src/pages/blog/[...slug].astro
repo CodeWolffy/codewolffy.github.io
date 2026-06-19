@@ -14,15 +14,19 @@ import Callout from '../../components/mdx/Callout.astro';
 import Mermaid from '../../components/mdx/Mermaid.astro';
 import Iframe from '../../components/mdx/Iframe.astro';
 import { calculateReadingTime } from '../../utils/reading-time';
-import { getBlogPostPath, getBlogPostSlug } from '@/utils/content-paths';
+import {
+  getBlogPostPath,
+  getBlogPostSlug,
+  getCategoryPath,
+  getTagPath,
+} from '@/utils/content-paths';
+import { getPublicBlogPosts } from '@/utils/posts';
 import { siteConfig } from '@/config/site';
 
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog', ({ data }) => {
-    return import.meta.env.PROD ? data.draft !== true : true;
-  });
+  const posts = await getPublicBlogPosts();
   return posts.map((post) => ({
     params: { slug: getBlogPostSlug(post) },
     props: { post, allPosts: posts },
@@ -141,13 +145,13 @@ const pageUrl = Astro.url.href;
     })}
   />
   <div
-    class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6 relative lg:gap-8 lg:grid lg:grid-cols-[1fr_330px]"
+    class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6 relative lg:gap-8 lg:grid lg:grid-cols-[1fr_330px] lg:items-start"
   >
     <div class="w-full min-w-0">
       <div class="mb-1">
         <Breadcrumbs
           items={[
-            ...(categoryName ? [{ label: categoryName, href: `/categories/${categoryId}` }] : []),
+            ...(categoryName ? [{ label: categoryName, href: getCategoryPath(categoryId) }] : []),
           ]}
         />
       </div>
@@ -223,7 +227,10 @@ const pageUrl = Astro.url.href;
           <div class="mb-1 flex flex-wrap items-center gap-2">
             <span class="text-base text-muted-foreground">标签：</span>
             {tagIds.map((tagId) => (
-              <a href={`/tags/${tagId}`} class="text-base font-medium text-primary hover:underline">
+              <a
+                href={getTagPath(tagId)}
+                class="text-base font-medium text-primary hover:underline"
+              >
                 #{tagMap.get(tagId) || tagId}
               </a>
             ))}
@@ -242,12 +249,12 @@ const pageUrl = Astro.url.href;
             alt={post.data.title}
             width={720}
             height={405}
-            class="mb-4 rounded-md border bg-muted transition-colors w-auto max-w-full max-h-[650px] mx-auto cursor-zoom-in cover-image"
+            class="block max-w-full w-auto h-auto mb-4 rounded-md border bg-muted transition-colors max-h-[650px] mx-auto cursor-zoom-in cover-image"
           />
         )
       }
 
-      <div class="prose dark:prose-invert max-w-none" data-pagefind-body>
+      <div class="prose dark:prose-invert max-w-none min-w-0" data-pagefind-body>
         <Content components={{ Callout, Mermaid, Iframe }} />
       </div>
 
@@ -377,13 +384,13 @@ const pageUrl = Astro.url.href;
               {relatedPosts.map((relatedPost) => (
                 <a
                   href={getBlogPostPath(relatedPost)}
-                  class="group flex rounded-lg border border-border hover:border-primary/50 hover:bg-secondary/30 transition-all overflow-hidden"
+                  class="group flex min-w-0 rounded-lg border border-border hover:border-primary/50 hover:bg-secondary/30 transition-all overflow-hidden"
                 >
                   {(relatedPost.data.coverImage || relatedPost.data.heroImage) && (
                     <img
                       src={relatedPost.data.coverImage || relatedPost.data.heroImage}
                       alt={relatedPost.data.title}
-                      class="w-32 aspect-video object-cover shrink-0"
+                      class="hidden w-32 aspect-video object-cover shrink-0 sm:block"
                     />
                   )}
                   <div class="min-w-0 p-3 flex flex-col justify-center">

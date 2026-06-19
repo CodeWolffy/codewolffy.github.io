@@ -2,12 +2,16 @@
   "name": "blog",
   "type": "module",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "astro dev --host",
-    "build": "npm run sync-content && npm run check:mermaid && astro build && npx pagefind --site dist",
+    "build": "npm run sync-content && npm run check:mermaid && astro build && node scripts/run-pagefind.js && node scripts/prepare-cloudflare-pages-output.js",
     "preview": "astro preview",
     "astro": "astro",
     "sync-content": "node --import tsx scripts/sync-content.js",
+    "sync-content:check": "node --import tsx scripts/sync-content.js --check",
     "clean-content": "node --import tsx scripts/clean-content.js",
     "clean-content:dry-run": "node --import tsx scripts/clean-content.js --dry-run",
     "check:mermaid": "node scripts/check-mermaid-regression.mjs",
@@ -25,7 +29,7 @@
     "@astrojs/sitemap": "^3.7.0",
     "@giscus/react": "^3.1.0",
     "@keystatic/astro": "^5.1.0",
-    "@keystatic/core": "^0.5.48",
+    "@keystatic/core": "^0.5.50",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/typography": "^0.5.19",

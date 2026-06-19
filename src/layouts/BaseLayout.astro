@@ -1,7 +1,7 @@
 ---
 import { ClientRouter } from 'astro:transitions'; // Using ClientRouter for ViewTransitions in modern Astro
 import { Header } from '@/components/layout/Header';
-import { ScrollToTop } from '@/components/ui/ScrollToTop';
+import ScrollToTop from '@/components/ui/ScrollToTop.astro';
 import { siteConfig } from '@/config/site';
 import '@/styles/global.css';
 
@@ -42,7 +42,6 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/icon-192x192.png" />
-    <link rel="manifest" href="/manifest.json" />
     <link
       rel="alternate"
       type="application/rss+xml"
@@ -94,38 +93,17 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
 
     <ClientRouter />
 
-    <!-- Service Worker 注册：仅在非开发环境注册，避免 localhost 缓存旧 chunk 导致 React hooks 报错 -->
+    <!-- 清理旧的 Service Worker 与缓存，避免之前离线功能遗留的缓存干扰新部署 -->
     <script is:inline>
       if ('serviceWorker' in navigator) {
-        const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-        if (isLocalhost) {
-          navigator.serviceWorker.getRegistrations().then((registrations) => {
-            registrations.forEach((registration) => registration.unregister());
-          });
-        } else {
-          navigator.serviceWorker
-            .register('/sw.js', {
-              scope: '/',
-              updateViaCache: 'none',
-            })
-            .then((registration) => {
-              console.log('[SW] 注册成功:', registration.scope);
-              // 发现新 SW 等待激活时提示刷新（可选，避免旧缓存长期生效）
-              registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
-                if (newWorker) {
-                  newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                      console.log('[SW] 新版本已下载，刷新页面后生效');
-                    }
-                  });
-                }
-              });
-            })
-            .catch((err) => {
-              console.error('[SW] 注册失败:', err);
-            });
-        }
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => registration.unregister());
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then((cacheNames) => {
+          cacheNames.forEach((cacheName) => caches.delete(cacheName));
+        });
       }
     </script>
 
@@ -188,51 +166,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
     </script>
 
     {/* Theme Initialization Script to prevent FOUC */}
-    <script is:inline>
-      const getThemePreference = () => {
-        if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-          return localStorage.getItem('theme');
-        }
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      };
-
-      const applyTheme = () => {
-        const isDark = getThemePreference() === 'dark';
-        document.documentElement.classList[isDark ? 'add' : 'remove']('dark');
-      };
-
-      // Apply theme on initial load
-      applyTheme();
-
-      if (typeof localStorage !== 'undefined') {
-        const observer = new MutationObserver(() => {
-          const isDark = document.documentElement.classList.contains('dark');
-          localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        });
-        observer.observe(document.documentElement, {
-          attributes: true,
-          attributeFilter: ['class'],
-        });
-      }
-
-      // Preserve theme across View Transitions by copying dark class to new document
-      document.addEventListener('astro:before-swap', (event) => {
-        const isDark = document.documentElement.classList.contains('dark');
-        event.newDocument.documentElement.classList[isDark ? 'add' : 'remove']('dark');
-      });
-
-      // Re-apply theme after View Transitions navigation (fallback)
-      document.addEventListener('astro:after-swap', applyTheme);
-
-      // 导航追踪：在导航前保存当前路径，用于"返回"按钮
-      document.addEventListener('astro:before-preparation', () => {
-        const currentPath = window.location.pathname;
-        // 只在非文章页面时保存路径（避免文章页之间的跳转覆盖来源）
-        if (!currentPath.startsWith('/blog/')) {
-          sessionStorage.setItem('blog_previous_path', currentPath);
-        }
-      });
-    </script>
+    <script is:inline type="module" src="/theme.js"></script>
   </head>
   <body class="min-h-screen bg-background font-sans antialiased">
     <!-- 跳过导航链接 - 改进可访问性 -->
@@ -243,7 +177,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
       跳过导航
     </a>
     <div class="relative flex min-h-screen flex-col">
-      <Header client:only="react" />
+      <Header client:load transition:persist />
       <main
         id="main-content"
         class:list={['flex-1', type !== 'article' ? 'pb-8 md:pb-20' : 'pb-8']}
@@ -254,7 +188,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
       <!-- Footer 美化版 -->
       <footer
         class:list={[
-          'border-t py-1 md:px-8 bg-background z-50 left-0 right-0',
+          'border-t py-1 bg-background z-50 left-0 right-0',
           type !== 'article' ? 'md:fixed md:bottom-0' : 'relative',
         ]}
       >
@@ -390,7 +324,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
       </footer>
 
       <!-- 滚动到顶部按钮 -->
-      <ScrollToTop client:only="react" />
+      <ScrollToTop />
     </div>
   </body>
 </html>

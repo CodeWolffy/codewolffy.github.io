@@ -1,12 +1,12 @@
 // Astro 配置文件
-import { defineConfig } from 'astro/config';
+import { defineConfig, sessionDrivers } from 'astro/config';
 import path from 'path';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
-import keystatic from '@keystatic/astro';
 import cloudflare from '@astrojs/cloudflare';
+import keystatic from '@keystatic/astro';
 import { getSiteUrl } from './src/config/site.js';
 
 // Import custom plugins
@@ -52,8 +52,17 @@ const autoSyncContent = () => {
 };
 
 // https://astro.build/config
+// GitHub Actions 输出纯静态站点；其他构建目标启用 Cloudflare adapter，
+// 保留 Keystatic 后台所需的 SSR 路由能力。
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
+const isBuild = process.argv.includes('build');
+const enableCloudflareAdapter = isBuild && !isGitHubActions;
+const enableKeystatic = !isGitHubActions;
+
 export default defineConfig({
+  session: {
+    driver: sessionDrivers.memory(),
+  },
   // 路由预加载配置 - 仅预加载视口内/悬停的链接，避免全量预加载浪费带宽
   prefetch: {
     prefetchAll: false,
@@ -102,8 +111,13 @@ export default defineConfig({
         return item;
       },
     }),
-    keystatic(),
+    ...(enableKeystatic ? [keystatic()] : []),
   ],
+  adapter: enableCloudflareAdapter
+    ? cloudflare({
+        imageService: 'compile',
+      })
+    : undefined,
   site: getSiteUrl({ isGitHubActions }),
 
   // Markdown 代码高亮配置
@@ -130,7 +144,6 @@ export default defineConfig({
   },
 
   vite: {
-    // 强制 dedupe React 相关包，避免开发模式下出现多个 React 实例导致 hooks 失效
     resolve: {
       dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
     },
@@ -149,6 +162,11 @@ export default defineConfig({
         external: ['virtual:keystatic-config', 'astro:toolbar:internal'],
       },
     },
+    ssr: {
+      resolve: {
+        dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+      },
+    },
     plugins: [
       tailwindcss(),
       autoSyncContent(), // Register the plugin
@@ -156,19 +174,9 @@ export default defineConfig({
     build: {
       // 使用 esbuild 压缩（比 terser 快 20-40 倍）
       minify: 'esbuild',
-      // 手动分包优化
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom'],
-            icons: ['lucide-react'],
-          },
-        },
-      },
     },
   },
-  // Astro 5: static 模式默认支持混合渲染，Keystatic 页面会自动使用 SSR
-  // 注意：GitHub Pages 作为静态备用节点时，Cloudflare adapter 仍会生成静态 HTML，
-  // SSR/Keystatic 动态路由在 GitHub Pages 上不可用，这是预期行为。
-  adapter: cloudflare(),
+  // Astro 6 中 static 输出会预渲染前台页面；
+  // Cloudflare adapter 负责承载 Keystatic 后台的 SSR 路由。
+  output: 'static',
 });

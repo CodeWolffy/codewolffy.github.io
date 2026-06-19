@@ -5,15 +5,20 @@ interface BackInfo {
   label: string;
 }
 
+function normalizeInternalPath(path: string): string {
+  if (path === '/' || path === '') return '/';
+  return path.endsWith('/') ? path : `${path}/`;
+}
+
 // 根据路径获取返回信息
 function getBackInfoFromPath(path: string): BackInfo {
   if (path.startsWith('/archives')) {
-    return { href: '/archives', label: '返回归档' };
+    return { href: '/archives/', label: '返回归档' };
   } else if (path.startsWith('/tags/')) {
     const tag = path.split('/tags/')[1]?.split('/')[0] || '';
-    return { href: path, label: `返回标签 #${decodeURIComponent(tag)}` };
+    return { href: normalizeInternalPath(path), label: `返回标签 #${decodeURIComponent(tag)}` };
   } else if (path.startsWith('/tags')) {
-    return { href: '/tags', label: '返回标签' };
+    return { href: '/tags/', label: '返回标签' };
   } else if (path === '/' || path === '') {
     return { href: '/', label: '返回首页' };
   }

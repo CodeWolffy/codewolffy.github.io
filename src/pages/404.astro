@@ -1,4 +1,6 @@
 ---
+export const prerender = true;
+
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { Button } from '@/components/ui/button';
 ---
@@ -65,17 +67,17 @@ import { Button } from '@/components/ui/button';
       <p class="mb-3">或者探索：</p>
       <div class="flex flex-wrap justify-center gap-2">
         <a
-          href="/archives"
+          href="/archives/"
           class="px-3 py-1.5 rounded-full border border-border hover:border-foreground/30 hover:text-foreground transition-colors"
           >归档</a
         >
         <a
-          href="/categories"
+          href="/categories/"
           class="px-3 py-1.5 rounded-full border border-border hover:border-foreground/30 hover:text-foreground transition-colors"
           >分类</a
         >
         <a
-          href="/about"
+          href="/about/"
           class="px-3 py-1.5 rounded-full border border-border hover:border-foreground/30 hover:text-foreground transition-colors"
           >关于</a
         >

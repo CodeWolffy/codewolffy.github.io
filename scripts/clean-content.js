@@ -9,4 +9,7 @@ const rootDir = path.resolve(__dirname, '..');
 // Check for --dry-run flag
 const dryRun = process.argv.includes('--dry-run');
 
-pruneContent(rootDir, dryRun).catch(console.error);
+pruneContent(rootDir, dryRun).catch((error) => {
+  console.error('[ContentCleanup] Failed:', error);
+  process.exitCode = 1;
+});

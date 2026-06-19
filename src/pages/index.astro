@@ -1,4 +1,6 @@
 ---
+export const prerender = true;
+
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -6,51 +8,30 @@ import PostCard from '@/components/blog/PostCard.astro';
 import Sidebar from '@/components/Sidebar.astro';
 import { getCollection, getEntry } from 'astro:content';
 import { getReadingTimeMinutes } from '@/utils/reading-time';
+import {
+  countPostCategories,
+  countPostTags,
+  createTaxonomyNameMap,
+  getPublicBlogPostsSorted,
+} from '@/utils/posts';
 
 const aboutPage = await getEntry('pages', 'about');
 const about = aboutPage?.data;
 
-const posts = (
-  await getCollection('blog', ({ data }) => {
-    return import.meta.env.PROD ? data.draft !== true : true;
-  })
-).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const posts = (await getPublicBlogPostsSorted()).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
 
 const allCategories = await getCollection('categories');
 const allTags = await getCollection('tags');
 
-const categoryMap = new Map(allCategories.map((c) => [c.id, c.data.name]));
-const tagMap = new Map(allTags.map((t) => [t.id, t.data.name]));
+const categoryMap = createTaxonomyNameMap(allCategories);
+const tagMap = createTaxonomyNameMap(allTags);
 
 const latestPosts = posts.slice(0, 8);
 
-// Calculate Tag Counts
-const tagCounts: Record<string, { name: string; count: number; id: string }> = {};
-posts.forEach((post) => {
-  post.data.tags?.forEach((tagId) => {
-    // Tag is now a string
-    const tagName = tagMap.get(tagId) || tagId;
-    if (!tagCounts[tagId]) {
-      tagCounts[tagId] = { name: tagName, count: 0, id: tagId };
-    }
-    tagCounts[tagId].count++;
-  });
-});
-const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
-
-// Calculate Category Counts
-const categoryCounts: Record<string, { name: string; count: number; id: string }> = {};
-posts.forEach((post) => {
-  if (post.data.category) {
-    const catId = post.data.category; // Category is now a string
-    const catName = categoryMap.get(catId) || catId;
-    if (!categoryCounts[catId]) {
-      categoryCounts[catId] = { name: catName, count: 0, id: catId };
-    }
-    categoryCounts[catId].count++;
-  }
-});
-const sortedCategories = Object.values(categoryCounts).sort((a, b) => b.count - a.count);
+const sortedTags = countPostTags(posts, tagMap);
+const sortedCategories = countPostCategories(posts, categoryMap);
 
 // Limit items for homepage (Preview)
 const topCategories = sortedCategories.slice(0, 4);
@@ -61,7 +42,7 @@ const topTags = sortedTags.slice(0, 8);
   <!-- Hero Section -->
 
   <!-- Main Content Grid -->
-  <section class="container mx-auto pt-0 pb-8 px-4 md:px-6">
+  <section class="container mx-auto pt-0 pb-8">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
       <!-- Mobile Sidebar Content (Moved to bottom) -->
 
@@ -96,7 +77,7 @@ const topTags = sortedTags.slice(0, 8);
                 开始阅读 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </a>
-            <a href="/archives">
+            <a href="/archives/">
               <Button
                 size="lg"
                 className="rounded-full px-8 bg-black hover:bg-gray-800 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
@@ -110,7 +91,7 @@ const topTags = sortedTags.slice(0, 8);
         <div id="latest-posts" class="flex items-center justify-between border-b pb-1 scroll-mt-20">
           <h2 class="text-2xl font-bold tracking-tight flex items-center gap-2">最新文章</h2>
           <a
-            href="/archives"
+            href="/archives/"
             class="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
           >
             查看全部 <ArrowRight className="w-4 h-4" />

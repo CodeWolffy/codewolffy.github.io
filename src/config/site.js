@@ -27,9 +27,9 @@ export const siteConfig = {
   analytics: {
     busuanzi: {
       enabled: true,
-      origin: '//busuanzi.ibruce.info',
+      origin: 'https://busuanzi.ibruce.info',
       scriptId: 'busuanzi_script',
-      scriptSrc: '//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js',
+      scriptSrc: 'https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js',
       pagePvContainerId: 'busuanzi_container_page_pv',
       pagePvValueId: 'busuanzi_value_page_pv',
       timeoutMs: 5000,
@@ -57,11 +57,11 @@ export const siteConfig = {
   },
   navigation: [
     { label: '首页', href: '/' },
-    { label: '归档', href: '/archives' },
-    { label: '分类/标签', href: '/categories' },
-    { label: '项目', href: '/projects' },
-    { label: '友链', href: '/friends' },
-    { label: '关于', href: '/about' },
+    { label: '归档', href: '/archives/' },
+    { label: '分类/标签', href: '/categories/' },
+    { label: '项目', href: '/projects/' },
+    { label: '友链', href: '/friends/' },
+    { label: '关于', href: '/about/' },
   ],
   socials: [
     { label: 'Bilibili', href: 'https://b23.tv/CWW8udk' },

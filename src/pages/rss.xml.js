@@ -1,15 +1,10 @@
 import rss from '@astrojs/rss';
-import { getCollection } from 'astro:content';
+import { getPublicBlogPostsSorted } from '@/utils/posts';
 import { getBlogPostPath } from '@/utils/content-paths';
 import { siteConfig } from '@/config/site';
 
 export async function GET(context) {
-  const posts = await getCollection('blog', ({ data }) => {
-    return import.meta.env.PROD ? data.draft !== true : true;
-  });
-
-  // 按发布日期降序排序（最新的在前）
-  const sortedPosts = posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+  const sortedPosts = await getPublicBlogPostsSorted();
 
   return rss({
     title: siteConfig.rss.title,

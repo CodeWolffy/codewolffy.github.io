@@ -6,7 +6,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', '.astro/**', '.github/**', 'public/**'],
+    ignores: ['dist/**', 'node_modules/**', '.astro/**', '.github/**', 'public/**', '.wrangler/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

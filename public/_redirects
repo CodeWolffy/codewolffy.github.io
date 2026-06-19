@@ -1,0 +1,9 @@
+/about /about/ 301
+/archives /archives/ 301
+/categories /categories/ 301
+/projects /projects/ 301
+/friends /friends/ 301
+/tags /tags/ 301
+/blog/:slug /blog/:slug/ 301
+/categories/:category /categories/:category/ 301
+/tags/:tag /tags/:tag/ 301

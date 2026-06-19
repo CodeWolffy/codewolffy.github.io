@@ -1,12 +1,19 @@
 ---
+export const prerender = true;
+
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { Button } from '@/components/ui/button';
 import { getIconComponent } from '@/lib/icons';
 
 import { getCollection, getEntry } from 'astro:content';
 
+const friendAvatarFallback = '/favicon.png';
+
 const friends = (await getCollection('friends'))
-  .map((item) => item.data)
+  .map((item) => ({
+    ...item.data,
+    displayAvatar: item.data.avatar || item.data.avatarUrl || friendAvatarFallback,
+  }))
   .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
 
 const friendsPageConfig = await getEntry('friendsPage', 'index');
@@ -76,10 +83,11 @@ const pageConfig = {
               <div class="absolute -inset-1 rounded-full bg-primary/20 opacity-0 group-hover:opacity-70 blur-sm transition-opacity duration-300" />
               <div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-all duration-300">
                 <img
-                  src={friend.avatar || friend.avatarUrl}
+                  src={friend.displayAvatar}
                   alt={friend.name}
                   class="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
+                  decoding="async"
                 />
               </div>
             </div>

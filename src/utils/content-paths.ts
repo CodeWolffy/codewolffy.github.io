@@ -14,3 +14,15 @@ export function getBlogPostSlug(post: BlogPostEntry): string {
 export function getBlogPostPath(post: BlogPostEntry): string {
   return `/blog/${getBlogPostSlug(post)}/`;
 }
+
+export function getTaxonomySlug(id: string): string {
+  return getContentPathSegment(id);
+}
+
+export function getCategoryPath(id: string): string {
+  return `/categories/${getTaxonomySlug(id)}/`;
+}
+
+export function getTagPath(id: string): string {
+  return `/tags/${getTaxonomySlug(id)}/`;
+}

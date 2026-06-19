@@ -1,31 +1,16 @@
 ---
+export const prerender = true;
+
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import { getTagPath } from '@/utils/content-paths';
+import { countPostTags, createTaxonomyNameMap, getPublicBlogPosts } from '@/utils/posts';
 
-const allPosts = await getCollection('blog', ({ data }) => {
-  return import.meta.env.PROD ? data.draft !== true : true;
-});
+const allPosts = await getPublicBlogPosts();
 const allTags = await getCollection('tags');
 
-// Calculate tag counts from all posts in Frontmatter
-const tagMap = new Map();
-allTags.forEach((t) => tagMap.set(t.id, t.data.name));
-
-const tagCountMap: Record<string, { name: string; count: number; id: string }> = {};
-
-allPosts.forEach((post) => {
-  if (post.data.tags) {
-    post.data.tags.forEach((tagId) => {
-      const tagName = tagMap.get(tagId) || tagId;
-      if (!tagCountMap[tagId]) {
-        tagCountMap[tagId] = { name: tagName, count: 0, id: tagId };
-      }
-      tagCountMap[tagId].count++;
-    });
-  }
-});
-
-const sortedTags = Object.values(tagCountMap).sort((a, b) => b.count - a.count);
+const tagMap = createTaxonomyNameMap(allTags);
+const sortedTags = countPostTags(allPosts, tagMap);
 ---
 
 <BaseLayout title="所有标签 | 狼码纪" description="浏览博客的所有标签">
@@ -57,13 +42,13 @@ const sortedTags = Object.values(tagCountMap).sort((a, b) => b.count - a.count);
 
             return (
               <a
-                href={`/tags/${tag.id}`}
-                class="group relative px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden animate-slide-up opacity-0"
+                href={getTagPath(tag.id)}
+                class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-slide-up opacity-0"
                 style={`animation-delay: ${index * 30}ms;`}
               >
                 <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <span
-                  class="font-medium relative z-10 group-hover:text-primary transition-colors"
+                  class="min-w-0 break-words font-medium relative z-10 group-hover:text-primary transition-colors"
                   style={`font-size: ${size}rem;`}
                 >
                   #{tag.name}
@@ -81,7 +66,7 @@ const sortedTags = Object.values(tagCountMap).sort((a, b) => b.count - a.count);
     <!-- 返回按钮 -->
     <div class="mt-12 text-center">
       <a
-        href="/categories"
+        href="/categories/"
         class="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
       >
         <svg

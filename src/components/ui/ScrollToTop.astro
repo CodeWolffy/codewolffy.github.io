@@ -1,0 +1,123 @@
+---
+const size = 48;
+const strokeWidth = 3;
+const radius = (size - strokeWidth) / 2;
+const circumference = 2 * Math.PI * radius;
+---
+
+<button
+  id="scroll-to-top"
+  type="button"
+  class="fixed bottom-6 right-6 z-50 group transition-all duration-300 opacity-0 translate-y-4 pointer-events-none"
+  aria-label="滚动到顶部"
+  style={`width: ${size}px; height: ${size}px`}
+>
+  <svg class="absolute inset-0 -rotate-90" width={size} height={size} aria-hidden="true">
+    <circle
+      cx={size / 2}
+      cy={size / 2}
+      r={radius}
+      fill="none"
+      class="stroke-muted/30 dark:stroke-muted/20"
+      stroke-width={strokeWidth}></circle>
+    <circle
+      id="scroll-to-top-progress"
+      cx={size / 2}
+      cy={size / 2}
+      r={radius}
+      fill="none"
+      stroke="url(#scroll-to-top-progress-gradient)"
+      stroke-width={strokeWidth}
+      stroke-linecap="round"
+      stroke-dasharray={circumference}
+      stroke-dashoffset={circumference}
+      data-circumference={circumference}
+      class="transition-all duration-150 ease-out"></circle>
+    <defs>
+      <linearGradient id="scroll-to-top-progress-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#3b82f6"></stop>
+        <stop offset="100%" stop-color="#06b6d4"></stop>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div
+    class="absolute inset-[4px] rounded-full bg-background dark:bg-card shadow-sm group-hover:shadow-md transition-shadow duration-300 border border-border/30 dark:border-border/20"
+  >
+  </div>
+
+  <svg
+    class="absolute inset-0 m-auto w-5 h-5 text-primary transition-transform duration-300 group-hover:-translate-y-0.5"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M12 19V5"></path>
+    <path d="M5 12l7-7 7 7"></path>
+  </svg>
+</button>
+
+<script>
+  let cleanupScrollToTop = () => {};
+
+  const setupScrollToTop = () => {
+    cleanupScrollToTop();
+
+    const button = document.getElementById('scroll-to-top');
+    const progressCircle = document.getElementById('scroll-to-top-progress');
+
+    if (!(button instanceof HTMLButtonElement) || !(progressCircle instanceof SVGCircleElement)) {
+      cleanupScrollToTop = () => {};
+      return;
+    }
+
+    const circumference = Number(progressCircle.dataset.circumference || '0');
+
+    const updateState = () => {
+      const isVisible = window.scrollY > 300;
+      button.classList.toggle('opacity-100', isVisible);
+      button.classList.toggle('translate-y-0', isVisible);
+      button.classList.toggle('opacity-0', !isVisible);
+      button.classList.toggle('translate-y-4', !isVisible);
+      button.classList.toggle('pointer-events-none', !isVisible);
+
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollPercent = docHeight > 0 ? (window.scrollY / docHeight) * 100 : 0;
+      const progress = Math.min(100, Math.max(0, scrollPercent));
+      progressCircle.style.strokeDashoffset = String(
+        circumference - (progress / 100) * circumference
+      );
+    };
+
+    const scrollToTop = () => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+    };
+
+    button.addEventListener('click', scrollToTop);
+    window.addEventListener('scroll', updateState, { passive: true });
+    window.addEventListener('resize', updateState);
+    updateState();
+
+    cleanupScrollToTop = () => {
+      button.removeEventListener('click', scrollToTop);
+      window.removeEventListener('scroll', updateState);
+      window.removeEventListener('resize', updateState);
+    };
+  };
+
+  document.addEventListener('astro:page-load', setupScrollToTop);
+  document.addEventListener('astro:before-swap', () => cleanupScrollToTop());
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupScrollToTop, { once: true });
+  } else {
+    setupScrollToTop();
+  }
+</script>

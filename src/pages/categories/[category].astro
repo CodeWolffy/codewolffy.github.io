@@ -2,15 +2,14 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import PostCard from '@/components/blog/PostCard.astro';
+import { getPublicBlogPostsSorted, createTaxonomyNameMap } from '@/utils/posts';
 
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const allPosts = await getCollection('blog', ({ data }) => {
-    return import.meta.env.PROD ? data.draft !== true : true;
-  });
+  const allPosts = await getPublicBlogPostsSorted();
   const allCategories = await getCollection('categories');
-  const categoryMap = new Map(allCategories.map((c) => [c.id, c.data.name]));
+  const categoryMap = createTaxonomyNameMap(allCategories);
 
   // Get unique categories from posts
   const uniqueCategories = [...new Set(allPosts.map((post) => post.data.category).filter(Boolean))];
@@ -29,7 +28,7 @@ const { posts, categoryName } = Astro.props;
 
 // Get tags for the card labels
 const allTags = await getCollection('tags');
-const tagMap = new Map(allTags.map((t) => [t.id, t.data.name]));
+const tagMap = createTaxonomyNameMap(allTags);
 ---
 
 <BaseLayout title={`分类: ${categoryName}`}>

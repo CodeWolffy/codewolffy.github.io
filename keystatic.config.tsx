@@ -4,24 +4,18 @@ import { block } from '@keystatic/core/content-components';
 import { normalizeIframeUrl } from './src/utils/iframe-url';
 import type { ReactNode } from 'react';
 
-// Keystatic GitHub 存储所需变量校验
-// 当配置了 KEYSTATIC_GITHUB_CLIENT_ID 时启用 GitHub 存储模式，否则回退到本地文件系统。
-// 这样静态构建（如 GitHub Pages）不会因为 NODE_ENV=production 而强制要求这些变量。
-const useGitHubStorage = !!process.env.KEYSTATIC_GITHUB_CLIENT_ID;
-if (useGitHubStorage) {
-  const requiredEnvVars = [
-    'KEYSTATIC_GITHUB_CLIENT_ID',
-    'KEYSTATIC_GITHUB_CLIENT_SECRET',
-    'KEYSTATIC_SECRET',
-  ];
-  const missing = requiredEnvVars.filter((name) => !process.env[name]);
-  if (missing.length > 0) {
-    throw new Error(
-      `[Keystatic] 启用 GitHub 存储模式时缺少必需的环境变量: ${missing.join(', ')}。\n` +
-        `请参考 .env.example 配置 KEYSTATIC_GITHUB_CLIENT_ID、KEYSTATIC_GITHUB_CLIENT_SECRET 和 KEYSTATIC_SECRET。`
-    );
-  }
-}
+const keystaticStorage =
+  process.env.NODE_ENV === 'production'
+    ? {
+        kind: 'github' as const,
+        repo: {
+          owner: 'CodeWolffy',
+          name: 'codewolffy.github.io',
+        },
+      }
+    : {
+        kind: 'local' as const,
+      };
 
 export default config({
   ui: {
@@ -48,9 +42,9 @@ export default config({
                             background-color: #f8fafc !important;
                             font-weight: bold !important;
                         }
-                        /* 增加编辑器内容区的宽度限制，以便显示宽表格 */
+                        /* 编辑器内容区宽度与前台页面保持一致，避免后台预览过窄 */
                         div[data-keystatic-scroll-area] > div > div {
-                            max-width: 900px !important;
+                            max-width: 100% !important;
                         }
                         /* 放大 GitHub 登录按钮 */
                         a[href*="/api/keystatic/github/login"] {
@@ -68,14 +62,7 @@ export default config({
       友链管理: ['friends'],
     },
   },
-  storage: useGitHubStorage
-    ? {
-        kind: 'github',
-        repo: 'CodeWolffy/codewolffy.github.io',
-      }
-    : {
-        kind: 'local',
-      },
+  storage: keystaticStorage,
   singletons: {
     about: singleton({
       label: '🙋 关于我',

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { stringify as stringifyYaml } from 'yaml';
 import { Download, FileText, FileCode, Printer, ChevronDown, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -183,38 +184,25 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
 
   // 生成 frontmatter 字符串
   const generateFrontmatter = (customCoverImage?: string) => {
-    const lines = ['---'];
-    lines.push(`title: ${frontmatter.title}`);
-    if (frontmatter.description) {
-      if (frontmatter.description.includes('\n')) {
-        lines.push(`description: |-`);
-        frontmatter.description.split('\n').forEach((line) => lines.push(`  ${line}`));
-      } else {
-        lines.push(`description: ${frontmatter.description}`);
-      }
-    }
+    const originalCover = frontmatter.coverImage || frontmatter.heroImage;
+    const exportFrontmatter: Record<string, unknown> = {
+      title: frontmatter.title,
+    };
+
+    if (frontmatter.description) exportFrontmatter.description = frontmatter.description;
     if (frontmatter.pubDate)
-      lines.push(`pubDate: ${frontmatter.pubDate.toISOString().split('T')[0]}`);
+      exportFrontmatter.pubDate = frontmatter.pubDate.toISOString().split('T')[0];
     if (frontmatter.updatedDate)
-      lines.push(`updatedDate: ${frontmatter.updatedDate.toISOString().split('T')[0]}`);
-
-    if (customCoverImage) {
-      lines.push(`coverImage: ${customCoverImage}`);
-    } else {
-      const originalCover = frontmatter.coverImage || frontmatter.heroImage;
-      if (originalCover && !originalCover.trim().startsWith('data:')) {
-        lines.push(`coverImage: ${originalCover}`);
-      }
+      exportFrontmatter.updatedDate = frontmatter.updatedDate.toISOString().split('T')[0];
+    if (customCoverImage) exportFrontmatter.coverImage = customCoverImage;
+    else if (originalCover && !originalCover.trim().startsWith('data:')) {
+      exportFrontmatter.coverImage = originalCover;
     }
+    if (frontmatter.draft !== undefined) exportFrontmatter.draft = frontmatter.draft;
+    if (frontmatter.category) exportFrontmatter.category = frontmatter.category;
+    if (frontmatter.tags?.length) exportFrontmatter.tags = frontmatter.tags;
 
-    if (frontmatter.draft !== undefined) lines.push(`draft: ${frontmatter.draft}`);
-    if (frontmatter.category) lines.push(`category: ${frontmatter.category}`);
-    if (frontmatter.tags?.length) {
-      lines.push('tags:');
-      frontmatter.tags.forEach((tag) => lines.push(`  - ${tag}`));
-    }
-    lines.push('---');
-    return lines.join('\n');
+    return `---\n${stringifyYaml(exportFrontmatter, { lineWidth: 0 }).trimEnd()}\n---`;
   };
 
   // 辅助：生成 Markdown 可见头部

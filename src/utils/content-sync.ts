@@ -2,6 +2,16 @@ import fs from 'fs/promises';
 import path from 'path';
 import { parse as parseYaml } from 'yaml';
 
+export interface SyncContentOptions {
+  check?: boolean;
+  strict?: boolean;
+}
+
+interface ExtractedTaxonomies {
+  tags: Set<string>;
+  categories: Set<string>;
+}
+
 function normalizeReferenceValue(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
@@ -25,43 +35,68 @@ function collectReferenceValues(value: unknown): string[] {
   return normalized ? [normalized] : [];
 }
 
-interface ExtractedTaxonomies {
-  tags: Set<string>;
-  categories: Set<string>;
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-function parseFrontmatter(content: string): Record<string, unknown> {
+function safeDefinitionFilename(name: string): string {
+  return `${name.replace(/[\\/:*?"<>|]/g, '_')}.json`;
+}
+
+function parseFrontmatter(content: string, filePath = ''): Record<string, unknown> {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!match) return {};
-  const parsed = parseYaml(match[1]);
-  return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+
+  try {
+    const parsed = parseYaml(match[1]);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+  } catch (error) {
+    const source = filePath ? ` in ${filePath}` : '';
+    throw new Error(`Failed to parse frontmatter${source}: ${formatError(error)}`);
+  }
 }
 
-function extractTagsAndCategories(content: string, filePath = ''): ExtractedTaxonomies {
+function extractTagsAndCategories(
+  content: string,
+  filePath = '',
+  reportError: (message: string) => void = (message) => console.error(`[ContentSync] ${message}`)
+): ExtractedTaxonomies {
   const tags = new Set<string>();
   const categories = new Set<string>();
 
   try {
-    const data = parseFrontmatter(content);
+    const data = parseFrontmatter(content, filePath);
 
     collectReferenceValues(data.tags).forEach((tag) => tags.add(tag));
     collectReferenceValues(data.category).forEach((category) => categories.add(category));
   } catch (error) {
-    const source = filePath ? ` in ${filePath}` : '';
-    console.error(`[ContentSync] Failed to parse frontmatter${source}:`, error);
+    reportError(formatError(error));
   }
 
   return { tags, categories };
 }
 
-export async function syncContent(rootDir: string): Promise<void> {
+export async function syncContent(
+  rootDir: string,
+  options: SyncContentOptions = {}
+): Promise<void> {
+  const checkOnly = options.check === true;
+  const strict = options.strict === true || checkOnly;
+  const errors: string[] = [];
   const BLOG_DIR = path.resolve(rootDir, 'src/content/blog');
   const TAGS_DIR = path.resolve(rootDir, 'src/content/tags');
   const CATEGORIES_DIR = path.resolve(rootDir, 'src/content/categories');
 
   // Ensure directories exist
-  await fs.mkdir(TAGS_DIR, { recursive: true });
-  await fs.mkdir(CATEGORIES_DIR, { recursive: true });
+  if (!checkOnly) {
+    await fs.mkdir(TAGS_DIR, { recursive: true });
+    await fs.mkdir(CATEGORIES_DIR, { recursive: true });
+  }
+
+  const reportError = (message: string) => {
+    errors.push(message);
+    console.error(`[ContentSync] ${message}`);
+  };
 
   async function getFiles(dir: string): Promise<string[]> {
     try {
@@ -70,7 +105,9 @@ export async function syncContent(rootDir: string): Promise<void> {
         .filter((dirent) => dirent.isFile() && dirent.name.endsWith('.mdx'))
         .map((dirent) => path.join(dir, dirent.name));
     } catch (e) {
-      console.error(`Error reading directory ${dir}:`, e);
+      const message = `Error reading directory ${dir}: ${formatError(e)}`;
+      if (strict) reportError(message);
+      else console.error(message);
       return [];
     }
   }
@@ -87,7 +124,7 @@ export async function syncContent(rootDir: string): Promise<void> {
 
   for (const file of blogFiles) {
     const content = await readFileContent(file);
-    const { tags, categories } = extractTagsAndCategories(content, file);
+    const { tags, categories } = extractTagsAndCategories(content, file, reportError);
 
     tags.forEach((t) => allTags.add(t));
     categories.forEach((c) => allCategories.add(c));
@@ -115,8 +152,9 @@ export async function syncContent(rootDir: string): Promise<void> {
           if (fileName.toLowerCase() === safeTagName.toLowerCase()) {
             caseInsensitiveMatch = { file, name: content.name ?? fileName };
           }
-        } catch {
-          // Ignore malformed JSON files
+        } catch (e) {
+          const message = `Error reading definition file ${path.join(dir, file)}: ${formatError(e)}`;
+          if (strict) reportError(message);
         }
       }
 
@@ -127,7 +165,9 @@ export async function syncContent(rootDir: string): Promise<void> {
         return true;
       }
     } catch (e) {
-      console.error(e);
+      const message = `Error reading definition directory ${dir}: ${formatError(e)}`;
+      if (strict) reportError(message);
+      else console.error(message);
     }
     return false;
   };
@@ -137,9 +177,16 @@ export async function syncContent(rootDir: string): Promise<void> {
   // Sync Tags
   for (const tag of allTags) {
     if (!(await existsInDir(TAGS_DIR, tag))) {
+      const safeFilename = safeDefinitionFilename(tag);
+      const targetPath = path.join(TAGS_DIR, safeFilename);
+
+      if (checkOnly) {
+        reportError(`Missing tag definition: ${tag} (${path.relative(rootDir, targetPath)})`);
+        continue;
+      }
+
       console.log(`[AutoSync] Creating missing tag: ${tag}`);
-      const safeFilename = tag.replace(/[\\/:*?"<>|]/g, '_') + '.json';
-      await fs.writeFile(path.join(TAGS_DIR, safeFilename), JSON.stringify({ name: tag }, null, 2));
+      await fs.writeFile(targetPath, JSON.stringify({ name: tag }, null, 2));
       changes++;
     }
   }
@@ -147,14 +194,24 @@ export async function syncContent(rootDir: string): Promise<void> {
   // Sync Categories
   for (const category of allCategories) {
     if (!(await existsInDir(CATEGORIES_DIR, category))) {
+      const safeFilename = safeDefinitionFilename(category);
+      const targetPath = path.join(CATEGORIES_DIR, safeFilename);
+
+      if (checkOnly) {
+        reportError(
+          `Missing category definition: ${category} (${path.relative(rootDir, targetPath)})`
+        );
+        continue;
+      }
+
       console.log(`[AutoSync] Creating missing category: ${category}`);
-      const safeFilename = category.replace(/[\\/:*?"<>|]/g, '_') + '.json';
-      await fs.writeFile(
-        path.join(CATEGORIES_DIR, safeFilename),
-        JSON.stringify({ name: category }, null, 2)
-      );
+      await fs.writeFile(targetPath, JSON.stringify({ name: category }, null, 2));
       changes++;
     }
+  }
+
+  if (errors.length > 0 && strict) {
+    throw new Error(`[ContentSync] Found ${errors.length} content consistency issue(s).`);
   }
 
   if (changes > 0) {

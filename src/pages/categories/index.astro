@@ -1,42 +1,26 @@
 ---
+export const prerender = true;
+
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import { getCategoryPath, getTagPath } from '@/utils/content-paths';
+import {
+  countPostCategories,
+  countPostTags,
+  createTaxonomyNameMap,
+  getPublicBlogPosts,
+} from '@/utils/posts';
 
-const allPosts = await getCollection('blog');
+const allPosts = await getPublicBlogPosts();
 const categories = await getCollection('categories');
 const tags = await getCollection('tags');
 const pageTitle = '分类与标签';
 
-// Calculate Categories
-const categoryMap = new Map(categories.map((c) => [c.id, c.data.name]));
-const categoryCounts: Record<string, { id: string; name: string; count: number }> = {};
-allPosts.forEach((post) => {
-  if (post.data.category) {
-    const catId = post.data.category;
-    const catName = categoryMap.get(catId) || catId;
-    if (!categoryCounts[catId]) {
-      categoryCounts[catId] = { id: catId, name: catName, count: 0 };
-    }
-    categoryCounts[catId].count++;
-  }
-});
-const sortedCategories = Object.values(categoryCounts).sort((a, b) => b.count - a.count);
+const categoryMap = createTaxonomyNameMap(categories);
+const sortedCategories = countPostCategories(allPosts, categoryMap);
 
-// Calculate Tags
-const tagMap = new Map(tags.map((t) => [t.id, t.data.name]));
-const tagCounts: Record<string, { id: string; name: string; count: number }> = {};
-allPosts.forEach((post) => {
-  if (post.data.tags) {
-    post.data.tags.forEach((tagId) => {
-      const tagName = tagMap.get(tagId) || tagId;
-      if (!tagCounts[tagId]) {
-        tagCounts[tagId] = { id: tagId, name: tagName, count: 0 };
-      }
-      tagCounts[tagId].count++;
-    });
-  }
-});
-const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
+const tagMap = createTaxonomyNameMap(tags);
+const sortedTags = countPostTags(allPosts, tagMap);
 ---
 
 <BaseLayout title={pageTitle}>
@@ -65,15 +49,15 @@ const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
             ) : (
               sortedCategories.map((category, index) => (
                 <a
-                  href={`/categories/${category.id}`}
-                  class="group relative flex flex-col justify-between space-y-2 rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300 animate-slide-up opacity-0"
+                  href={getCategoryPath(category.id)}
+                  class="group relative flex min-w-0 flex-col justify-between space-y-2 rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300 animate-slide-up opacity-0"
                   style={`animation-delay: ${index * 100}ms;`}
                 >
-                  <div class="flex items-center justify-between">
-                    <h3 class="font-semibold text-xl group-hover:text-primary transition-colors">
+                  <div class="flex min-w-0 items-center justify-between gap-3">
+                    <h3 class="min-w-0 break-words font-semibold text-xl group-hover:text-primary transition-colors">
                       {category.name}
                     </h3>
-                    <span class="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                    <span class="shrink-0 text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                       {category.count} 篇
                     </span>
                   </div>
@@ -101,12 +85,12 @@ const sortedTags = Object.values(tagCounts).sort((a, b) => b.count - a.count);
             ) : (
               sortedTags.map((tag, index) => (
                 <a
-                  href={`/tags/${tag.id}`}
-                  class="group inline-flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm animate-slide-up opacity-0"
+                  href={getTagPath(tag.id)}
+                  class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm animate-slide-up opacity-0"
                   style={`animation-delay: ${index * 50}ms;`}
                 >
                   <span class="text-muted-foreground group-hover:text-primary/70">#</span>
-                  {tag.name}
+                  <span class="min-w-0 break-words">{tag.name}</span>
                   <span class="ml-1 text-xs text-muted-foreground/50 group-hover:text-primary/50">
                     {tag.count}
                   </span>
