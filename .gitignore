@@ -31,3 +31,6 @@ pnpm-debug.log*
 
 # AI planning / runtime docs
 .trae/
+
+# blog drafts/content folder
+/my_blogs/

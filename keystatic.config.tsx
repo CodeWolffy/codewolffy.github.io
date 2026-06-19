@@ -289,21 +289,27 @@ export default config({
           {
             label: '标签列表',
             itemLabel: (props) => {
-              const val = props.value as unknown as
-                | { discriminant: 'existing'; value: unknown }
-                | { discriminant: 'custom'; value: string }
-                | undefined;
-              // Helper to extract label for the list item
-              if (val?.discriminant === 'existing') {
-                const existing = val.value as
-                  | { data?: { name?: string }; label?: string }
-                  | null
-                  | undefined;
-                return existing?.data?.name ?? existing?.label ?? '选择标签';
+              const value = props.value as unknown;
+
+              if (typeof value === 'string' && value.trim()) {
+                return value;
               }
-              if (val?.discriminant === 'custom') {
-                return val.value || '输入标签';
+
+              if (value && typeof value === 'object') {
+                const item = value as {
+                  value?: unknown;
+                  label?: unknown;
+                };
+
+                if (typeof item.value === 'string' && item.value.trim()) {
+                  return item.value;
+                }
+
+                if (typeof item.label === 'string' && item.label.trim()) {
+                  return item.label;
+                }
               }
+
               return '标签';
             },
             description: '点击 "添加" 按钮增加多个标签',
