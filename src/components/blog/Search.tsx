@@ -315,18 +315,19 @@ export function Search() {
               </p>
             </div>
           )}
-          {searchStatus === 'ready' && hasSearchQuery && (
-            <div
-              ref={pagefindContainerRef}
-              id="pagefind-results"
-              className="max-h-[70vh] overflow-y-auto p-2"
-            />
-          )}
           {searchStatus === 'ready' && !hasSearchQuery && (
             <div className="flex min-h-[6rem] items-center justify-center p-4 text-sm text-muted-foreground">
               输入关键词后显示搜索结果
             </div>
           )}
+          <div
+            ref={pagefindContainerRef}
+            id="pagefind-results"
+            className={cn(
+              'max-h-[70vh] overflow-y-auto p-2',
+              searchStatus === 'ready' && hasSearchQuery ? 'block' : 'hidden'
+            )}
+          />
         </div>
       )}
     </div>
