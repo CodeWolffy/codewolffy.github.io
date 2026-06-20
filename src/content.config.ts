@@ -145,4 +145,80 @@ const projects = defineCollection({
   }),
 });
 
-export const collections = { blog, pages, friendsPage, friends, projects, categories, tags };
+const site = defineCollection({
+  loader: dataLoader('site'),
+  schema: z.object({
+    name: z.string(),
+    description: z.string(),
+    author: z.object({
+      name: z.string(),
+    }),
+    urls: z.object({
+      primary: z.string(),
+      githubPages: z.string(),
+    }),
+    og: z.object({
+      defaultImage: z.string(),
+      locale: z.string(),
+    }),
+    rss: z.object({
+      title: z.string(),
+      description: z.string(),
+      language: z.string(),
+      stylesheet: z.string(),
+    }),
+    verification: z.object({
+      google: z.array(z.string()).default([]),
+    }),
+    analytics: z.object({
+      busuanzi: z.object({
+        enabled: z.boolean().default(true),
+        origin: z.string(),
+        scriptId: z.string(),
+        scriptSrc: z.string(),
+        pagePvContainerId: z.string(),
+        pagePvValueId: z.string(),
+        timeoutMs: z.number(),
+      }),
+    }),
+    comments: z.object({
+      giscus: z.object({
+        enabled: z.boolean().default(true),
+        id: z.string(),
+        repo: z.string(),
+        repoId: z.string(),
+        category: z.string(),
+        categoryId: z.string(),
+        mapping: z.string(),
+        reactionsEnabled: z.string(),
+        emitMetadata: z.string(),
+        inputPosition: z.string(),
+        lang: z.string(),
+        loading: z.string(),
+      }),
+    }),
+    socials: z
+      .array(
+        z.object({
+          label: z.string(),
+          href: z.string(),
+        })
+      )
+      .default([]),
+    navigation: z
+      .array(
+        z.object({
+          label: z.string(),
+          href: z.string(),
+        })
+      )
+      .default([]),
+    links: z.object({
+      github: z.string(),
+      rss: z.string(),
+      keystaticPosts: z.string(),
+    }),
+  }),
+});
+
+export const collections = { blog, pages, friendsPage, friends, projects, categories, tags, site };

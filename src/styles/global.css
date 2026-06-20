@@ -175,6 +175,8 @@
 }
 
 /* Hide pagefind's built-in search input since we use our own */
+#pagefind-results .pagefind-ui__search,
+#pagefind-results .pagefind-ui__form,
 #pagefind-results .pagefind-ui__search-input,
 #pagefind-results .pagefind-ui__search-clear {
   display: none !important;
@@ -298,7 +300,8 @@
   position: relative;
   border-radius: 0.75rem;
   border: 1px solid hsl(240 5.9% 90%);
-  padding: 1.5rem 1rem 0.25rem 0;
+  padding: 1.25rem 1rem 0.25rem 0;
+  margin: 0.75em 0;
   overflow-x: hidden;
   font-size: 0.97rem;
   line-height: 1.5;
@@ -342,7 +345,7 @@
 .prose pre code .line {
   display: inline-block;
   width: 100%;
-  padding: 0 0.5rem;
+  padding: 0 0.35rem;
   /* Reduced padding */
   position: relative;
 }
@@ -437,8 +440,61 @@
 
 .prose p {
   line-height: 1.6;
-  margin-top: 0.6em;
-  margin-bottom: 0.6em;
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+
+/* 压缩文章各元素间距 */
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.prose hr {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.prose ul,
+.prose ol {
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+
+.prose li {
+  margin-top: 0.15em;
+  margin-bottom: 0.15em;
+}
+
+.prose blockquote {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  padding: 0.5rem 1rem;
+}
+
+.prose figure {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.prose img {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.prose .table-wrapper {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.prose .callout {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
 }
 
 /* 移动端 prose 内容宽度限制 */

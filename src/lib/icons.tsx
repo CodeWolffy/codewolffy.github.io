@@ -12,6 +12,10 @@ import {
   Bookmark,
   Flame,
   Music,
+  Rss,
+  Facebook,
+  Gitlab,
+  Code,
 } from 'lucide-react';
 import type { FC, SVGProps } from 'react';
 
@@ -97,6 +101,18 @@ export function getIconComponent(iconType: string | undefined): FC<{ className?:
       return Phone;
     case 'globe':
       return Globe;
+    case 'rss':
+      return Rss;
+    case 'x':
+      return iconSvgs.twitter;
+    case 'facebook':
+      return Facebook;
+    case 'gitlab':
+      return Gitlab;
+    case 'gitee':
+      return Globe;
+    case 'csdn':
+      return Code;
     default:
       return LinkIcon;
   }

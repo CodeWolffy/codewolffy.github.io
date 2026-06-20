@@ -37,6 +37,7 @@ export const siteConfig = {
   },
   comments: {
     giscus: {
+      enabled: true,
       id: 'comments',
       repo: 'CodeWolffy/codewolffy.github.io',
       repoId: 'R_kgDOQ9k4Jg',

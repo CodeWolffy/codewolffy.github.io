@@ -60,6 +60,7 @@ export default config({
       博客管理: ['posts'],
       页面管理: ['about', 'friendsPage', 'projects'],
       友链管理: ['friends'],
+      站点设置: ['siteSettings'],
     },
   },
   storage: keystaticStorage,
@@ -110,6 +111,12 @@ export default config({
                 { label: '掘金', value: 'juejin' },
                 { label: '电话', value: 'phone' },
                 { label: '网站', value: 'globe' },
+                { label: 'RSS', value: 'rss' },
+                { label: 'X (Twitter)', value: 'x' },
+                { label: 'Facebook', value: 'facebook' },
+                { label: 'GitLab', value: 'gitlab' },
+                { label: 'Gitee', value: 'gitee' },
+                { label: 'CSDN', value: 'csdn' },
                 { label: '其他', value: 'link' },
               ],
               defaultValue: 'link',
@@ -170,6 +177,12 @@ export default config({
                 { label: '掘金', value: 'juejin' },
                 { label: '电话', value: 'phone' },
                 { label: '网站', value: 'globe' },
+                { label: 'RSS', value: 'rss' },
+                { label: 'X (Twitter)', value: 'x' },
+                { label: 'Facebook', value: 'facebook' },
+                { label: 'GitLab', value: 'gitlab' },
+                { label: 'Gitee', value: 'gitee' },
+                { label: 'CSDN', value: 'csdn' },
                 { label: '其他', value: 'link' },
               ],
               defaultValue: 'link',
@@ -180,6 +193,159 @@ export default config({
             itemLabel: (props) => props.fields.name.value || '联系方式',
             description: '添加申请友链的联系方式',
           }
+        ),
+      },
+    }),
+    siteSettings: singleton({
+      label: '⚙️ 站点设置',
+      path: 'src/content/site/settings',
+      format: { data: 'json' },
+      schema: {
+        name: fields.text({ label: '站点名称' }),
+        description: fields.text({ label: '站点描述', multiline: true }),
+        author: fields.object(
+          {
+            name: fields.text({ label: '作者名称' }),
+          },
+          { label: '作者信息' }
+        ),
+        urls: fields.object(
+          {
+            primary: fields.text({ label: '主站点地址' }),
+            githubPages: fields.text({ label: 'GitHub Pages 地址' }),
+          },
+          { label: '站点地址' }
+        ),
+        og: fields.object(
+          {
+            defaultImage: fields.text({ label: '默认 OG 图片' }),
+            locale: fields.text({ label: 'OG 语言' }),
+          },
+          { label: 'Open Graph' }
+        ),
+        rss: fields.object(
+          {
+            title: fields.text({ label: 'RSS 标题' }),
+            description: fields.text({ label: 'RSS 描述', multiline: true }),
+            language: fields.text({ label: 'RSS 语言' }),
+            stylesheet: fields.text({ label: 'RSS 样式表' }),
+          },
+          { label: 'RSS 设置' }
+        ),
+        verification: fields.object(
+          {
+            google: fields.array(fields.text({ label: '验证码' }), {
+              label: 'Google 站点验证',
+              itemLabel: (props) => props.value || '验证码',
+            }),
+          },
+          { label: '站点验证' }
+        ),
+        analytics: fields.object(
+          {
+            busuanzi: fields.object(
+              {
+                enabled: fields.checkbox({ label: '启用不蒜子统计', defaultValue: true }),
+                origin: fields.text({ label: '不蒜子 Origin' }),
+                scriptId: fields.text({ label: '脚本 ID' }),
+                scriptSrc: fields.text({ label: '脚本地址' }),
+                pagePvContainerId: fields.text({ label: '页面 PV 容器 ID' }),
+                pagePvValueId: fields.text({ label: '页面 PV 值 ID' }),
+                timeoutMs: fields.number({ label: '超时时间 (ms)', defaultValue: 5000 }),
+              },
+              { label: '不蒜子统计' }
+            ),
+          },
+          { label: '统计代码' }
+        ),
+        comments: fields.object(
+          {
+            giscus: fields.object(
+              {
+                enabled: fields.checkbox({ label: '启用 Giscus 评论', defaultValue: true }),
+                id: fields.text({ label: '容器 ID' }),
+                repo: fields.text({ label: '仓库 (owner/repo)' }),
+                repoId: fields.text({ label: '仓库 ID' }),
+                category: fields.text({ label: '分类' }),
+                categoryId: fields.text({ label: '分类 ID' }),
+                mapping: fields.select({
+                  label: '映射方式',
+                  options: [
+                    { label: 'pathname', value: 'pathname' },
+                    { label: 'url', value: 'url' },
+                    { label: 'title', value: 'title' },
+                    { label: 'og:title', value: 'og:title' },
+                    { label: 'specific', value: 'specific' },
+                    { label: 'number', value: 'number' },
+                  ],
+                  defaultValue: 'pathname',
+                }),
+                reactionsEnabled: fields.select({
+                  label: '启用反应',
+                  options: [
+                    { label: '启用', value: '1' },
+                    { label: '禁用', value: '0' },
+                  ],
+                  defaultValue: '1',
+                }),
+                emitMetadata: fields.select({
+                  label: '发送元数据',
+                  options: [
+                    { label: '启用', value: '1' },
+                    { label: '禁用', value: '0' },
+                  ],
+                  defaultValue: '0',
+                }),
+                inputPosition: fields.select({
+                  label: '输入框位置',
+                  options: [
+                    { label: '底部', value: 'bottom' },
+                    { label: '顶部', value: 'top' },
+                  ],
+                  defaultValue: 'bottom',
+                }),
+                lang: fields.text({ label: '语言', defaultValue: 'zh-CN' }),
+                loading: fields.select({
+                  label: '加载方式',
+                  options: [
+                    { label: 'eager', value: 'eager' },
+                    { label: 'lazy', value: 'lazy' },
+                  ],
+                  defaultValue: 'eager',
+                }),
+              },
+              { label: 'Giscus 评论' }
+            ),
+          },
+          { label: '评论设置' }
+        ),
+        socials: fields.array(
+          fields.object({
+            label: fields.text({ label: '平台名称' }),
+            href: fields.text({ label: '链接地址' }),
+          }),
+          {
+            label: '社交链接',
+            itemLabel: (props) => props.fields.label.value || '社交链接',
+          }
+        ),
+        navigation: fields.array(
+          fields.object({
+            label: fields.text({ label: '导航名称' }),
+            href: fields.text({ label: '链接地址' }),
+          }),
+          {
+            label: '顶部导航',
+            itemLabel: (props) => props.fields.label.value || '导航项',
+          }
+        ),
+        links: fields.object(
+          {
+            github: fields.text({ label: 'GitHub 链接' }),
+            rss: fields.text({ label: 'RSS 链接' }),
+            keystaticPosts: fields.text({ label: 'Keystatic 文章链接前缀' }),
+          },
+          { label: '其他链接' }
         ),
       },
     }),
@@ -678,6 +844,173 @@ export default config({
                   </div>
                 );
               },
+            }),
+            Details: block({
+              label: '🔽 折叠详情 (Details)',
+              schema: {
+                title: fields.text({ label: '标题' }),
+                open: fields.checkbox({ label: '默认展开', defaultValue: false }),
+                content: fields.child({
+                  kind: 'block',
+                  placeholder: '请输入折叠内容...',
+                  formatting: 'inherit',
+                  links: 'inherit',
+                }),
+              },
+              ContentView: (props: {
+                value: { title: string; open: boolean };
+                children?: ReactNode;
+              }) => (
+                <div
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    margin: '16px 0',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      background: '#f8fafc',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {props.value.title}
+                  </div>
+                  <div style={{ padding: '16px' }}>{props.children}</div>
+                </div>
+              ),
+            }),
+            LinkCard: block({
+              label: '🔗 链接卡片 (LinkCard)',
+              schema: {
+                title: fields.text({ label: '标题' }),
+                url: fields.text({ label: '链接' }),
+                description: fields.text({ label: '描述', multiline: true }),
+              },
+              ContentView: (props) => (
+                <div
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    margin: '16px 0',
+                    background: '#fff',
+                  }}
+                >
+                  <div style={{ fontWeight: 500 }}>{props.value.title}</div>
+                  {props.value.description && (
+                    <div style={{ color: '#64748b', marginTop: '4px' }}>
+                      {props.value.description}
+                    </div>
+                  )}
+                  <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '8px' }}>
+                    {props.value.url}
+                  </div>
+                </div>
+              ),
+            }),
+            Steps: block({
+              label: '📝 步骤 (Steps)',
+              schema: {
+                items: fields.array(
+                  fields.object({
+                    title: fields.text({ label: '步骤标题' }),
+                    content: fields.text({ label: '步骤内容', multiline: true }),
+                  }),
+                  {
+                    label: '步骤',
+                    itemLabel: (props) => props.fields.title.value || '步骤',
+                  }
+                ),
+              },
+              ContentView: (props) => (
+                <div style={{ margin: '16px 0' }}>
+                  {props.value.items.map((item, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                      <div
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          background: '#e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 500 }}>{item.title}</div>
+                        <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>
+                          {item.content}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ),
+            }),
+            CodeGroup: block({
+              label: '💻 代码组 (CodeGroup)',
+              schema: {
+                items: fields.array(
+                  fields.object({
+                    label: fields.text({ label: '标签名' }),
+                    language: fields.text({ label: '语言', defaultValue: 'text' }),
+                    code: fields.text({ label: '代码', multiline: true }),
+                  }),
+                  {
+                    label: '代码块',
+                    itemLabel: (props) => props.fields.label.value || '代码块',
+                  }
+                ),
+              },
+              ContentView: (props) => (
+                <div
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    margin: '16px 0',
+                  }}
+                >
+                  <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                    {props.value.items.map((item, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          background: index === 0 ? '#fff' : 'transparent',
+                          borderBottom: index === 0 ? '2px solid #3b82f6' : 'none',
+                        }}
+                      >
+                        {item.label}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ padding: '16px', background: '#fff' }}>
+                    <pre
+                      style={{
+                        margin: 0,
+                        fontFamily: 'ui-monospace, monospace',
+                        fontSize: '13px',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {props.value.items[0]?.code}
+                    </pre>
+                  </div>
+                </div>
+              ),
             }),
           }, // Close components
         }), // Close fields.mdx

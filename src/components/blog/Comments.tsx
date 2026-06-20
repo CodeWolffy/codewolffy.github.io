@@ -1,9 +1,27 @@
 import { useState, useEffect } from 'react';
 import Giscus from '@giscus/react';
-import { siteConfig } from '@/config/site';
 import { useTheme } from '@/hooks/useTheme';
 
-export function Comments() {
+interface GiscusConfig {
+  enabled: boolean;
+  id: string;
+  repo: string;
+  repoId: string;
+  category: string;
+  categoryId: string;
+  mapping: string;
+  reactionsEnabled: string;
+  emitMetadata: string;
+  inputPosition: string;
+  lang: string;
+  loading: string;
+}
+
+interface CommentsProps {
+  giscus: GiscusConfig;
+}
+
+export function Comments({ giscus }: CommentsProps) {
   const theme = useTheme();
 
   // 处理 GitHub 登录后保持在评论区位置
@@ -73,20 +91,20 @@ export function Comments() {
       className="w-full mt-2 scroll-mt-20 min-h-[300px]"
       style={{ contain: 'content' }} // CSS Isolation: isolates layout calculations
     >
-      {shouldLoad && (
+      {shouldLoad && giscus.enabled && (
         <Giscus
-          id={siteConfig.comments.giscus.id}
-          repo={siteConfig.comments.giscus.repo as `${string}/${string}`}
-          repoId={siteConfig.comments.giscus.repoId}
-          category={siteConfig.comments.giscus.category}
-          categoryId={siteConfig.comments.giscus.categoryId}
-          mapping={siteConfig.comments.giscus.mapping as 'pathname'}
-          reactionsEnabled={siteConfig.comments.giscus.reactionsEnabled as '0' | '1'}
-          emitMetadata={siteConfig.comments.giscus.emitMetadata as '0' | '1'}
-          inputPosition={siteConfig.comments.giscus.inputPosition as 'top' | 'bottom'}
+          id={giscus.id}
+          repo={giscus.repo as `${string}/${string}`}
+          repoId={giscus.repoId}
+          category={giscus.category}
+          categoryId={giscus.categoryId}
+          mapping={giscus.mapping as 'pathname'}
+          reactionsEnabled={giscus.reactionsEnabled as '0' | '1'}
+          emitMetadata={giscus.emitMetadata as '0' | '1'}
+          inputPosition={giscus.inputPosition as 'top' | 'bottom'}
           theme={theme}
-          lang={siteConfig.comments.giscus.lang as 'zh-CN'}
-          loading={siteConfig.comments.giscus.loading as 'eager'} // Load immediately once component is mounted
+          lang={giscus.lang as 'zh-CN'}
+          loading={giscus.loading as 'eager'} // Load immediately once component is mounted
         />
       )}
     </div>

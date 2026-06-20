@@ -3,8 +3,14 @@ import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Moon, Sun, Menu, X } from 'lucide-react';
 import { Search } from '@/components/blog/Search';
-import { siteConfig } from '@/config/site';
-export function Header() {
+
+interface HeaderProps {
+  name: string;
+  navigation: Array<{ label: string; href: string }>;
+  githubUrl: string;
+}
+
+export function Header({ name, navigation, githubUrl }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -26,10 +32,10 @@ export function Header() {
           {/* Desktop: Logo + Nav */}
           <div className="hidden md:flex shrink-0">
             <a className="mr-6 flex items-center space-x-2 font-bold text-2xl" href="/">
-              <span className="hidden font-bold sm:inline-block">{siteConfig.name}</span>
+              <span className="hidden font-bold sm:inline-block">{name}</span>
             </a>
             <nav className="flex items-center space-x-6 text-[17px] font-medium">
-              {siteConfig.navigation.map((item) => (
+              {navigation.map((item) => (
                 <a
                   key={item.href}
                   className="transition-colors hover:text-foreground/80 text-foreground/60"
@@ -62,7 +68,7 @@ export function Header() {
 
           {/* Mobile: Logo */}
           <div className="md:hidden font-bold text-lg shrink-0">
-            <a href="/">{siteConfig.name}</a>
+            <a href="/">{name}</a>
           </div>
         </div>
 
@@ -78,7 +84,7 @@ export function Header() {
           {/* Right Actions - 固定宽度 */}
           <div className="flex items-center shrink-0 space-x-1">
             <a
-              href={siteConfig.links.github}
+              href={githubUrl}
               target="_blank"
               rel="noreferrer"
               className="inline-flex"
@@ -113,7 +119,7 @@ export function Header() {
       {isMenuOpen && (
         <div id="mobile-nav" className="md:hidden border-t p-4 space-y-2 bg-background">
           <nav className="flex flex-col space-y-1" aria-label="移动端导航">
-            {siteConfig.navigation.map((item) => (
+            {navigation.map((item) => (
               <a
                 key={item.href}
                 className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80"

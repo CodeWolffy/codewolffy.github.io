@@ -1,0 +1,40 @@
+---
+// 折叠详情组件
+// 用于在文章中隐藏/展开补充内容
+
+interface Props {
+  title: string;
+  open?: boolean;
+}
+
+const { title, open = false } = Astro.props;
+---
+
+<details
+  class="my-4 rounded-lg border border-border bg-card overflow-hidden group"
+  open={open}
+>
+  <summary
+    class="px-4 py-3 font-medium cursor-pointer list-none flex items-center justify-between hover:bg-muted/50 transition-colors"
+  >
+    <span>{title}</span>
+    <span class="transform transition-transform group-open:rotate-180">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m6 9 6 6 6-6"></path>
+      </svg>
+    </span>
+  </summary>
+  <div class="px-4 py-3 text-foreground/80 border-t border-border">
+    <slot />
+  </div>
+</details>

@@ -5,12 +5,14 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import { Button } from '@/components/ui/button';
 
 import { getCollection } from 'astro:content';
-import { siteConfig } from '@/config/site';
+import { getSiteSettings } from '@/utils/site-settings';
+
+const settings = await getSiteSettings();
 
 const projects = (await getCollection('projects'))
   .map((item) => ({
     ...item.data,
-    displayImage: item.data.coverImage || item.data.image || siteConfig.og.defaultImage,
+    displayImage: item.data.coverImage || item.data.image || settings.og.defaultImage,
   }))
   .sort((a, b) => b.priority - a.priority);
 ---

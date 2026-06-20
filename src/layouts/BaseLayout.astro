@@ -2,7 +2,7 @@
 import { ClientRouter } from 'astro:transitions'; // Using ClientRouter for ViewTransitions in modern Astro
 import { Header } from '@/components/layout/Header';
 import ScrollToTop from '@/components/ui/ScrollToTop.astro';
-import { siteConfig } from '@/config/site';
+import { getSiteSettings } from '@/utils/site-settings';
 import '@/styles/global.css';
 
 interface Props {
@@ -15,23 +15,25 @@ interface Props {
   author?: string;
 }
 
+const settings = await getSiteSettings();
+
 const {
   title,
-  description = siteConfig.description,
+  description = settings.description,
   image,
   type = 'website',
   publishedTime,
   modifiedTime,
-  author = siteConfig.author.name,
+  author = settings.author.name,
 } = Astro.props;
 
 // 构建完整的 OG 图片 URL
 const ogImage = image
   ? new URL(image, Astro.site || Astro.url)
-  : new URL(siteConfig.og.defaultImage, Astro.site || Astro.url);
+  : new URL(settings.og.defaultImage, Astro.site || Astro.url);
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
-const busuanzi = siteConfig.analytics.busuanzi;
-const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.label, item.href]));
+const busuanzi = settings.analytics.busuanzi;
+const socialLinks = Object.fromEntries(settings.socials.map((item) => [item.label, item.href]));
 ---
 
 <!doctype html>
@@ -45,8 +47,8 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
     <link
       rel="alternate"
       type="application/rss+xml"
-      title={siteConfig.rss.title}
-      href={siteConfig.links.rss}
+      title={settings.rss.title}
+      href={settings.links.rss}
     />
     <!-- 不蒜子预连接优化 -->
     <link rel="dns-prefetch" href={busuanzi.origin} />
@@ -54,7 +56,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     {
-      siteConfig.verification.google.map((token) => (
+      settings.verification.google.map((token) => (
         <meta name="google-site-verification" content={token} />
       ))
     }
@@ -68,8 +70,8 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImage} />
-    <meta property="og:site_name" content={siteConfig.name} />
-    <meta property="og:locale" content={siteConfig.og.locale} />
+    <meta property="og:site_name" content={settings.name} />
+    <meta property="og:locale" content={settings.og.locale} />
 
     {/* Article 扩展标签 - 仅用于文章页 */}
     {
@@ -177,7 +179,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
       跳过导航
     </a>
     <div class="relative flex min-h-screen flex-col">
-      <Header client:load transition:persist />
+      <Header client:load transition:persist name={settings.name} navigation={settings.navigation} githubUrl={settings.links.github} />
       <main
         id="main-content"
         class:list={['flex-1', type !== 'article' ? 'pb-8 md:pb-20' : 'pb-8']}
@@ -294,7 +296,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
               </svg>
             </a>
             <a
-              href={siteConfig.links.rss}
+              href={settings.links.rss}
               class="text-muted-foreground hover:text-primary transition-colors"
             >
               <span class="sr-only">RSS</span>
@@ -318,7 +320,7 @@ const socialLinks = Object.fromEntries(siteConfig.socials.map((item) => [item.la
 
           <p class="text-balance text-center text-sm leading-none text-muted-foreground mt-1">
             © {new Date().getFullYear()}
-            {siteConfig.name}. All rights reserved.
+            {settings.name}. All rights reserved.
           </p>
         </div>
       </footer>

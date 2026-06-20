@@ -80,6 +80,26 @@ function loadPagefindAssets() {
   return pagefindAssetPromise;
 }
 
+function hidePagefindSearchControls(container: HTMLElement) {
+  const searchInput = container.querySelector('.pagefind-ui__search-input') as HTMLElement | null;
+  if (!searchInput) return;
+
+  const targets = [
+    searchInput,
+    searchInput.closest('.pagefind-ui__search'),
+    searchInput.closest('.pagefind-ui__form'),
+    searchInput.closest('form'),
+    searchInput.closest('.pagefind-ui__search-wrapper'),
+  ];
+
+  targets.forEach((target) => {
+    if (target instanceof HTMLElement) {
+      target.style.setProperty('display', 'none', 'important');
+      target.setAttribute('aria-hidden', 'true');
+    }
+  });
+}
+
 export function Search() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -137,6 +157,8 @@ export function Search() {
           showImages: false,
           autofocus: false, // We handle focus ourselves
         });
+        hidePagefindSearchControls(pagefindContainer);
+        requestAnimationFrame(() => hidePagefindSearchControls(pagefindContainer));
         setSearchStatus('ready');
 
         // PagefindUI 未暴露 destroy 时，回退到清空容器
@@ -219,18 +241,18 @@ export function Search() {
     <div
       ref={searchContainerRef}
       className={cn(
-        'transition-all duration-200 ease-in-out',
+        'relative',
         isExpanded
-          ? 'fixed left-2 right-2 top-2.5 z-50 md:relative md:top-auto md:left-auto md:right-auto md:inset-auto md:w-full'
-          : 'relative w-9 md:w-full flex justify-end md:justify-start'
+          ? 'w-full'
+          : 'w-9 md:w-full flex justify-end md:justify-start'
       )}
     >
       {/* Search Input Container */}
       <div
         className={cn(
-          'flex items-center h-9 rounded-md border border-input bg-background text-sm transition-all duration-200 shadow-sm',
+          'flex items-center h-9 rounded-md border border-input bg-background text-sm shadow-sm transition-shadow duration-200',
           isExpanded
-            ? 'w-full shadow-md md:shadow-none'
+            ? 'w-full px-3 justify-start shadow-md md:shadow-none'
             : 'w-9 px-0 justify-center border-transparent md:border-input md:w-full md:px-3 md:justify-start cursor-pointer'
         )}
         onClick={!isExpanded ? handleSearchClick : undefined}
@@ -286,6 +308,7 @@ export function Search() {
           {/* Pagefind 挂载容器：React 不管理其内部节点，避免 DOM 冲突 */}
           <div
             ref={pagefindContainerRef}
+            id="pagefind-results"
             className={cn('p-2', searchStatus !== 'ready' && 'hidden')}
           />
         </div>

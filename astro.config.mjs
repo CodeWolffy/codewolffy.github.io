@@ -4,6 +4,7 @@ import path from 'path';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 import mdx from '@astrojs/mdx';
+import { unified } from '@astrojs/markdown-remark';
 import sitemap from '@astrojs/sitemap';
 import cloudflare from '@astrojs/cloudflare';
 import keystatic from '@keystatic/astro';
@@ -56,7 +57,8 @@ const autoSyncContent = () => {
 // 保留 Keystatic 后台所需的 SSR 路由能力。
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 const isBuild = process.argv.includes('build');
-const enableCloudflareAdapter = isBuild && !isGitHubActions;
+const isPreview = process.argv.includes('preview');
+const enableCloudflareAdapter = (isBuild || isPreview) && !isGitHubActions;
 const enableKeystatic = !isGitHubActions;
 
 export default defineConfig({
@@ -71,9 +73,7 @@ export default defineConfig({
   // Cloudflare Pages 支持 SSR，所以 Keystatic 可以在生产环境运行
   integrations: [
     react(),
-    mdx({
-      rehypePlugins: [rehypeTableWrapper],
-    }),
+    mdx(),
     sitemap({
       // 过滤掉不需要索引的页面
       filter: (page) =>
@@ -122,7 +122,9 @@ export default defineConfig({
 
   // Markdown 代码高亮配置
   markdown: {
-    rehypePlugins: [rehypeTableWrapper],
+    processor: unified({
+      rehypePlugins: [rehypeTableWrapper],
+    }),
     shikiConfig: {
       // 使用双主题支持亮/暗模式 - 使用 One Dark 主题（VS Code 经典）
       themes: {

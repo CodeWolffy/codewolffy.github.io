@@ -1,0 +1,38 @@
+---
+// 步骤组件
+// 在文章中展示分步骤指南
+
+interface StepItem {
+  title: string;
+  content: string;
+}
+
+interface Props {
+  items: StepItem[];
+}
+
+const { items = [] } = Astro.props;
+---
+
+{
+  items.length > 0 && (
+    <div class="my-6 space-y-0">
+      {items.map((item, index) => (
+        <div class="flex gap-4">
+          <div class="flex flex-col items-center">
+            <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium text-sm border border-primary/20">
+              {index + 1}
+            </div>
+            {index < items.length - 1 && <div class="w-px flex-1 bg-border my-2" />}
+          </div>
+          <div class="pb-6 flex-1">
+            <h4 class="font-medium text-foreground mb-1">{item.title}</h4>
+            <p class="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+              {item.content}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}

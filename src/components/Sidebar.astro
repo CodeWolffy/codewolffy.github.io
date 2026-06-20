@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { getEntry, render } from 'astro:content';
-import { siteConfig } from '@/config/site';
+import { getSiteSettings } from '@/utils/site-settings';
 import { getCategoryPath, getTagPath } from '@/utils/content-paths';
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
 
 const { className, tags, categories } = Astro.props;
 
+const settings = await getSiteSettings();
 const aboutPage = await getEntry('pages', 'about');
 const about = aboutPage?.data;
 const { Content: AboutContent } = aboutPage ? await render(aboutPage) : { Content: undefined };
@@ -45,7 +46,7 @@ const { Content: AboutContent } = aboutPage ? await render(aboutPage) : { Conten
       </div>
 
       <div class="flex gap-2 w-full">
-        <a href={siteConfig.links.github} target="_blank" class="flex-1">
+        <a href={settings.links.github} target="_blank" class="flex-1">
           <Button variant="outline" size="sm" className="w-full gap-2">
             <svg
               role="img"
