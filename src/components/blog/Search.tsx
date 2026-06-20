@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -143,10 +149,10 @@ export function Search() {
   useEffect(() => {
     if (!isExpanded) return;
 
-    const timer = setTimeout(async () => {
-      const pagefindContainer = pagefindContainerRef.current;
-      if (!pagefindContainer) return;
+    const pagefindContainer = pagefindContainerRef.current;
+    if (!pagefindContainer) return;
 
+    const timer = setTimeout(async () => {
       // Cleanup previous instance
       if (pagefindInstanceRef.current) {
         pagefindInstanceRef.current.destroy();
@@ -188,12 +194,9 @@ export function Search() {
         pagefindInstanceRef.current.destroy();
         pagefindInstanceRef.current = null;
       }
-      if (pagefindContainerRef.current) {
-        pagefindContainerRef.current.innerHTML = '';
-      }
+      pagefindContainer.innerHTML = '';
       setSearchStatus('idle');
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
   // Sync search value to pagefind whenever value OR status changes.
@@ -303,9 +306,13 @@ export function Search() {
           readOnly={!isExpanded}
           tabIndex={isExpanded ? 0 : -1}
         />
-        {isExpanded && (
-          searchValue ? (
-            <button onClick={handleClear} className="p-1 hover:bg-accent rounded" aria-label="清空搜索">
+        {isExpanded &&
+          (searchValue ? (
+            <button
+              onClick={handleClear}
+              className="p-1 hover:bg-accent rounded"
+              aria-label="清空搜索"
+            >
               <X className="h-3 w-3 text-muted-foreground" />
             </button>
           ) : (
@@ -316,8 +323,7 @@ export function Search() {
             >
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
-          )
-        )}
+          ))}
       </div>
 
       {/* Results Dropdown */}

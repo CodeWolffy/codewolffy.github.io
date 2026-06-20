@@ -90,7 +90,9 @@ const archiveSummary = [
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border/60 pt-4 md:min-w-72 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+            <div
+              class="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border/60 pt-4 md:min-w-72 md:border-l md:border-t-0 md:pl-6 md:pt-0"
+            >
               {
                 archiveSummary.map((item) => (
                   <div class="min-w-0">
@@ -119,7 +121,7 @@ const archiveSummary = [
                       {yearGroup.year}
                     </h2>
                     <div class="flex justify-center">
-                      <span class="h-3.5 w-3.5 rounded-full border-2 border-primary bg-background"></span>
+                      <span class="h-3.5 w-3.5 rounded-full border-2 border-primary bg-background" />
                     </div>
                     <p class="text-sm text-muted-foreground sm:text-base">
                       {yearGroup.posts.length} 篇文章
@@ -142,10 +144,8 @@ const archiveSummary = [
                               'absolute top-0 bottom-0 border-l border-dashed border-border transition-colors duration-300 group-hover/archive-row:border-primary/60',
                               postIndex === yearGroup.posts.length - 1 ? 'h-3.5' : '',
                             ]}
-                          >
-                          </span>
-                          <span class="relative mt-[1.15rem] h-1.5 w-1.5 rounded-full bg-muted-foreground ring-4 ring-background transition-all duration-300 group-hover/archive-row:h-6 group-hover/archive-row:w-1.5 group-hover/archive-row:rounded-full group-hover/archive-row:bg-primary group-hover/archive-row:ring-accent">
-                          </span>
+                          />
+                          <span class="relative mt-[1.15rem] h-1.5 w-1.5 rounded-full bg-muted-foreground ring-4 ring-background transition-all duration-300 group-hover/archive-row:h-6 group-hover/archive-row:w-1.5 group-hover/archive-row:rounded-full group-hover/archive-row:bg-primary group-hover/archive-row:ring-accent" />
                         </div>
 
                         <a
