@@ -24,82 +24,91 @@ const sortedTags = countPostTags(allPosts, tagMap);
 ---
 
 <BaseLayout title={pageTitle}>
-  <div class="container mx-auto max-w-4xl py-6 lg:py-10">
-    <div class="flex flex-col items-start gap-4 md:flex-row md:justify-between md:gap-8">
-      <div class="flex-1 space-y-4">
-        <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl">分类与标签</h1>
-        <p class="text-xl text-muted-foreground">浏览所有的分类与标签</p>
+  <section class="container mx-auto pt-0 pb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
+      <div class="lg:col-span-12 space-y-4">
+        <section class="rounded-xl border border-border/70 bg-card/80 px-4 py-5 shadow-sm sm:px-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Taxonomy
+          </p>
+          <div class="mt-2 space-y-1.5">
+            <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+              分类与标签
+            </h1>
+            <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+              浏览所有分类与标签，快速找到相关主题内容。
+            </p>
+          </div>
+        </section>
+
+        <div class="space-y-10">
+          <!-- 分类区域 -->
+          <section>
+            <div class="mb-5 flex items-center gap-3">
+              <div class="h-8 w-1.5 bg-primary rounded-full"></div>
+              <h2 class="text-2xl font-bold tracking-tight">文章分类</h2>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {
+                sortedCategories.length === 0 ? (
+                  <p class="text-muted-foreground">暂无分类。</p>
+                ) : (
+                  sortedCategories.map((category, index) => (
+                    <a
+                      href={getCategoryPath(category.id)}
+                      class="group relative flex min-w-0 flex-col justify-between space-y-2 rounded-xl border bg-card p-5 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300 animate-slide-up opacity-0"
+                      style={`animation-delay: ${index * 100}ms;`}
+                    >
+                      <div class="flex min-w-0 items-center justify-between gap-3">
+                        <h3 class="min-w-0 break-words font-semibold text-xl group-hover:text-primary transition-colors">
+                          {category.name}
+                        </h3>
+                        <span class="shrink-0 text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                          {category.count} 篇
+                        </span>
+                      </div>
+                      <p class="text-sm text-muted-foreground group-hover:text-muted-foreground/80">
+                        查看所有 "{category.name}" 相关的文章
+                      </p>
+                    </a>
+                  ))
+                )
+              }
+            </div>
+          </section>
+
+          <!-- 标签区域 -->
+          <section>
+            <div class="mb-5 flex items-center gap-3">
+              <div class="h-8 w-1.5 bg-secondary-foreground/30 rounded-full"></div>
+              <h2 class="text-2xl font-bold tracking-tight">热门标签</h2>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              {
+                sortedTags.length === 0 ? (
+                  <p class="text-muted-foreground">暂无标签。</p>
+                ) : (
+                  sortedTags.map((tag, index) => (
+                    <a
+                      href={getTagPath(tag.id)}
+                      class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm animate-slide-up opacity-0"
+                      style={`animation-delay: ${index * 50}ms;`}
+                    >
+                      <span class="text-muted-foreground group-hover:text-primary/70">#</span>
+                      <span class="min-w-0 break-words">{tag.name}</span>
+                      <span class="ml-1 text-xs text-muted-foreground/50 group-hover:text-primary/50">
+                        {tag.count}
+                      </span>
+                    </a>
+                  ))
+                )
+              }
+            </div>
+          </section>
+        </div>
       </div>
     </div>
-
-    <hr class="my-8" />
-
-    <div class="space-y-16">
-      <!-- 分类区域 -->
-      <section>
-        <div class="flex items-center gap-3 mb-8">
-          <div class="h-8 w-1.5 bg-primary rounded-full"></div>
-          <h2 class="text-2xl font-bold tracking-tight">文章分类</h2>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {
-            sortedCategories.length === 0 ? (
-              <p class="text-muted-foreground">暂无分类。</p>
-            ) : (
-              sortedCategories.map((category, index) => (
-                <a
-                  href={getCategoryPath(category.id)}
-                  class="group relative flex min-w-0 flex-col justify-between space-y-2 rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300 animate-slide-up opacity-0"
-                  style={`animation-delay: ${index * 100}ms;`}
-                >
-                  <div class="flex min-w-0 items-center justify-between gap-3">
-                    <h3 class="min-w-0 break-words font-semibold text-xl group-hover:text-primary transition-colors">
-                      {category.name}
-                    </h3>
-                    <span class="shrink-0 text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                      {category.count} 篇
-                    </span>
-                  </div>
-                  <p class="text-sm text-muted-foreground group-hover:text-muted-foreground/80">
-                    查看所有 "{category.name}" 相关的文章
-                  </p>
-                </a>
-              ))
-            )
-          }
-        </div>
-      </section>
-
-      <!-- 标签区域 -->
-      <section>
-        <div class="flex items-center gap-3 mb-8">
-          <div class="h-8 w-1.5 bg-secondary-foreground/30 rounded-full"></div>
-          <h2 class="text-2xl font-bold tracking-tight">热门标签</h2>
-        </div>
-
-        <div class="flex flex-wrap gap-3">
-          {
-            sortedTags.length === 0 ? (
-              <p class="text-muted-foreground">暂无标签。</p>
-            ) : (
-              sortedTags.map((tag, index) => (
-                <a
-                  href={getTagPath(tag.id)}
-                  class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm animate-slide-up opacity-0"
-                  style={`animation-delay: ${index * 50}ms;`}
-                >
-                  <span class="text-muted-foreground group-hover:text-primary/70">#</span>
-                  <span class="min-w-0 break-words">{tag.name}</span>
-                  <span class="ml-1 text-xs text-muted-foreground/50 group-hover:text-primary/50">
-                    {tag.count}
-                  </span>
-                </a>
-              ))
-            )
-          }
-        </div>
-      </section>
-    </div>
-  </div>
+  </section>
 </BaseLayout>

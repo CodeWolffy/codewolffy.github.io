@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -246,25 +246,45 @@ export function Search() {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
+  const handleSearchClose = () => {
+    setIsExpanded(false);
+    setSearchValue('');
+  };
+
+  const handleSearchKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (isExpanded) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleSearchClick();
+    }
+  };
+
   const hasSearchQuery = searchValue.trim().length > 0;
 
   return (
     <div
       ref={searchContainerRef}
       className={cn(
-        'relative',
-        isExpanded ? 'w-full' : 'w-9 md:w-full flex justify-end md:justify-start'
+        'relative flex max-w-full justify-end transition-[width] duration-200 ease-out',
+        isExpanded
+          ? 'fixed left-2 right-2 top-1 z-[60] w-auto md:relative md:left-auto md:right-auto md:top-auto md:z-auto md:w-full'
+          : 'w-[7.5rem] sm:w-[8.5rem] max-[374px]:w-9 md:w-[14rem]'
       )}
     >
       {/* Search Input */}
       <div
         className={cn(
-          'flex items-center h-9 rounded-md border border-input bg-background text-sm shadow-sm transition-shadow duration-200',
+          'flex h-9 w-full items-center rounded-md border border-input bg-background text-sm shadow-sm transition-all duration-200 ease-out',
           isExpanded
-            ? 'w-full px-3 justify-start shadow-md md:shadow-none'
-            : 'w-9 px-0 justify-center border-transparent md:border-input md:w-full md:px-3 md:justify-start cursor-pointer'
+            ? 'h-10 rounded-xl px-3 justify-start shadow-lg md:h-9 md:rounded-md md:shadow-none'
+            : 'px-3 justify-start cursor-pointer hover:bg-accent hover:text-accent-foreground max-[374px]:justify-center max-[374px]:px-0'
         )}
         onClick={!isExpanded ? handleSearchClick : undefined}
+        onKeyDown={handleSearchKeyDown}
+        role={!isExpanded ? 'button' : undefined}
+        tabIndex={!isExpanded ? 0 : undefined}
+        aria-label={!isExpanded ? '展开搜索' : undefined}
+        aria-expanded={isExpanded}
       >
         <SearchIcon className="h-4 w-4 text-muted-foreground shrink-0" />
         <input
@@ -275,20 +295,28 @@ export function Search() {
           value={searchValue}
           onChange={handleInputChange}
           className={cn(
-            'flex-1 bg-transparent ml-2 outline-none placeholder:text-muted-foreground',
-            !isExpanded ? 'hidden md:block pointer-events-none' : 'block'
+            'min-w-0 bg-transparent outline-none placeholder:text-muted-foreground transition-[width,opacity,margin] duration-200',
+            isExpanded
+              ? 'ml-2 flex-1 opacity-100'
+              : 'ml-2 w-auto flex-1 opacity-100 pointer-events-none max-[374px]:ml-0 max-[374px]:w-0 max-[374px]:flex-none max-[374px]:opacity-0'
           )}
           readOnly={!isExpanded}
+          tabIndex={isExpanded ? 0 : -1}
         />
-        {isExpanded && searchValue && (
-          <button onClick={handleClear} className="p-1 hover:bg-accent rounded">
-            <X className="h-3 w-3 text-muted-foreground" />
-          </button>
-        )}
-        {!isExpanded && (
-          <kbd className="hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground ml-2">
-            <span className="text-xs">⌘</span>K
-          </kbd>
+        {isExpanded && (
+          searchValue ? (
+            <button onClick={handleClear} className="p-1 hover:bg-accent rounded" aria-label="清空搜索">
+              <X className="h-3 w-3 text-muted-foreground" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSearchClose}
+              className="-mr-1 p-1.5 hover:bg-accent rounded md:hidden"
+              aria-label="关闭搜索"
+            >
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )
         )}
       </div>
 
@@ -296,7 +324,7 @@ export function Search() {
       {isExpanded && (
         <div
           className={cn(
-            'absolute top-full left-0 right-0 mt-2 rounded-lg border border-border bg-background shadow-lg z-50 max-h-[70vh] overflow-hidden',
+            'fixed left-2 right-2 top-12 z-[60] mt-1 rounded-xl border border-border bg-background shadow-xl max-h-[calc(100vh-4rem)] overflow-hidden md:absolute md:top-full md:left-0 md:right-0 md:mt-2 md:rounded-lg md:shadow-lg md:max-h-[70vh]',
             hasSearchQuery && 'min-h-[12rem]'
           )}
           role="dialog"
@@ -327,7 +355,7 @@ export function Search() {
             ref={pagefindContainerRef}
             id="pagefind-results"
             className={cn(
-              'max-h-[70vh] overflow-y-auto p-2',
+              'max-h-[calc(100vh-5rem)] overflow-y-auto p-2 md:max-h-[70vh]',
               searchStatus === 'ready' && hasSearchQuery ? 'block' : 'hidden'
             )}
           />

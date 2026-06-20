@@ -122,6 +122,17 @@
     }
   }
 
+  .site-header-shell {
+    width: min(calc(100% - 0.75rem), 1464px);
+    margin-inline: auto;
+  }
+
+  @media (min-width: 768px) {
+    .site-header-shell {
+      width: min(calc(100% - 1rem), 1464px);
+    }
+  }
+
   html {
     overflow-y: scroll;
     /* Force scrollbar to prevent layout shift */

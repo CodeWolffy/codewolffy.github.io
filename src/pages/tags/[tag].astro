@@ -33,30 +33,37 @@ const tagMap = createTaxonomyNameMap(allTags);
 ---
 
 <BaseLayout title={`包含标签 #${tagName} 的文章`}>
-  <div class="container mx-auto py-8 lg:py-12">
-    <div class="mb-12 text-center space-y-4">
-      <h1 class="text-3xl font-bold tracking-tight lg:text-5xl">
-        标签: <span class="text-primary">#{tagName}</span>
-      </h1>
-      <p class="text-muted-foreground text-lg">
-        共 {posts.length} 篇相关文章
-      </p>
-    </div>
+  <section class="container mx-auto pt-0 pb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
+      <div class="lg:col-span-12 space-y-4">
+        <section class="rounded-xl border border-border/70 bg-card/80 px-4 py-5 shadow-sm sm:px-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Tag</p>
+          <div class="mt-2 space-y-1.5">
+            <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+              标签: <span class="text-primary">#{tagName}</span>
+            </h1>
+            <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+              共 {posts.length} 篇相关文章。
+            </p>
+          </div>
+        </section>
 
-    <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-      {
-        posts.map((post, index) => (
-          <PostCard
-            post={post}
-            index={index}
-            mainTagLabel={
-              post.data.tags && post.data.tags.length > 0
-                ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
-                : undefined
-            }
-          />
-        ))
-      }
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {
+            posts.map((post, index) => (
+              <PostCard
+                post={post}
+                index={index}
+                mainTagLabel={
+                  post.data.tags && post.data.tags.length > 0
+                    ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
+                    : undefined
+                }
+              />
+            ))
+          }
+        </div>
+      </div>
     </div>
-  </div>
+  </section>
 </BaseLayout>

@@ -14,76 +14,83 @@ const sortedTags = countPostTags(allPosts, tagMap);
 ---
 
 <BaseLayout title="所有标签 | 狼码纪" description="浏览博客的所有标签">
-  <div class="container mx-auto max-w-4xl py-8 lg:py-12">
-    <!-- 页面标题区域 -->
-    <div class="space-y-4 mb-12 text-center">
-      <h1 class="inline-block font-bold text-4xl tracking-tight lg:text-5xl text-foreground">
-        所有标签
-      </h1>
-      <p class="text-xl text-muted-foreground">
-        共 <span class="font-bold text-foreground">{sortedTags.length}</span> 个标签
-      </p>
-    </div>
-
-    <!-- 标签云 -->
-    <div class="flex flex-wrap gap-4 justify-center">
-      {
-        sortedTags.length === 0 ? (
-          <div class="text-center py-20 text-muted-foreground w-full">
-            <p>暂无标签。</p>
+  <section class="container mx-auto pt-0 pb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
+      <div class="lg:col-span-12 space-y-4">
+        <section class="rounded-xl border border-border/70 bg-card/80 px-4 py-5 shadow-sm sm:px-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Tags
+          </p>
+          <div class="mt-2 space-y-1.5">
+            <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">所有标签</h1>
+            <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+              共 <span class="font-bold text-foreground">{sortedTags.length}</span> 个标签。
+            </p>
           </div>
-        ) : (
-          sortedTags.map((tag, index) => {
-            // 根据文章数量计算标签大小
-            const maxCount = sortedTags[0].count;
-            const minSize = 0.875; // 最小 text-sm
-            const maxSize = 1.5; // 最大 text-2xl
-            const size = minSize + (tag.count / maxCount) * (maxSize - minSize);
+        </section>
 
-            return (
-              <a
-                href={getTagPath(tag.id)}
-                class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-slide-up opacity-0"
-                style={`animation-delay: ${index * 30}ms;`}
+        <div class="rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-6">
+          <div class="flex flex-wrap justify-start gap-3 sm:gap-4">
+            {
+              sortedTags.length === 0 ? (
+                <div class="text-center py-20 text-muted-foreground w-full">
+                  <p>暂无标签。</p>
+                </div>
+              ) : (
+                sortedTags.map((tag, index) => {
+                  // 根据文章数量计算标签大小
+                  const maxCount = sortedTags[0].count;
+                  const minSize = 0.875; // 最小 text-sm
+                  const maxSize = 1.5; // 最大 text-2xl
+                  const size = minSize + (tag.count / maxCount) * (maxSize - minSize);
+
+                  return (
+                    <a
+                      href={getTagPath(tag.id)}
+                      class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-slide-up opacity-0"
+                      style={`animation-delay: ${index * 30}ms;`}
+                    >
+                      <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <span
+                        class="min-w-0 break-words font-medium relative z-10 group-hover:text-primary transition-colors"
+                        style={`font-size: ${size}rem;`}
+                      >
+                        #{tag.name}
+                      </span>
+                      <span class="ml-2 text-xs text-muted-foreground relative z-10 bg-secondary px-2 py-0.5 rounded-full">
+                        {tag.count}
+                      </span>
+                    </a>
+                  );
+                })
+              )
+            }
+          </div>
+
+          <!-- 返回按钮 -->
+          <div class="mt-12 text-center">
+            <a
+              href="/categories/"
+              class="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
               >
-                <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <span
-                  class="min-w-0 break-words font-medium relative z-10 group-hover:text-primary transition-colors"
-                  style={`font-size: ${size}rem;`}
-                >
-                  #{tag.name}
-                </span>
-                <span class="ml-2 text-xs text-muted-foreground relative z-10 bg-secondary px-2 py-0.5 rounded-full">
-                  {tag.count}
-                </span>
-              </a>
-            );
-          })
-        )
-      }
+                <path d="m15 18-6-6 6-6"></path>
+              </svg>
+              返回分类与标签
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <!-- 返回按钮 -->
-    <div class="mt-12 text-center">
-      <a
-        href="/categories/"
-        class="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="m15 18-6-6 6-6"></path>
-        </svg>
-        返回分类与标签
-      </a>
-    </div>
-  </div>
+  </section>
 </BaseLayout>
