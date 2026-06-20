@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// 声明 PagefindUI 类型
 declare global {
   interface Window {
     PagefindUI?: new (options: {
@@ -10,7 +9,10 @@ declare global {
       showSubResults?: boolean;
       showImages?: boolean;
       autofocus?: boolean;
-    }) => void;
+    }) => {
+      triggerSearch: (term: string) => void;
+      destroy: () => void;
+    };
   }
 }
 
@@ -54,12 +56,16 @@ function loadPagefindAssets() {
 
     const existingScript = document.getElementById(PAGEFIND_SCRIPT_ID) as HTMLScriptElement | null;
     if (existingScript) {
-      existingScript.addEventListener('load', resolveIfReady, { once: true });
-      existingScript.addEventListener(
-        'error',
-        () => reject(new Error('Pagefind UI failed to load.')),
-        { once: true }
-      );
+      if (window.PagefindUI) {
+        resolve();
+      } else {
+        existingScript.addEventListener('load', resolveIfReady, { once: true });
+        existingScript.addEventListener(
+          'error',
+          () => reject(new Error('Pagefind UI failed to load.')),
+          { once: true }
+        );
+      }
       return;
     }
 
@@ -80,31 +86,9 @@ function loadPagefindAssets() {
   return pagefindAssetPromise;
 }
 
-function applyPagefindSearchValue(container: HTMLElement, value: string) {
-  const pagefindInput = container.querySelector('.pagefind-ui__search-input') as HTMLInputElement | null;
-  if (!pagefindInput) return false;
-
-  pagefindInput.value = value;
-  ['input', 'change', 'keyup'].forEach((eventName) => {
-    pagefindInput.dispatchEvent(new Event(eventName, { bubbles: true }));
-  });
-  return true;
-}
-
-function syncPagefindSearchValue(container: HTMLElement, value: string, retries = 8) {
-  if (!value) return applyPagefindSearchValue(container, '');
-  if (applyPagefindSearchValue(container, value)) return true;
-  if (retries <= 0) return false;
-
-  window.requestAnimationFrame(() => {
-    syncPagefindSearchValue(container, value, retries - 1);
-  });
-  return false;
-}
-
 function hidePagefindSearchControls(container: HTMLElement) {
   const searchInput = container.querySelector('.pagefind-ui__search-input') as HTMLElement | null;
-  if (!searchInput) return;
+  if (!searchInput) return false;
 
   const targets = [
     searchInput,
@@ -120,7 +104,14 @@ function hidePagefindSearchControls(container: HTMLElement) {
       target.setAttribute('aria-hidden', 'true');
     }
   });
+
+  return true;
 }
+
+type PagefindInstance = {
+  triggerSearch: (term: string) => void;
+  destroy: () => void;
+};
 
 export function Search() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -131,7 +122,7 @@ export function Search() {
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const pagefindContainerRef = useRef<HTMLDivElement>(null);
-  const pagefindCleanupRef = useRef<(() => void) | null>(null);
+  const pagefindInstanceRef = useRef<PagefindInstance | null>(null);
 
   // Handle Cmd+K / Ctrl+K keyboard shortcut
   useEffect(() => {
@@ -154,14 +145,16 @@ export function Search() {
   useEffect(() => {
     if (!isExpanded) return;
 
-    // Small delay to ensure the container is rendered
     const timer = setTimeout(async () => {
       const pagefindContainer = pagefindContainerRef.current;
       if (!pagefindContainer) return;
 
-      // 清理之前的实例，避免重复挂载
-      pagefindCleanupRef.current?.();
-      pagefindCleanupRef.current = null;
+      // Cleanup previous instance
+      if (pagefindInstanceRef.current) {
+        pagefindInstanceRef.current.destroy();
+        pagefindInstanceRef.current = null;
+        pagefindContainer.innerHTML = '';
+      }
 
       try {
         setSearchStatus('loading');
@@ -171,21 +164,20 @@ export function Search() {
           throw new Error('Pagefind UI is unavailable.');
         }
 
-        // 清空容器后再初始化，保持 React 与真实 DOM 一致
         pagefindContainer.innerHTML = '';
-        new window.PagefindUI({
+        const instance = new window.PagefindUI({
           element: pagefindContainer,
           showSubResults: true,
           showImages: false,
-          autofocus: false, // We handle focus ourselves
+          autofocus: false,
         });
+        pagefindInstanceRef.current = instance;
+
+        // Hide pagefind's own search controls (we use our own input)
         hidePagefindSearchControls(pagefindContainer);
         requestAnimationFrame(() => hidePagefindSearchControls(pagefindContainer));
-        syncPagefindSearchValue(pagefindContainer, searchValue);
+
         setSearchStatus('ready');
-        pagefindCleanupRef.current = () => {
-          pagefindContainer.innerHTML = '';
-        };
       } catch (error) {
         console.warn('Pagefind init failed:', error);
         setSearchStatus('unavailable');
@@ -194,18 +186,39 @@ export function Search() {
 
     return () => {
       clearTimeout(timer);
-      pagefindCleanupRef.current?.();
-      pagefindCleanupRef.current = null;
+      if (pagefindInstanceRef.current) {
+        pagefindInstanceRef.current.destroy();
+        pagefindInstanceRef.current = null;
+      }
+      if (pagefindContainerRef.current) {
+        pagefindContainerRef.current.innerHTML = '';
+      }
+      setSearchStatus('idle');
     };
-    // searchValue 的同步由下面的 useEffect 负责，此处仅在展开时初始化一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
+  // Sync search value to pagefind whenever value OR status changes.
+  // searchStatus is intentionally included: if the user typed before pagefind finished
+  // loading, this effect re-fires when status reaches 'ready' and delivers the query.
   useEffect(() => {
-    if (isExpanded && pagefindContainerRef.current) {
-      syncPagefindSearchValue(pagefindContainerRef.current, searchValue);
+    if (!isExpanded || searchStatus !== 'ready') return;
+    const instance = pagefindInstanceRef.current;
+    if (!instance) return;
+
+    if (searchValue) {
+      instance.triggerSearch(searchValue);
+    } else {
+      // Clear pagefind results by dispatching to its input directly
+      const pfInput = pagefindContainerRef.current?.querySelector(
+        '.pagefind-ui__search-input'
+      ) as HTMLInputElement | null;
+      if (pfInput) {
+        pfInput.value = '';
+        pfInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }
-  }, [searchValue, isExpanded]);
+  }, [searchValue, isExpanded, searchStatus]);
 
   // Click outside to close
   useEffect(() => {
@@ -228,13 +241,6 @@ export function Search() {
   const handleClear = () => {
     setSearchValue('');
     inputRef.current?.focus();
-    const pagefindInput = pagefindContainerRef.current?.querySelector(
-      '.pagefind-ui__search-input'
-    ) as HTMLInputElement | undefined;
-    if (pagefindInput) {
-      pagefindInput.value = '';
-      pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
-    }
   };
 
   const handleSearchClick = () => {
@@ -249,12 +255,10 @@ export function Search() {
       ref={searchContainerRef}
       className={cn(
         'relative',
-        isExpanded
-          ? 'w-full'
-          : 'w-9 md:w-full flex justify-end md:justify-start'
+        isExpanded ? 'w-full' : 'w-9 md:w-full flex justify-end md:justify-start'
       )}
     >
-      {/* Search Input Container */}
+      {/* Search Input */}
       <div
         className={cn(
           'flex items-center h-9 rounded-md border border-input bg-background text-sm shadow-sm transition-shadow duration-200',
@@ -290,7 +294,7 @@ export function Search() {
         )}
       </div>
 
-      {/* Search Results Dropdown */}
+      {/* Results Dropdown */}
       {isExpanded && (
         <div
           className={cn(
@@ -320,6 +324,7 @@ export function Search() {
               输入关键词后显示搜索结果
             </div>
           )}
+          {/* Pagefind mounts here; always kept in DOM so it can initialize */}
           <div
             ref={pagefindContainerRef}
             id="pagefind-results"
