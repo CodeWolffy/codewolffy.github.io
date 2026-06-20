@@ -10,7 +10,7 @@
 
 - 将 OG 分享图（`default-share.png`）转为 JPEG，体积从 5MB 降至 58KB
 - 重新生成 `favicon.ico`，采用 PNG-in-ICO 格式，体积从 457KB 降至 7.8KB
-- 修复 `manifest.json` PWA 图标配置，生成正确尺寸的 192x192 和 512x512 图标
+- 修复 `icon` 配置，生成正确尺寸的 192x192 和 512x512 图标
 - 修正 `package.json` 依赖分类：`@astrojs/check` 移至 `devDependencies`
 - 移除未使用的 `@astrojs/markdoc` 依赖
 - 合并 `projects` Schema 冗余字段（`image` → `coverImage`）

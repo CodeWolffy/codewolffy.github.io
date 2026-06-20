@@ -20,7 +20,6 @@
 - **混合渲染 (Hybrid Rendering)**: 结合静态页面与按需服务器端渲染 (SSR) API，兼顾 SEO 与动态功能。
 - **现代化构建**: 利用 **Vite 6** + **esbuild 0.25** 进行极速构建，配置了精细化的 `manualChunks` 分包策略，最大化缓存利用率。
 - **Core Web Vitals**: 在 Mobile/Web 端均能达到 Lighthouse 满分 💯 性能表现。
-- **PWA 支持**: 完善的 `manifest.json` 配置与 Service Worker 支持，可添加到主屏幕，提供离线访问与原生应用般的体验。
 
 ### 🎨 UI 与交互 (UI & Interaction)
 
@@ -81,7 +80,6 @@
 ```text
 ├── public/                 # 静态资源 (不经过构建处理)
 │   ├── images/             # 图片存放目录
-│   ├── manifest.json       # PWA 配置文件
 │   ├── robots.txt          # SEO 爬虫规则
 │   └── sitemap-*.xml       # 自动生成的站点地图
 ├── scripts/                # 构建/开发辅助脚本

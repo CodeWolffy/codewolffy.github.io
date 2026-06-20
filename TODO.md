@@ -4,13 +4,6 @@
 
 ---
 
-## ✅ 已完成
-
-- [x] **实现 Service Worker（PWA 离线支持）**  
-       `manifest.json` 与 `public/sw.js` 已配置，并在 `BaseLayout.astro` 中完成注册。采用静态资源 Cache First + 页面 Network First + `/offline/` 回退策略。
-
----
-
 ## 📝 内容层面建议
 
 - [ ] **增加文章数量**  

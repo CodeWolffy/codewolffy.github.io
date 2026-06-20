@@ -80,6 +80,28 @@ function loadPagefindAssets() {
   return pagefindAssetPromise;
 }
 
+function applyPagefindSearchValue(container: HTMLElement, value: string) {
+  const pagefindInput = container.querySelector('.pagefind-ui__search-input') as HTMLInputElement | null;
+  if (!pagefindInput) return false;
+
+  pagefindInput.value = value;
+  ['input', 'change', 'keyup'].forEach((eventName) => {
+    pagefindInput.dispatchEvent(new Event(eventName, { bubbles: true }));
+  });
+  return true;
+}
+
+function syncPagefindSearchValue(container: HTMLElement, value: string, retries = 8) {
+  if (!value) return applyPagefindSearchValue(container, '');
+  if (applyPagefindSearchValue(container, value)) return true;
+  if (retries <= 0) return false;
+
+  window.requestAnimationFrame(() => {
+    syncPagefindSearchValue(container, value, retries - 1);
+  });
+  return false;
+}
+
 function hidePagefindSearchControls(container: HTMLElement) {
   const searchInput = container.querySelector('.pagefind-ui__search-input') as HTMLElement | null;
   if (!searchInput) return;
@@ -159,21 +181,11 @@ export function Search() {
         });
         hidePagefindSearchControls(pagefindContainer);
         requestAnimationFrame(() => hidePagefindSearchControls(pagefindContainer));
+        syncPagefindSearchValue(pagefindContainer, searchValue);
         setSearchStatus('ready');
-
-        // PagefindUI 未暴露 destroy 时，回退到清空容器
         pagefindCleanupRef.current = () => {
           pagefindContainer.innerHTML = '';
         };
-
-        // Find the pagefind input and sync it with our controlled input
-        const pagefindInput = pagefindContainer.querySelector(
-          '.pagefind-ui__search-input'
-        ) as HTMLInputElement;
-        if (pagefindInput && searchValue) {
-          pagefindInput.value = searchValue;
-          pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
       } catch (error) {
         console.warn('Pagefind init failed:', error);
         setSearchStatus('unavailable');
@@ -189,16 +201,9 @@ export function Search() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
-  // Sync search value to pagefind input
   useEffect(() => {
-    if (isExpanded && searchValue && pagefindContainerRef.current) {
-      const pagefindInput = pagefindContainerRef.current.querySelector(
-        '.pagefind-ui__search-input'
-      ) as HTMLInputElement;
-      if (pagefindInput) {
-        pagefindInput.value = searchValue;
-        pagefindInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+    if (isExpanded && pagefindContainerRef.current) {
+      syncPagefindSearchValue(pagefindContainerRef.current, searchValue);
     }
   }, [searchValue, isExpanded]);
 
@@ -236,6 +241,8 @@ export function Search() {
     setIsExpanded(true);
     setTimeout(() => inputRef.current?.focus(), 100);
   };
+
+  const hasSearchQuery = searchValue.trim().length > 0;
 
   return (
     <div
@@ -286,7 +293,10 @@ export function Search() {
       {/* Search Results Dropdown */}
       {isExpanded && (
         <div
-          className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-[70vh] overflow-auto"
+          className={cn(
+            'absolute top-full left-0 right-0 mt-2 rounded-lg border border-border bg-background shadow-lg z-50 max-h-[70vh] overflow-hidden',
+            hasSearchQuery && 'min-h-[12rem]'
+          )}
           role="dialog"
           aria-modal="true"
           aria-label="搜索结果"
@@ -305,12 +315,18 @@ export function Search() {
               </p>
             </div>
           )}
-          {/* Pagefind 挂载容器：React 不管理其内部节点，避免 DOM 冲突 */}
-          <div
-            ref={pagefindContainerRef}
-            id="pagefind-results"
-            className={cn('p-2', searchStatus !== 'ready' && 'hidden')}
-          />
+          {searchStatus === 'ready' && hasSearchQuery && (
+            <div
+              ref={pagefindContainerRef}
+              id="pagefind-results"
+              className="max-h-[70vh] overflow-y-auto p-2"
+            />
+          )}
+          {searchStatus === 'ready' && !hasSearchQuery && (
+            <div className="flex min-h-[6rem] items-center justify-center p-4 text-sm text-muted-foreground">
+              输入关键词后显示搜索结果
+            </div>
+          )}
         </div>
       )}
     </div>

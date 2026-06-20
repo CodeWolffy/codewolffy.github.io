@@ -47,6 +47,12 @@ const settings = await getSiteSettings();
 const { post, allPosts } = Astro.props;
 const { Content, headings } = await render(post);
 
+// 本地开发时编辑链接指向本地 Keystatic，生产环境才使用线上配置
+const postSlug = getBlogPostSlug(post);
+const editUrl = import.meta.env.DEV
+  ? `${Astro.url.origin}/keystatic/collection/posts/item/${postSlug}`
+  : `${settings.links.keystaticPosts}/${postSlug}`;
+
 // Resolve Category
 const allCategories = await getCollection('categories');
 const categoryMap = new Map(allCategories.map((c) => [c.id, c.data.name]));
@@ -243,11 +249,6 @@ const pageUrl = Astro.url.href;
           </div>
         )
       }
-      <div
-        class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-11 md:top-14 z-[60] border border-border/50 w-full"
-      >
-        <TableOfContents headings={headings} client:idle />
-      </div>
       {
         (post.data.coverImage || post.data.heroImage) && (
           <img
@@ -255,7 +256,7 @@ const pageUrl = Astro.url.href;
             alt={post.data.title}
             width={720}
             height={405}
-            class="block max-w-full w-auto h-auto mb-4 rounded-md border bg-muted transition-colors max-h-[650px] mx-auto cursor-zoom-in cover-image"
+            class="block max-w-full w-auto h-auto mb-4 rounded-md border bg-muted transition-colors max-h-[50vh] mx-auto cursor-zoom-in cover-image"
           />
         )
       }
@@ -279,7 +280,7 @@ const pageUrl = Astro.url.href;
         />
         <div class="flex gap-2 w-full lg:w-auto">
           <a
-            href={settings.links.keystaticPosts + `/${getBlogPostSlug(post)}`}
+            href={editUrl}
             target="_blank"
             rel="noopener noreferrer"
             class={buttonVariants({ variant: 'outline', size: 'sm' }) +
@@ -419,6 +420,10 @@ const pageUrl = Astro.url.href;
       <hr class="mt-2" />
       <Comments client:visible giscus={settings.comments.giscus} />
     </div>
+
+    <aside class="hidden lg:block lg:sticky lg:top-24 lg:self-start pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto">
+      <TableOfContents headings={headings} client:idle />
+    </aside>
 
     <script>
       import { normalizeIframeUrl } from '@/utils/iframe-url';
@@ -679,11 +684,6 @@ const pageUrl = Astro.url.href;
       document.addEventListener('astro:page-load', scheduleVideos);
     </script>
 
-    <div class="hidden lg:block">
-      <div class="sticky top-24 pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto">
-        <TableOfContents headings={headings} client:visible />
-      </div>
-    </div>
   </div>
 </BaseLayout>
 
