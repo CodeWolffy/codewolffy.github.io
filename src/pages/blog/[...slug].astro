@@ -421,7 +421,9 @@ const pageUrl = Astro.url.href;
       <Comments client:visible giscus={settings.comments.giscus} />
     </div>
 
-    <aside class="hidden lg:block lg:sticky lg:top-24 lg:self-start pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto">
+    <aside
+      class="hidden lg:block lg:sticky lg:top-24 lg:self-start pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto"
+    >
       <TableOfContents headings={headings} client:idle />
     </aside>
 
@@ -683,7 +685,6 @@ const pageUrl = Astro.url.href;
       scheduleVideos();
       document.addEventListener('astro:page-load', scheduleVideos);
     </script>
-
   </div>
 </BaseLayout>
 

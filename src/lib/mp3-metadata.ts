@@ -37,7 +37,10 @@ const getDecoder = (encoding: string) => {
 };
 
 const decodeSyncSafeInteger = (bytes: Uint8Array) =>
-  ((bytes[0] & 0x7f) << 21) | ((bytes[1] & 0x7f) << 14) | ((bytes[2] & 0x7f) << 7) | (bytes[3] & 0x7f);
+  ((bytes[0] & 0x7f) << 21) |
+  ((bytes[1] & 0x7f) << 14) |
+  ((bytes[2] & 0x7f) << 7) |
+  (bytes[3] & 0x7f);
 
 const decodeUint32 = (bytes: Uint8Array) =>
   ((bytes[0] << 24) >>> 0) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3];
@@ -67,7 +70,9 @@ const normalizeText = (value: string) => value.replace(/\0+$/g, '').trim();
 const preferTimedLyrics = (current: string | undefined, candidate: string | undefined) => {
   if (!candidate) return current;
   if (!current) return candidate;
-  return TIMED_LYRIC_TEST_PATTERN.test(candidate) && !TIMED_LYRIC_TEST_PATTERN.test(current) ? candidate : current;
+  return TIMED_LYRIC_TEST_PATTERN.test(candidate) && !TIMED_LYRIC_TEST_PATTERN.test(current)
+    ? candidate
+    : current;
 };
 
 const getTextTerminatorLength = (encoding: number) => (encoding === 1 || encoding === 2 ? 2 : 1);
@@ -189,7 +194,10 @@ const parseAttachedPicture = (frame: Uint8Array, majorVersion: number) => {
   const encoding = frame[0] ?? 0;
   const mime =
     majorVersion === 2
-      ? { value: `image/${decodeLatin1(frame.subarray(1, 4)).toLowerCase().replace('jpg', 'jpeg')}`, next: 4 }
+      ? {
+          value: `image/${decodeLatin1(frame.subarray(1, 4)).toLowerCase().replace('jpg', 'jpeg')}`,
+          next: 4,
+        }
       : readNullTerminatedLatin1(frame, 1);
   const descriptionStart = mime.next + 1;
   const description = readEncodedText(frame, descriptionStart, encoding);
@@ -233,7 +241,12 @@ const parseTimedLyrics = (lyrics?: string): SyncedLyricLine[] => {
     .sort((a, b) => a.time - b.time);
 };
 
-const parseFrame = (tag: Uint8Array, cursor: number, tagEnd: number, majorVersion: number): ParsedFrame | undefined => {
+const parseFrame = (
+  tag: Uint8Array,
+  cursor: number,
+  tagEnd: number,
+  majorVersion: number
+): ParsedFrame | undefined => {
   if (majorVersion === 2) {
     if (cursor + ID3V2_2_FRAME_HEADER_SIZE > tagEnd) return undefined;
 
@@ -257,7 +270,10 @@ const parseFrame = (tag: Uint8Array, cursor: number, tagEnd: number, majorVersio
   const id = decodeLatin1(tag.subarray(cursor, cursor + 4));
   if (!/^[A-Z0-9]{4}$/.test(id)) return undefined;
 
-  const size = majorVersion === 4 ? decodeSyncSafeInteger(tag.subarray(cursor + 4, cursor + 8)) : decodeUint32(tag.subarray(cursor + 4, cursor + 8));
+  const size =
+    majorVersion === 4
+      ? decodeSyncSafeInteger(tag.subarray(cursor + 4, cursor + 8))
+      : decodeUint32(tag.subarray(cursor + 4, cursor + 8));
   const start = cursor + ID3V2_3_FRAME_HEADER_SIZE;
   const end = start + size;
   if (size <= 0 || end > tagEnd) return undefined;
@@ -269,7 +285,12 @@ const parseFrame = (tag: Uint8Array, cursor: number, tagEnd: number, majorVersio
   };
 };
 
-const applyFrameToMetadata = (metadata: Mp3Metadata, syncedLyrics: SyncedLyricLine[], frame: ParsedFrame, majorVersion: number) => {
+const applyFrameToMetadata = (
+  metadata: Mp3Metadata,
+  syncedLyrics: SyncedLyricLine[],
+  frame: ParsedFrame,
+  majorVersion: number
+) => {
   if (frame.id === 'TIT2' || frame.id === 'TT2') metadata.title ||= decodeTextFrame(frame.data);
   if (frame.id === 'TPE1' || frame.id === 'TP1') metadata.artist ||= decodeTextFrame(frame.data);
   if (frame.id === 'TALB' || frame.id === 'TAL') metadata.album ||= decodeTextFrame(frame.data);
@@ -284,14 +305,20 @@ const applyFrameToMetadata = (metadata: Mp3Metadata, syncedLyrics: SyncedLyricLi
 
   if (frame.id === 'COMM' || frame.id === 'COM') {
     const comment = parseCommentFrame(frame.data);
-    if (TIMED_LYRIC_TEST_PATTERN.test(comment.value) || LYRICS_DESCRIPTION_PATTERN.test(comment.description)) {
+    if (
+      TIMED_LYRIC_TEST_PATTERN.test(comment.value) ||
+      LYRICS_DESCRIPTION_PATTERN.test(comment.description)
+    ) {
       metadata.lyrics = preferTimedLyrics(metadata.lyrics, comment.value);
     }
   }
 
   if (frame.id === 'TXXX' || frame.id === 'TXX') {
     const userText = parseUserTextFrame(frame.data);
-    if (TIMED_LYRIC_TEST_PATTERN.test(userText.value) || LYRICS_DESCRIPTION_PATTERN.test(userText.description)) {
+    if (
+      TIMED_LYRIC_TEST_PATTERN.test(userText.value) ||
+      LYRICS_DESCRIPTION_PATTERN.test(userText.description)
+    ) {
       metadata.lyrics = preferTimedLyrics(metadata.lyrics, userText.value);
     }
   }
@@ -303,7 +330,14 @@ const applyFrameToMetadata = (metadata: Mp3Metadata, syncedLyrics: SyncedLyricLi
 
 const fetchBytes = async (src: string, range?: string) => {
   const response = await fetch(src, range ? { headers: { Range: range } } : undefined);
-  if (!response.ok && response.status !== 206) throw new Error(`无法读取 MP3 文件：${response.status}`);
+
+  if (range && response.status !== 206) {
+    await response.body?.cancel();
+    throw new Error(`服务器未按 Range 返回 MP3 片段：${response.status}`);
+  }
+
+  if (!range && !response.ok) throw new Error(`无法读取 MP3 文件：${response.status}`);
+
   return new Uint8Array(await response.arrayBuffer());
 };
 
@@ -318,7 +352,9 @@ const fetchId3Tag = async (src: string) => {
   if (tagSize <= 0 || tagSize > MAX_ID3_TAG_SIZE) return undefined;
 
   const fullTag = await fetchBytes(src, `bytes=0-${ID3_HEADER_SIZE + tagSize - 1}`);
-  return fullTag.length >= ID3_HEADER_SIZE + tagSize ? fullTag : fullTag.subarray(0, ID3_HEADER_SIZE + tagSize);
+  return fullTag.length >= ID3_HEADER_SIZE + tagSize
+    ? fullTag
+    : fullTag.subarray(0, ID3_HEADER_SIZE + tagSize);
 };
 
 const fetchId3v1Metadata = async (src: string): Promise<Mp3Metadata> => {
@@ -348,7 +384,9 @@ const mergeMetadata = (primary: Mp3Metadata, fallback: Mp3Metadata): Mp3Metadata
   syncedLyrics: primary.syncedLyrics?.length ? primary.syncedLyrics : fallback.syncedLyrics,
 });
 
-export const getFallbackMetadata = (src: string): Required<Pick<Mp3Metadata, 'title' | 'artist'>> => {
+export const getFallbackMetadata = (
+  src: string
+): Required<Pick<Mp3Metadata, 'title' | 'artist'>> => {
   const filename = src.split('/').pop()?.split('?')[0] ?? '';
   const title = decodeURIComponent(filename.replace(/\.[^.]+$/, '') || '未命名音乐');
 

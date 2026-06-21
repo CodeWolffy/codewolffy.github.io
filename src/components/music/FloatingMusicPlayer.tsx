@@ -1,5 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Menu, Music2, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
+import {
+  ChevronDown,
+  Menu,
+  Music2,
+  Pause,
+  Play,
+  Repeat,
+  Repeat1,
+  Shuffle,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getFallbackMetadata, loadMp3Metadata, type Mp3Metadata } from '@/lib/mp3-metadata';
 
@@ -13,6 +35,39 @@ type FloatingMusicPlayerProps = {
 
 type PlayMode = 'sequence' | 'single' | 'shuffle';
 
+type PlayerPosition = {
+  x: number;
+  y: number;
+};
+
+type PlayerDragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  originX: number;
+  originY: number;
+  width: number;
+  height: number;
+  visualX: number;
+  visualY: number;
+  frameId: number | null;
+  moved: boolean;
+};
+
+type PlayerTransitionAnchor = {
+  horizontal: {
+    edge: 'left' | 'right';
+    offset: number;
+  };
+  vertical: {
+    edge: 'top' | 'bottom';
+    offset: number;
+  };
+};
+
+const PLAYER_EDGE_GAP = 16;
+const PLAYER_DRAG_THRESHOLD = 6;
+
 const playModeOptions: { value: PlayMode; label: string; Icon: typeof Repeat }[] = [
   { value: 'sequence', label: '顺序播放', Icon: Repeat },
   { value: 'single', label: '单曲循环', Icon: Repeat1 },
@@ -21,6 +76,7 @@ const playModeOptions: { value: PlayMode; label: string; Icon: typeof Repeat }[]
 
 const MUSIC_VOLUME_STORAGE_KEY = 'blog-music-volume';
 const defaultVolume = 0.8;
+const usePlayerLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const clampVolume = (value: number) => Math.min(1, Math.max(0, value));
 
@@ -41,13 +97,159 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${remainSeconds}`;
 };
 
-const getActiveLyricIndex = (lyrics: NonNullable<Mp3Metadata['syncedLyrics']>, progress: number) => {
+const resolveAudioSrc = (src: string) => {
+  if (typeof window === 'undefined') return src;
+
+  try {
+    return new URL(src, window.location.href).href;
+  } catch {
+    return src;
+  }
+};
+
+const clampPlayerPosition = (
+  position: PlayerPosition,
+  width: number,
+  height: number
+): PlayerPosition => {
+  if (typeof window === 'undefined') return position;
+
+  const maxX = Math.max(PLAYER_EDGE_GAP, window.innerWidth - width - PLAYER_EDGE_GAP);
+  const maxY = Math.max(PLAYER_EDGE_GAP, window.innerHeight - height - PLAYER_EDGE_GAP);
+
+  return {
+    x: Math.min(maxX, Math.max(PLAYER_EDGE_GAP, position.x)),
+    y: Math.min(maxY, Math.max(PLAYER_EDGE_GAP, position.y)),
+  };
+};
+
+const isSamePosition = (a: PlayerPosition, b: PlayerPosition) => a.x === b.x && a.y === b.y;
+
+const getPlayerTransitionAnchor = (rect: DOMRect): PlayerTransitionAnchor => {
+  const leftOffset = rect.left;
+  const rightOffset = window.innerWidth - rect.right;
+  const topOffset = rect.top;
+  const bottomOffset = window.innerHeight - rect.bottom;
+
+  return {
+    horizontal:
+      leftOffset <= rightOffset
+        ? { edge: 'left', offset: leftOffset }
+        : { edge: 'right', offset: rightOffset },
+    vertical:
+      topOffset <= bottomOffset
+        ? { edge: 'top', offset: topOffset }
+        : { edge: 'bottom', offset: bottomOffset },
+  };
+};
+
+const getAnchoredPlayerPosition = (anchor: PlayerTransitionAnchor, width: number, height: number) =>
+  clampPlayerPosition(
+    {
+      x:
+        anchor.horizontal.edge === 'right'
+          ? window.innerWidth - width - anchor.horizontal.offset
+          : anchor.horizontal.offset,
+      y:
+        anchor.vertical.edge === 'bottom'
+          ? window.innerHeight - height - anchor.vertical.offset
+          : anchor.vertical.offset,
+    },
+    width,
+    height
+  );
+
+const applyPlayerPositionStyle = (player: HTMLDivElement, position: PlayerPosition) => {
+  player.style.left = `${position.x}px`;
+  player.style.top = `${position.y}px`;
+  player.style.right = 'auto';
+  player.style.bottom = 'auto';
+};
+
+const resetPlayerDragStyle = (player: HTMLDivElement) => {
+  player.style.transform = '';
+  player.style.willChange = '';
+  player.removeAttribute('data-dragging');
+};
+
+const isInteractiveDragTarget = (target: EventTarget | null) =>
+  typeof HTMLElement !== 'undefined' &&
+  target instanceof HTMLElement &&
+  Boolean(target.closest('button, a, input, textarea, select, [role="slider"]'));
+
+const getActiveLyricIndex = (
+  lyrics: NonNullable<Mp3Metadata['syncedLyrics']>,
+  progress: number
+) => {
   const index = lyrics.findLastIndex((line) => progress >= line.time);
   return Math.max(index, 0);
 };
 
+type RecordCoverProps = {
+  coverUrl?: string;
+  title: string;
+  isPlaying: boolean;
+  className?: string;
+  iconClassName?: string;
+  centerClassName?: string;
+};
+
+function RecordCover({
+  coverUrl,
+  title,
+  isPlaying,
+  className,
+  iconClassName,
+  centerClassName,
+}: RecordCoverProps) {
+  return (
+    <div
+      className={cn(
+        'music-record relative flex items-center justify-center overflow-hidden rounded-full bg-muted',
+        coverUrl && 'music-record--has-cover',
+        coverUrl && isPlaying && 'music-record--spinning',
+        className
+      )}
+    >
+      {coverUrl ? (
+        <>
+          <img
+            src={coverUrl}
+            alt={title}
+            className="h-full w-full rounded-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+          <span className="pointer-events-none absolute inset-1 rounded-full border border-white/20" />
+          <span className="pointer-events-none absolute inset-[24%] rounded-full border border-black/10 dark:border-white/10" />
+          <span
+            className={cn(
+              'pointer-events-none absolute top-1/2 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background/95 ring-1 ring-border/70',
+              centerClassName
+            )}
+          />
+        </>
+      ) : (
+        <Music2
+          className={cn(
+            'h-4 w-4 text-muted-foreground',
+            isPlaying && 'text-primary',
+            iconClassName
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
 export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
+  const playerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const progressTrackRef = useRef<HTMLDivElement>(null);
+  const isSeekingRef = useRef(false);
+  const dragStateRef = useRef<PlayerDragState | null>(null);
+  const suppressPlayerClickRef = useRef(false);
+  const transitionAnchorRef = useRef<PlayerTransitionAnchor | null>(null);
   const coverUrlsRef = useRef<Set<string>>(new Set());
   const metadataRequestsRef = useRef<Set<string>>(new Set());
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -62,11 +264,15 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const [error, setError] = useState<string | null>(null);
   const [metadataByAudio, setMetadataByAudio] = useState<Record<string, Mp3Metadata>>({});
   const [metadataLoadingAudio, setMetadataLoadingAudio] = useState<string | null>(null);
+  const [playerPosition, setPlayerPosition] = useState<PlayerPosition | null>(null);
 
   const currentTrack = tracks[currentIndex];
   const currentAudio = currentTrack?.audio;
   const fallbackMetadata = useMemo(
-    () => (currentAudio ? getFallbackMetadata(currentAudio) : { title: '未命名音乐', artist: '未知艺术家' }),
+    () =>
+      currentAudio
+        ? getFallbackMetadata(currentAudio)
+        : { title: '未命名音乐', artist: '未知艺术家' },
     [currentAudio]
   );
   const currentMetadata = currentAudio ? metadataByAudio[currentAudio] : undefined;
@@ -75,7 +281,8 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const displayAlbum = currentMetadata?.album;
   const displayCover = currentMetadata?.coverUrl;
   const syncedLyrics = currentMetadata?.syncedLyrics ?? [];
-  const activeLyricIndex = syncedLyrics.length > 0 ? getActiveLyricIndex(syncedLyrics, progress) : -1;
+  const activeLyricIndex =
+    syncedLyrics.length > 0 ? getActiveLyricIndex(syncedLyrics, progress) : -1;
   const activeLyric = activeLyricIndex >= 0 ? syncedLyrics[activeLyricIndex] : undefined;
   const previousLyric = activeLyricIndex > 0 ? syncedLyrics[activeLyricIndex - 1] : undefined;
   const nextLyric = activeLyricIndex >= 0 ? syncedLyrics[activeLyricIndex + 1] : undefined;
@@ -119,6 +326,26 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
       });
   }, []);
 
+  const capturePlayerTransitionAnchor = useCallback(() => {
+    const player = playerRef.current;
+    if (!player || typeof window === 'undefined') return;
+
+    transitionAnchorRef.current = getPlayerTransitionAnchor(player.getBoundingClientRect());
+  }, []);
+
+  const setCollapsedWithAnchor = useCallback(
+    (nextCollapsed: boolean) => {
+      capturePlayerTransitionAnchor();
+      setIsCollapsed(nextCollapsed);
+
+      if (nextCollapsed) {
+        setIsPlaylistOpen(false);
+        setIsVolumeOpen(false);
+      }
+    },
+    [capturePlayerTransitionAnchor]
+  );
+
   useEffect(() => {
     if (currentIndex < tracks.length) return;
     setCurrentIndex(0);
@@ -130,20 +357,19 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   }, [currentAudio, requestTrackMetadata]);
 
   useEffect(() => {
-    if (isCollapsed) return;
-    tracks.forEach((track) => requestTrackMetadata(track.audio));
-  }, [isCollapsed, requestTrackMetadata, tracks]);
-
-  useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !currentTrack) return;
-
-    audio.src = currentTrack.audio;
-    audio.load();
     setProgress(0);
     setDuration(0);
     setError(null);
-  }, [currentTrack]);
+    if (!audio || !currentAudio) return;
+
+    const nextSrc = resolveAudioSrc(currentAudio);
+    if (audio.src && audio.src !== nextSrc) {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+    }
+  }, [currentAudio]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -154,11 +380,24 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
       return;
     }
 
+    if (!currentAudio) {
+      setIsPlaying(false);
+      return;
+    }
+
+    const nextSrc = resolveAudioSrc(currentAudio);
+    if (audio.src !== nextSrc) {
+      audio.src = currentAudio;
+      audio.load();
+    }
+
+    requestTrackMetadata(currentAudio);
+
     audio.play().catch(() => {
       setIsPlaying(false);
       setError('音频暂时无法播放');
     });
-  }, [currentIndex, isPlaying]);
+  }, [currentAudio, isPlaying, requestTrackMetadata]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -167,10 +406,68 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   }, [volume]);
 
   useEffect(() => {
+    const coverUrls = coverUrlsRef.current;
+
     return () => {
-      coverUrlsRef.current.forEach((coverUrl) => URL.revokeObjectURL(coverUrl));
-      coverUrlsRef.current.clear();
+      coverUrls.forEach((coverUrl) => URL.revokeObjectURL(coverUrl));
+      coverUrls.clear();
     };
+  }, []);
+
+  useEffect(() => {
+    if (isCollapsed) return;
+
+    const handleDocumentPointerDown = (event: globalThis.PointerEvent) => {
+      const player = playerRef.current;
+      if (!player || player.contains(event.target as Node)) return;
+      setCollapsedWithAnchor(true);
+    };
+
+    document.addEventListener('pointerdown', handleDocumentPointerDown);
+    return () => document.removeEventListener('pointerdown', handleDocumentPointerDown);
+  }, [isCollapsed, setCollapsedWithAnchor]);
+
+  usePlayerLayoutEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    const { width, height } = player.getBoundingClientRect();
+    const transitionAnchor = transitionAnchorRef.current;
+
+    if (transitionAnchor) {
+      transitionAnchorRef.current = null;
+      const nextPosition = getAnchoredPlayerPosition(transitionAnchor, width, height);
+      applyPlayerPositionStyle(player, nextPosition);
+      setPlayerPosition((position) =>
+        position && isSamePosition(position, nextPosition) ? position : nextPosition
+      );
+      return;
+    }
+
+    if (!playerPosition) return;
+
+    const nextPosition = clampPlayerPosition(playerPosition, width, height);
+    if (!isSamePosition(playerPosition, nextPosition)) {
+      applyPlayerPositionStyle(player, nextPosition);
+      setPlayerPosition(nextPosition);
+    }
+  }, [isCollapsed, playerPosition]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const player = playerRef.current;
+      if (!player) return;
+
+      const { width, height } = player.getBoundingClientRect();
+      setPlayerPosition((position) => {
+        if (!position) return position;
+        const nextPosition = clampPlayerPosition(position, width, height);
+        return isSamePosition(position, nextPosition) ? position : nextPosition;
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   if (!currentTrack) return null;
@@ -180,7 +477,8 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const hasLyrics = syncedLyrics.length > 0 || Boolean(currentMetadata?.lyrics);
   const volumePercent = Math.round(volume * 100);
   const VolumeIcon = volume === 0 ? VolumeX : Volume2;
-  const activePlayMode = playModeOptions.find((option) => option.value === playMode) ?? playModeOptions[0];
+  const activePlayMode =
+    playModeOptions.find((option) => option.value === playMode) ?? playModeOptions[0];
   const ActivePlayModeIcon = activePlayMode.Icon;
 
   const selectTrack = (index: number, autoplay = true) => {
@@ -223,7 +521,11 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     }
 
     if (!hasMultipleTracks) return;
-    setCurrentIndex((index) => (playMode === 'shuffle' ? getRandomTrackIndex(index) : (index - 1 + tracks.length) % tracks.length));
+    setCurrentIndex((index) =>
+      playMode === 'shuffle'
+        ? getRandomTrackIndex(index)
+        : (index - 1 + tracks.length) % tracks.length
+    );
   };
 
   const selectNextTrack = () => {
@@ -233,7 +535,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     }
 
     if (!hasMultipleTracks) return;
-    setCurrentIndex((index) => (playMode === 'shuffle' ? getRandomTrackIndex(index) : (index + 1) % tracks.length));
+    setCurrentIndex((index) =>
+      playMode === 'shuffle' ? getRandomTrackIndex(index) : (index + 1) % tracks.length
+    );
   };
 
   const handleTrackEnded = () => {
@@ -258,26 +562,231 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const handleSeek = (value: number) => {
     const audio = audioRef.current;
     if (!audio || duration <= 0) return;
-    audio.currentTime = value;
-    setProgress(value);
+
+    const nextProgress = Math.min(duration, Math.max(0, value));
+    audio.currentTime = nextProgress;
+    setProgress(nextProgress);
+  };
+
+  const seekToClientX = (clientX: number) => {
+    const track = progressTrackRef.current;
+    if (!track || duration <= 0) return;
+
+    const { left, width } = track.getBoundingClientRect();
+    if (width <= 0) return;
+
+    const ratio = Math.min(1, Math.max(0, (clientX - left) / width));
+    handleSeek(ratio * duration);
+  };
+
+  const handleProgressPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (duration <= 0) return;
+
+    event.preventDefault();
+    isSeekingRef.current = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    seekToClientX(event.clientX);
+  };
+
+  const handleProgressPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!isSeekingRef.current) return;
+
+    event.preventDefault();
+    seekToClientX(event.clientX);
+  };
+
+  const stopProgressSeeking = (event: PointerEvent<HTMLDivElement>) => {
+    isSeekingRef.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const handleProgressKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (duration <= 0) return;
+
+    const smallStep = 5;
+    const largeStep = 30;
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      handleSeek(progress - smallStep);
+      return;
+    }
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      handleSeek(progress + smallStep);
+      return;
+    }
+
+    if (event.key === 'PageDown') {
+      event.preventDefault();
+      handleSeek(progress - largeStep);
+      return;
+    }
+
+    if (event.key === 'PageUp') {
+      event.preventDefault();
+      handleSeek(progress + largeStep);
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      handleSeek(0);
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      handleSeek(duration);
+    }
   };
 
   const handleVolumeChange = (value: number) => {
     setVolume(clampVolume(value));
   };
 
+  const handlePlayerPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    const player = playerRef.current;
+    if (!player || (!isCollapsed && isInteractiveDragTarget(event.target))) return;
+
+    const { width, height, left, top } = player.getBoundingClientRect();
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: left,
+      originY: top,
+      width,
+      height,
+      visualX: left,
+      visualY: top,
+      frameId: null,
+      moved: false,
+    };
+  };
+
+  const handlePlayerPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const dragState = dragStateRef.current;
+    const player = playerRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId || !player) return;
+
+    const deltaX = event.clientX - dragState.startX;
+    const deltaY = event.clientY - dragState.startY;
+    const moved = dragState.moved || Math.hypot(deltaX, deltaY) > PLAYER_DRAG_THRESHOLD;
+
+    if (!moved) return;
+
+    if (!dragState.moved && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    dragState.moved = true;
+    suppressPlayerClickRef.current = true;
+    event.preventDefault();
+
+    const nextPosition = clampPlayerPosition(
+      {
+        x: dragState.originX + deltaX,
+        y: dragState.originY + deltaY,
+      },
+      dragState.width,
+      dragState.height
+    );
+
+    dragState.visualX = nextPosition.x;
+    dragState.visualY = nextPosition.y;
+
+    if (dragState.frameId !== null) return;
+
+    player.dataset.dragging = 'true';
+    player.style.willChange = 'transform';
+    dragState.frameId = window.requestAnimationFrame(() => {
+      dragState.frameId = null;
+      player.style.transform = `translate3d(${dragState.visualX - dragState.originX}px, ${
+        dragState.visualY - dragState.originY
+      }px, 0)`;
+    });
+  };
+
+  const handlePlayerPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
+    const dragState = dragStateRef.current;
+    const player = playerRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId || !player) return;
+
+    dragStateRef.current = null;
+    if (dragState.frameId !== null) {
+      window.cancelAnimationFrame(dragState.frameId);
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    if (dragState.moved) {
+      const nextPosition = clampPlayerPosition(
+        { x: dragState.visualX, y: dragState.visualY },
+        dragState.width,
+        dragState.height
+      );
+      applyPlayerPositionStyle(player, nextPosition);
+      resetPlayerDragStyle(player);
+      setPlayerPosition((position) =>
+        position && isSamePosition(position, nextPosition) ? position : nextPosition
+      );
+
+      window.setTimeout(() => {
+        suppressPlayerClickRef.current = false;
+      }, 0);
+      return;
+    }
+
+    resetPlayerDragStyle(player);
+  };
+
+  const handleCapsuleClick = () => {
+    if (suppressPlayerClickRef.current) {
+      suppressPlayerClickRef.current = false;
+      return;
+    }
+
+    setCollapsedWithAnchor(false);
+  };
+
   const cyclePlayMode = () => {
     const currentOptionIndex = playModeOptions.findIndex((option) => option.value === playMode);
-    const nextOption = playModeOptions[(currentOptionIndex + 1) % playModeOptions.length] ?? playModeOptions[0];
+    const nextOption =
+      playModeOptions[(currentOptionIndex + 1) % playModeOptions.length] ?? playModeOptions[0];
     setPlayMode(nextOption.value);
     setIsVolumeOpen(false);
   };
 
   return (
-    <div className="fixed right-4 bottom-24 z-50 md:right-6">
+    <div
+      ref={playerRef}
+      className={cn(
+        'music-player-shell fixed z-50',
+        playerPosition ? '' : 'right-4 bottom-24 md:right-6',
+        isCollapsed && 'cursor-grab active:cursor-grabbing'
+      )}
+      style={
+        playerPosition
+          ? {
+              left: `${playerPosition.x}px`,
+              top: `${playerPosition.y}px`,
+            }
+          : undefined
+      }
+      onPointerDown={handlePlayerPointerDown}
+      onPointerMove={handlePlayerPointerMove}
+      onPointerUp={handlePlayerPointerEnd}
+      onPointerCancel={handlePlayerPointerEnd}
+    >
       <audio
         ref={audioRef}
-        preload="metadata"
+        preload="none"
         onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
         onTimeUpdate={(event) => setProgress(event.currentTarget.currentTime || 0)}
         onEnded={handleTrackEnded}
@@ -290,43 +799,40 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
       {isCollapsed ? (
         <button
           type="button"
-          onClick={() => setIsCollapsed(false)}
-          className="group flex max-w-[15rem] items-center gap-2 rounded-full border border-border/70 bg-card/95 px-2.5 py-2 text-left shadow-lg shadow-black/10 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl dark:bg-card/90"
+          onClick={handleCapsuleClick}
+          className="group flex max-w-[15rem] touch-none items-center gap-2 rounded-full border border-border/70 bg-card/95 px-2.5 py-2 text-left shadow-lg shadow-black/10 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl active:cursor-grabbing dark:bg-card/90"
           aria-label="展开音乐播放器"
         >
           <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
-            {displayCover ? (
-              <img
-                src={displayCover}
-                alt={displayTitle}
-                className={cn('h-full w-full object-cover', isPlaying && 'animate-spin [animation-duration:6s]')}
-                loading="lazy"
-                decoding="async"
-              />
-            ) : (
-              <Music2 className={cn('h-4 w-4 text-muted-foreground', isPlaying && 'text-primary')} />
-            )}
+            <RecordCover
+              coverUrl={displayCover}
+              title={displayTitle}
+              isPlaying={isPlaying}
+              className="h-full w-full"
+            />
             {isPlaying && <span className="absolute inset-0 rounded-full ring-2 ring-primary/30" />}
           </div>
           <div className="hidden min-w-0 sm:block">
-            <div className="truncate text-sm font-medium leading-tight text-foreground">{displayTitle}</div>
+            <div className="truncate text-sm font-medium leading-tight text-foreground">
+              {displayTitle}
+            </div>
             <div className="truncate text-xs text-muted-foreground">{displayArtist}</div>
           </div>
         </button>
       ) : (
         <section className="w-[min(calc(100vw-2rem),21rem)] rounded-2xl border border-border/70 bg-card/95 p-3 shadow-2xl shadow-black/15 backdrop-blur dark:bg-card/90">
           <div className="flex items-start gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted ring-1 ring-border/70">
-              {displayCover ? (
-                <img
-                  src={displayCover}
-                  alt={displayTitle}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                />
-              ) : (
-                <Music2 className="h-6 w-6 text-muted-foreground" />
+            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted ring-1 ring-border/70">
+              <RecordCover
+                coverUrl={displayCover}
+                title={displayTitle}
+                isPlaying={isPlaying}
+                className="h-12 w-12 shadow-inner"
+                iconClassName="h-6 w-6"
+                centerClassName="h-2.5 w-2.5"
+              />
+              {isPlaying && (
+                <span className="pointer-events-none absolute inset-1 rounded-full ring-2 ring-primary/20" />
               )}
             </div>
 
@@ -341,7 +847,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsCollapsed(true)}
+                  onClick={() => setCollapsedWithAnchor(true)}
                   className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   aria-label="折叠音乐播放器"
                 >
@@ -349,7 +855,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                 </button>
               </div>
 
-              {metadataLoading && <p className="mt-1 text-xs text-muted-foreground">正在读取 MP3 信息...</p>}
+              {metadataLoading && (
+                <p className="mt-1 text-xs text-muted-foreground">正在读取 MP3 信息...</p>
+              )}
             </div>
           </div>
 
@@ -410,7 +918,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-xs font-medium text-foreground">{track.title}</div>
+                        <div className="truncate text-xs font-medium text-foreground">
+                          {track.title}
+                        </div>
                         <div className="truncate text-[11px] text-muted-foreground">
                           {track.artist}
                           {track.album ? ` · ${track.album}` : ''}
@@ -429,19 +939,39 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
           )}
 
           <div className="mt-3">
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step="0.1"
-              value={duration ? progress : 0}
-              onChange={(event) => handleSeek(Number(event.target.value))}
-              className="h-1 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
-              style={{
-                background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${progressPercent}%, var(--muted) ${progressPercent}%, var(--muted) 100%)`,
-              }}
+            <div
+              ref={progressTrackRef}
+              role="slider"
+              tabIndex={duration > 0 ? 0 : -1}
               aria-label="音乐播放进度"
-            />
+              aria-valuemin={0}
+              aria-valuemax={Math.max(0, Math.round(duration))}
+              aria-valuenow={Math.round(progress)}
+              aria-valuetext={`${formatTime(progress)} / ${formatTime(duration)}`}
+              aria-disabled={duration <= 0}
+              onPointerDown={handleProgressPointerDown}
+              onPointerMove={handleProgressPointerMove}
+              onPointerUp={stopProgressSeeking}
+              onPointerCancel={stopProgressSeeking}
+              onKeyDown={handleProgressKeyDown}
+              className={cn(
+                'relative h-8 touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                duration > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+              )}
+            >
+              <div className="absolute top-1/2 right-0 left-0 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <div
+                className="absolute top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
+                style={{ left: `${progressPercent}%` }}
+              >
+                <span className="h-3 w-3 rounded-full bg-primary shadow-sm ring-2 ring-background" />
+              </div>
+            </div>
             <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
               <span>{formatTime(progress)}</span>
               <span>{formatTime(duration)}</span>
@@ -520,7 +1050,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
 
               {isVolumeOpen && (
                 <div className="absolute right-0 bottom-11 flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card/95 px-3 py-3 shadow-xl shadow-black/15 backdrop-blur dark:bg-card/90">
-                  <span className="text-[11px] tabular-nums text-muted-foreground">{volumePercent}%</span>
+                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                    {volumePercent}%
+                  </span>
                   <input
                     type="range"
                     min={0}

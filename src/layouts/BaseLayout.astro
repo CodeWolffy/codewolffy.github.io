@@ -110,7 +110,13 @@ const musicTracks = await getMusicTracks();
       跳过导航
     </a>
     <div class="relative flex min-h-screen flex-col">
-      <Header client:load transition:persist name={settings.name} navigation={settings.navigation} githubUrl={settings.links.github} />
+      <Header
+        client:load
+        transition:persist
+        name={settings.name}
+        navigation={settings.navigation}
+        githubUrl={settings.links.github}
+      />
       <main
         id="main-content"
         class:list={['flex-1', type !== 'article' ? 'pb-8 md:pb-20' : 'pb-8']}
@@ -258,7 +264,11 @@ const musicTracks = await getMusicTracks();
 
       <!-- 滚动到顶部按钮 -->
       <ScrollToTop />
-      {musicTracks.length > 0 && <FloatingMusicPlayer client:load transition:persist tracks={musicTracks} />}
+      {
+        musicTracks.length > 0 && (
+          <FloatingMusicPlayer client:load transition:persist tracks={musicTracks} />
+        )
+      }
     </div>
   </body>
 </html>

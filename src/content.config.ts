@@ -237,4 +237,14 @@ const site = defineCollection({
   }),
 });
 
-export const collections = { blog, pages, friendsPage, friends, projects, music, categories, tags, site };
+export const collections = {
+  blog,
+  pages,
+  friendsPage,
+  friends,
+  projects,
+  music,
+  categories,
+  tags,
+  site,
+};

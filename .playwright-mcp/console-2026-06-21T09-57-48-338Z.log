@@ -1,0 +1,3 @@
+[     108ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:4321/_astro/FloatingMusicPlayer.CXenIHeY.js:0
+[    1125ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:4321/_astro/FloatingMusicPlayer.CXenIHeY.js#astro-retry=1782035869452:0
+[    1126ms] [ERROR] [astro-island] Error hydrating /_astro/FloatingMusicPlayer.CXenIHeY.js TypeError: Failed to fetch dynamically imported module: http://127.0.0.1:4321/_astro/FloatingMusicPlayer.CXenIHeY.js#astro-retry=1782035869452 @ http://127.0.0.1:4321/?traffic-check=202606211756:2

@@ -239,16 +239,12 @@ const replaceOutsideCodeBlocks = (
 };
 
 const fixIframesOutsideCodeBlocks = (content: string): string =>
-  replaceOutsideCodeBlocks(
-    content,
-    /<iframe\s+([^>]*)>/g,
-    (_match, attributes: string) => {
-      const cleaned = attributes
-        .replace(/\s+height=["'][^"']*["']/g, '')
-        .replace(/\s+style=["'][^"']*["']/g, '');
-      return `<iframe${cleaned} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
-    }
-  );
+  replaceOutsideCodeBlocks(content, /<iframe\s+([^>]*)>/g, (_match, attributes: string) => {
+    const cleaned = attributes
+      .replace(/\s+height=["'][^"']*["']/g, '')
+      .replace(/\s+style=["'][^"']*["']/g, '');
+    return `<iframe${cleaned} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
+  });
 
 const restoreMermaidBlocks = (content: string): string =>
   content.replace(
@@ -498,7 +494,9 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     // 清理 Mermaid 交互元素
     clone.querySelectorAll('.mermaid-modal').forEach((el) => el.remove());
     clone.querySelectorAll('.mermaid-container').forEach((container) => {
-      container.querySelectorAll('.mermaid-toolbar, .mermaid-code-view').forEach((el) => el.remove());
+      container
+        .querySelectorAll('.mermaid-toolbar, .mermaid-code-view')
+        .forEach((el) => el.remove());
       container.removeAttribute('style');
       if (container instanceof HTMLElement) {
         container.style.height = 'auto';

@@ -17,6 +17,7 @@ tags:
   - discriminant: custom
     value: Claude
 ---
+
 如果你现在还把 ChatGPT、Claude、Cursor 当成“高级搜索引擎”来用，那你大概率只用了 AI 的一小部分能力。
 
 MCP（Model Context Protocol，模型上下文协议）是一套开放协议，用来让 AI 安全地调用外部工具。它更像一层标准化连接：一边接大模型，一边接文件系统、浏览器、仓库、文档、设计稿、数据库等外部资源。
@@ -51,9 +52,9 @@ MCP 本质是「大模型 ↔ 外部工具」的标准化中间层，让 AI 能�
 
 **适合场景**：
 
-* 批量分析、编辑、整理项目目录
-* 让 AI 先读代码，再回答项目相关问题
-* 把查询结果、草稿、生成代码直接写回指定目录
+- 批量分析、编辑、整理项目目录
+- 让 AI 先读代码，再回答项目相关问题
+- 把查询结果、草稿、生成代码直接写回指定目录
 
 **安装方式**：
 
@@ -80,9 +81,9 @@ MCP 本质是「大模型 ↔ 外部工具」的标准化中间层，让 AI 能�
 
 **适合场景**：
 
-* 查询某个 API 的最新用法
-* 让 AI 按最新文档写代码
-* 解决“文档更新了，但 AI 还在用旧写法”的问题
+- 查询某个 API 的最新用法
+- 让 AI 按最新文档写代码
+- 解决“文档更新了，但 AI 还在用旧写法”的问题
 
 **安装方式**：
 
@@ -109,10 +110,10 @@ MCP 本质是「大模型 ↔ 外部工具」的标准化中间层，让 AI 能�
 
 **适合场景**：
 
-* "这个页面加载慢，帮我看看瓶颈在哪"
-* "这个组件有内存泄漏，帮我抓 Heap 分析"
-* "接口报 500，帮我看 Network 请求和 Response"
-* "控制台一堆报错，帮我定位是哪个调用导致的"
+- "这个页面加载慢，帮我看看瓶颈在哪"
+- "这个组件有内存泄漏，帮我抓 Heap 分析"
+- "接口报 500，帮我看 Network 请求和 Response"
+- "控制台一堆报错，帮我定位是哪个调用导致的"
 
 **安装方式**：
 
@@ -129,8 +130,8 @@ MCP 本质是「大模型 ↔ 外部工具」的标准化中间层，让 AI 能�
 
 **与 Playwright 的区别**：
 
-* Playwright 更适合“做事”
-* Chrome DevTools 更适合“看问题、查瓶颈”
+- Playwright 更适合“做事”
+- Chrome DevTools 更适合“看问题、查瓶颈”
 
 ---
 
@@ -142,9 +143,9 @@ Playwright MCP 让 AI 能控制真实浏览器：打开网页、点击按钮、�
 
 **适合场景**：
 
-* 自动化测试：让 AI 帮你写并执行端到端测试
-* 数据抓取：处理登录态或动态渲染页面
-* UI 验收：截图对比页面是否符合预期
+- 自动化测试：让 AI 帮你写并执行端到端测试
+- 数据抓取：处理登录态或动态渲染页面
+- UI 验收：截图对比页面是否符合预期
 
 **安装方式**：
 
@@ -171,9 +172,9 @@ Playwright MCP 让 AI 能控制真实浏览器：打开网页、点击按钮、�
 
 **适合场景**：
 
-* 创建 Issue、发起 Pull Request、做代码 Review
-* 查看仓库状态、追踪 CI/CD 结果
-* 把需求描述转换成可执行的代码变更
+- 创建 Issue、发起 Pull Request、做代码 Review
+- 查看仓库状态、追踪 CI/CD 结果
+- 把需求描述转换成可执行的代码变更
 
 **安装方式**：
 
@@ -202,9 +203,9 @@ Figma MCP 的价值，不是“截图识别”，而是直接读取 Figma 的图
 
 **适合场景**：
 
-* 把 Figma 设计稿转成前端代码
-* 提取颜色、字体、间距等设计 Token
-* 配合设计系统复用组件，减少人工对齐成本
+- 把 Figma 设计稿转成前端代码
+- 提取颜色、字体、间距等设计 Token
+- 配合设计系统复用组件，减少人工对齐成本
 
 **安装方式**：
 
@@ -231,9 +232,9 @@ Figma MCP 的价值，不是“截图识别”，而是直接读取 Figma 的图
 
 **适合场景**：
 
-* 读取技术文档、博客、API 说明
-* 抓取公开页面的纯文本内容
-* 给模型补充实时网页信息
+- 读取技术文档、博客、API 说明
+- 抓取公开页面的纯文本内容
+- 给模型补充实时网页信息
 
 **安装方式**：
 
@@ -260,10 +261,10 @@ Sequential Thinking MCP 解决的是另一类问题：不是去访问外部数�
 
 **适合场景**：
 
-* 复杂任务的拆解和规划（"帮我设计一个完整的 XX 系统"）
-* 需要中途回退的调试（"我之前的假设错了，从第 3 步重新推"）
-* 调研型问题，需要多角度分析的
-* 一步答不完整的长链路任务
+- 复杂任务的拆解和规划（"帮我设计一个完整的 XX 系统"）
+- 需要中途回退的调试（"我之前的假设错了，从第 3 步重新推"）
+- 调研型问题，需要多角度分析的
+- 一步答不完整的长链路任务
 
 **安装方式**：
 
@@ -288,9 +289,9 @@ Sequential Thinking MCP 解决的是另一类问题：不是去访问外部数�
 
 如果两个 MCP 都能做类似的事，优先留下覆盖范围更广、维护成本更低的那个。
 
-* **文档检索类**：Context7 比单一 API 文档服务器更通用
-* **浏览器类**：Playwright 负责执行，Chrome DevTools 负责诊断
-* **网页读取类**：Fetch 负责轻量读取，Playwright 负责交互场景
+- **文档检索类**：Context7 比单一 API 文档服务器更通用
+- **浏览器类**：Playwright 负责执行，Chrome DevTools 负责诊断
+- **网页读取类**：Fetch 负责轻量读取，Playwright 负责交互场景
 
 ### 2. MCP 不是越多越好
 
@@ -304,9 +305,9 @@ MCP 多了不一定更快，反而可能让上下文更复杂、选择成本更�
 
 同一个 MCP，在不同客户端里接法可能不一样。最稳的方式通常是：
 
-* 先用 `npx` 临时跑通
-* 再把配置写进 MCP Host
-* 最后再考虑团队级统一部署
+- 先用 `npx` 临时跑通
+- 再把配置写进 MCP Host
+- 最后再考虑团队级统一部署
 
 ---
 
@@ -316,14 +317,14 @@ MCP 已经从“尝鲜工具”变成了真正能进工作流的基础设施。
 
 装上合适的 MCP Server 后，AI 可以帮你：
 
-* **读代码、改代码**（Filesystem）
-* **获取最新文档和知识**（Context7）
-* **深度调试页面性能**（Chrome DevTools）
-* **操作浏览器做测试**（Playwright）
-* **管理仓库、提 PR**（GitHub）
-* **把设计稿变成代码**（Figma）
-* **低成本抓取网页内容**（Fetch）
-* **多步推理复杂任务**（Sequential Thinking）
+- **读代码、改代码**（Filesystem）
+- **获取最新文档和知识**（Context7）
+- **深度调试页面性能**（Chrome DevTools）
+- **操作浏览器做测试**（Playwright）
+- **管理仓库、提 PR**（GitHub）
+- **把设计稿变成代码**（Figma）
+- **低成本抓取网页内容**（Fetch）
+- **多步推理复杂任务**（Sequential Thinking）
 
 如果你只准备先装几个，建议从 **Filesystem + GitHub + Context7** 开始；如果你做前端，再加上 **Playwright + Chrome DevTools + Fetch**，基本就覆盖了大部分日常场景。
 
@@ -331,9 +332,9 @@ MCP 已经从“尝鲜工具”变成了真正能进工作流的基础设施。
 
 **延伸阅读**：
 
-* [MCP 官方服务器仓库](https://github.com/modelcontextprotocol/servers)
-* [MCP 官方文档](https://modelcontextprotocol.io/)
-* [Playwright MCP](https://github.com/microsoft/playwright-mcp)
-* [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp)
-* [GitHub MCP Server](https://github.com/github/github-mcp-server)
-* [Figma-Context-MCP](https://github.com/GLips/Figma-Context-MCP)
+- [MCP 官方服务器仓库](https://github.com/modelcontextprotocol/servers)
+- [MCP 官方文档](https://modelcontextprotocol.io/)
+- [Playwright MCP](https://github.com/microsoft/playwright-mcp)
+- [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp)
+- [GitHub MCP Server](https://github.com/github/github-mcp-server)
+- [Figma-Context-MCP](https://github.com/GLips/Figma-Context-MCP)

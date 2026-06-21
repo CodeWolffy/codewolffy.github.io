@@ -380,9 +380,10 @@ const getMusicPathKey = (path: string) => {
 };
 
 const sanitizeMp3Filename = (filename: string) => {
-  const sanitized = filename
-    .normalize('NFC')
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
+  const sanitized = Array.from(filename.normalize('NFC'), (character) =>
+    '<>:"/\\|?*'.includes(character) || character.charCodeAt(0) <= 31 ? '-' : character
+  )
+    .join('')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -1535,7 +1536,13 @@ export default config({
                     margin: '16px 0',
                   }}
                 >
-                  <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      borderBottom: '1px solid #e2e8f0',
+                      background: '#f8fafc',
+                    }}
+                  >
                     {props.value.items.map((item, index) => (
                       <div
                         key={index}
