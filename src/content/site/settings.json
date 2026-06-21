@@ -27,9 +27,9 @@
   "analytics": {
     "busuanzi": {
       "enabled": true,
-      "origin": "https://busuanzi.ibruce.info",
+      "origin": "https://events.vercount.one",
       "scriptId": "busuanzi_script",
-      "scriptSrc": "https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js",
+      "scriptSrc": "https://events.vercount.one/js",
       "pagePvContainerId": "busuanzi_container_page_pv",
       "pagePvValueId": "busuanzi_value_page_pv",
       "timeoutMs": 5000

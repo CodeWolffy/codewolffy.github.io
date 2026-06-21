@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -76,9 +75,17 @@ const playModeOptions: { value: PlayMode; label: string; Icon: typeof Repeat }[]
 
 const MUSIC_VOLUME_STORAGE_KEY = 'blog-music-volume';
 const defaultVolume = 0.8;
-const usePlayerLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const clampVolume = (value: number) => Math.min(1, Math.max(0, value));
+
+const getPlayerViewportSize = () => {
+  const root = document.documentElement;
+
+  return {
+    width: root?.clientWidth || window.innerWidth,
+    height: root?.clientHeight || window.innerHeight,
+  };
+};
 
 const readStoredVolume = () => {
   if (typeof window === 'undefined') return defaultVolume;
@@ -114,8 +121,9 @@ const clampPlayerPosition = (
 ): PlayerPosition => {
   if (typeof window === 'undefined') return position;
 
-  const maxX = Math.max(PLAYER_EDGE_GAP, window.innerWidth - width - PLAYER_EDGE_GAP);
-  const maxY = Math.max(PLAYER_EDGE_GAP, window.innerHeight - height - PLAYER_EDGE_GAP);
+  const viewport = getPlayerViewportSize();
+  const maxX = Math.max(PLAYER_EDGE_GAP, viewport.width - width - PLAYER_EDGE_GAP);
+  const maxY = Math.max(PLAYER_EDGE_GAP, viewport.height - height - PLAYER_EDGE_GAP);
 
   return {
     x: Math.min(maxX, Math.max(PLAYER_EDGE_GAP, position.x)),
@@ -123,13 +131,16 @@ const clampPlayerPosition = (
   };
 };
 
-const isSamePosition = (a: PlayerPosition, b: PlayerPosition) => a.x === b.x && a.y === b.y;
-
-const getPlayerTransitionAnchor = (rect: DOMRect): PlayerTransitionAnchor => {
-  const leftOffset = rect.left;
-  const rightOffset = window.innerWidth - rect.right;
-  const topOffset = rect.top;
-  const bottomOffset = window.innerHeight - rect.bottom;
+const getPlayerAnchorFromPosition = (
+  position: PlayerPosition,
+  width: number,
+  height: number
+): PlayerTransitionAnchor => {
+  const viewport = getPlayerViewportSize();
+  const leftOffset = position.x;
+  const rightOffset = viewport.width - position.x - width;
+  const topOffset = position.y;
+  const bottomOffset = viewport.height - position.y - height;
 
   return {
     horizontal:
@@ -144,32 +155,99 @@ const getPlayerTransitionAnchor = (rect: DOMRect): PlayerTransitionAnchor => {
 };
 
 const getAnchoredPlayerPosition = (anchor: PlayerTransitionAnchor, width: number, height: number) =>
-  clampPlayerPosition(
-    {
-      x:
-        anchor.horizontal.edge === 'right'
-          ? window.innerWidth - width - anchor.horizontal.offset
-          : anchor.horizontal.offset,
-      y:
-        anchor.vertical.edge === 'bottom'
-          ? window.innerHeight - height - anchor.vertical.offset
-          : anchor.vertical.offset,
-    },
-    width,
-    height
-  );
+  (() => {
+    const viewport = getPlayerViewportSize();
 
-const applyPlayerPositionStyle = (player: HTMLDivElement, position: PlayerPosition) => {
-  player.style.left = `${position.x}px`;
-  player.style.top = `${position.y}px`;
-  player.style.right = 'auto';
-  player.style.bottom = 'auto';
+    return clampPlayerPosition(
+      {
+        x:
+          anchor.horizontal.edge === 'right'
+            ? viewport.width - width - anchor.horizontal.offset
+            : anchor.horizontal.offset,
+        y:
+          anchor.vertical.edge === 'bottom'
+            ? viewport.height - height - anchor.vertical.offset
+            : anchor.vertical.offset,
+      },
+      width,
+      height
+    );
+  })();
+
+const clampPlayerAnchor = (
+  anchor: PlayerTransitionAnchor,
+  width: number,
+  height: number
+): PlayerTransitionAnchor => {
+  const position = getAnchoredPlayerPosition(anchor, width, height);
+
+  return {
+    horizontal:
+      anchor.horizontal.edge === 'right'
+        ? { edge: 'right', offset: getPlayerViewportSize().width - position.x - width }
+        : { edge: 'left', offset: position.x },
+    vertical:
+      anchor.vertical.edge === 'bottom'
+        ? { edge: 'bottom', offset: getPlayerViewportSize().height - position.y - height }
+        : { edge: 'top', offset: position.y },
+  };
+};
+
+const applyPlayerAnchorStyle = (player: HTMLDivElement, anchor: PlayerTransitionAnchor) => {
+  if (anchor.horizontal.edge === 'right') {
+    player.style.right = `${anchor.horizontal.offset}px`;
+    player.style.left = 'auto';
+  } else {
+    player.style.left = `${anchor.horizontal.offset}px`;
+    player.style.right = 'auto';
+  }
+
+  if (anchor.vertical.edge === 'bottom') {
+    player.style.bottom = `${anchor.vertical.offset}px`;
+    player.style.top = 'auto';
+  } else {
+    player.style.top = `${anchor.vertical.offset}px`;
+    player.style.bottom = 'auto';
+  }
+};
+
+const getPlayerAnchorStyle = (anchor: PlayerTransitionAnchor) => ({
+  left: anchor.horizontal.edge === 'left' ? `${anchor.horizontal.offset}px` : 'auto',
+  right: anchor.horizontal.edge === 'right' ? `${anchor.horizontal.offset}px` : 'auto',
+  top: anchor.vertical.edge === 'top' ? `${anchor.vertical.offset}px` : 'auto',
+  bottom: anchor.vertical.edge === 'bottom' ? `${anchor.vertical.offset}px` : 'auto',
+});
+
+const getPlayerSurfaceStyle = (anchor: PlayerTransitionAnchor | null) => ({
+  left: anchor?.horizontal.edge === 'left' ? '0px' : 'auto',
+  right: anchor?.horizontal.edge === 'left' ? 'auto' : '0px',
+  top: anchor?.vertical.edge === 'top' ? '0px' : 'auto',
+  bottom: anchor?.vertical.edge === 'top' ? 'auto' : '0px',
+});
+
+const isSameAnchor = (a: PlayerTransitionAnchor, b: PlayerTransitionAnchor) => {
+  return (
+    a.horizontal.edge === b.horizontal.edge &&
+    a.vertical.edge === b.vertical.edge &&
+    a.horizontal.offset === b.horizontal.offset &&
+    a.vertical.offset === b.vertical.offset
+  );
 };
 
 const resetPlayerDragStyle = (player: HTMLDivElement) => {
   player.style.transform = '';
   player.style.willChange = '';
   player.removeAttribute('data-dragging');
+};
+
+const capturePointer = (target: HTMLDivElement, pointerId: number) => {
+  try {
+    if (!target.hasPointerCapture(pointerId)) {
+      target.setPointerCapture(pointerId);
+    }
+  } catch {
+    // Synthetic pointer events in tests may not have an active pointer to capture.
+  }
 };
 
 const isInteractiveDragTarget = (target: EventTarget | null) =>
@@ -204,10 +282,11 @@ function RecordCover({
 }: RecordCoverProps) {
   return (
     <div
+      data-playing={isPlaying ? 'true' : undefined}
       className={cn(
         'music-record relative flex items-center justify-center overflow-hidden rounded-full bg-muted',
-        coverUrl && 'music-record--has-cover',
-        coverUrl && isPlaying && 'music-record--spinning',
+        coverUrl ? 'music-record--has-cover' : 'music-record--fallback',
+        isPlaying && 'music-record--spinning',
         className
       )}
     >
@@ -244,12 +323,13 @@ function RecordCover({
 
 export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const playerRef = useRef<HTMLDivElement>(null);
+  const playerSurfaceRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressTrackRef = useRef<HTMLDivElement>(null);
   const isSeekingRef = useRef(false);
   const dragStateRef = useRef<PlayerDragState | null>(null);
+  const playerAnchorRef = useRef<PlayerTransitionAnchor | null>(null);
   const suppressPlayerClickRef = useRef(false);
-  const transitionAnchorRef = useRef<PlayerTransitionAnchor | null>(null);
   const coverUrlsRef = useRef<Set<string>>(new Set());
   const metadataRequestsRef = useRef<Set<string>>(new Set());
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -264,7 +344,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const [error, setError] = useState<string | null>(null);
   const [metadataByAudio, setMetadataByAudio] = useState<Record<string, Mp3Metadata>>({});
   const [metadataLoadingAudio, setMetadataLoadingAudio] = useState<string | null>(null);
-  const [playerPosition, setPlayerPosition] = useState<PlayerPosition | null>(null);
+  const [playerAnchor, setPlayerAnchor] = useState<PlayerTransitionAnchor | null>(null);
 
   const currentTrack = tracks[currentIndex];
   const currentAudio = currentTrack?.audio;
@@ -326,16 +406,33 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
       });
   }, []);
 
-  const capturePlayerTransitionAnchor = useCallback(() => {
-    const player = playerRef.current;
-    if (!player || typeof window === 'undefined') return;
+  const commitPlayerAnchor = useCallback(
+    (nextAnchor: PlayerTransitionAnchor, player = playerRef.current) => {
+      playerAnchorRef.current = nextAnchor;
+      if (player) applyPlayerAnchorStyle(player, nextAnchor);
 
-    transitionAnchorRef.current = getPlayerTransitionAnchor(player.getBoundingClientRect());
-  }, []);
+      setPlayerAnchor((anchor) =>
+        anchor && isSameAnchor(anchor, nextAnchor) ? anchor : nextAnchor
+      );
+    },
+    []
+  );
 
   const setCollapsedWithAnchor = useCallback(
     (nextCollapsed: boolean) => {
-      capturePlayerTransitionAnchor();
+      if (!nextCollapsed) {
+        const player = playerRef.current;
+        const surface = playerSurfaceRef.current;
+
+        if (player && surface) {
+          const { left, top, width, height } = surface.getBoundingClientRect();
+          commitPlayerAnchor(
+            getPlayerAnchorFromPosition({ x: left, y: top }, width, height),
+            player
+          );
+        }
+      }
+
       setIsCollapsed(nextCollapsed);
 
       if (nextCollapsed) {
@@ -343,7 +440,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
         setIsVolumeOpen(false);
       }
     },
-    [capturePlayerTransitionAnchor]
+    [commitPlayerAnchor]
   );
 
   useEffect(() => {
@@ -427,48 +524,22 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     return () => document.removeEventListener('pointerdown', handleDocumentPointerDown);
   }, [isCollapsed, setCollapsedWithAnchor]);
 
-  usePlayerLayoutEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
-
-    const { width, height } = player.getBoundingClientRect();
-    const transitionAnchor = transitionAnchorRef.current;
-
-    if (transitionAnchor) {
-      transitionAnchorRef.current = null;
-      const nextPosition = getAnchoredPlayerPosition(transitionAnchor, width, height);
-      applyPlayerPositionStyle(player, nextPosition);
-      setPlayerPosition((position) =>
-        position && isSamePosition(position, nextPosition) ? position : nextPosition
-      );
-      return;
-    }
-
-    if (!playerPosition) return;
-
-    const nextPosition = clampPlayerPosition(playerPosition, width, height);
-    if (!isSamePosition(playerPosition, nextPosition)) {
-      applyPlayerPositionStyle(player, nextPosition);
-      setPlayerPosition(nextPosition);
-    }
-  }, [isCollapsed, playerPosition]);
-
   useEffect(() => {
     const handleResize = () => {
       const player = playerRef.current;
-      if (!player) return;
+      const surface = playerSurfaceRef.current;
+      if (!player || !surface) return;
 
-      const { width, height } = player.getBoundingClientRect();
-      setPlayerPosition((position) => {
-        if (!position) return position;
-        const nextPosition = clampPlayerPosition(position, width, height);
-        return isSamePosition(position, nextPosition) ? position : nextPosition;
-      });
+      const { width, height } = surface.getBoundingClientRect();
+      const currentAnchor = playerAnchorRef.current;
+      if (!currentAnchor) return;
+
+      commitPlayerAnchor(clampPlayerAnchor(currentAnchor, width, height), player);
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [commitPlayerAnchor]);
 
   if (!currentTrack) return null;
 
@@ -649,7 +720,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   };
 
   const handlePlayerPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    const player = playerRef.current;
+    const player = playerSurfaceRef.current;
     if (!player || (!isCollapsed && isInteractiveDragTarget(event.target))) return;
 
     const { width, height, left, top } = player.getBoundingClientRect();
@@ -671,7 +742,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
 
   const handlePlayerPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const dragState = dragStateRef.current;
-    const player = playerRef.current;
+    const player = playerSurfaceRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId || !player) return;
 
     const deltaX = event.clientX - dragState.startX;
@@ -680,9 +751,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
 
     if (!moved) return;
 
-    if (!dragState.moved && !event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
+    if (!dragState.moved) capturePointer(event.currentTarget, event.pointerId);
 
     dragState.moved = true;
     suppressPlayerClickRef.current = true;
@@ -714,8 +783,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
 
   const handlePlayerPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
     const dragState = dragStateRef.current;
+    const surface = playerSurfaceRef.current;
     const player = playerRef.current;
-    if (!dragState || dragState.pointerId !== event.pointerId || !player) return;
+    if (!dragState || dragState.pointerId !== event.pointerId || !surface || !player) return;
 
     dragStateRef.current = null;
     if (dragState.frameId !== null) {
@@ -731,11 +801,13 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
         dragState.width,
         dragState.height
       );
-      applyPlayerPositionStyle(player, nextPosition);
-      resetPlayerDragStyle(player);
-      setPlayerPosition((position) =>
-        position && isSamePosition(position, nextPosition) ? position : nextPosition
+      const nextAnchor = getPlayerAnchorFromPosition(
+        nextPosition,
+        dragState.width,
+        dragState.height
       );
+      resetPlayerDragStyle(surface);
+      commitPlayerAnchor(nextAnchor, player);
 
       window.setTimeout(() => {
         suppressPlayerClickRef.current = false;
@@ -743,7 +815,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
       return;
     }
 
-    resetPlayerDragStyle(player);
+    resetPlayerDragStyle(surface);
   };
 
   const handleCapsuleClick = () => {
@@ -767,22 +839,10 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     <div
       ref={playerRef}
       className={cn(
-        'music-player-shell fixed z-50',
-        playerPosition ? '' : 'right-4 bottom-24 md:right-6',
-        isCollapsed && 'cursor-grab active:cursor-grabbing'
+        'music-player-shell fixed z-50 h-0 w-0 overflow-visible',
+        playerAnchor ? '' : 'right-4 bottom-24 md:right-6'
       )}
-      style={
-        playerPosition
-          ? {
-              left: `${playerPosition.x}px`,
-              top: `${playerPosition.y}px`,
-            }
-          : undefined
-      }
-      onPointerDown={handlePlayerPointerDown}
-      onPointerMove={handlePlayerPointerMove}
-      onPointerUp={handlePlayerPointerEnd}
-      onPointerCancel={handlePlayerPointerEnd}
+      style={playerAnchor ? getPlayerAnchorStyle(playerAnchor) : undefined}
     >
       <audio
         ref={audioRef}
@@ -796,284 +856,301 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
         }}
       />
 
-      {isCollapsed ? (
-        <button
-          type="button"
-          onClick={handleCapsuleClick}
-          className="group flex max-w-[15rem] touch-none items-center gap-2 rounded-full border border-border/70 bg-card/95 px-2.5 py-2 text-left shadow-lg shadow-black/10 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl active:cursor-grabbing dark:bg-card/90"
-          aria-label="展开音乐播放器"
-        >
-          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
-            <RecordCover
-              coverUrl={displayCover}
-              title={displayTitle}
-              isPlaying={isPlaying}
-              className="h-full w-full"
-            />
-            {isPlaying && <span className="absolute inset-0 rounded-full ring-2 ring-primary/30" />}
-          </div>
-          <div className="hidden min-w-0 sm:block">
-            <div className="truncate text-sm font-medium leading-tight text-foreground">
-              {displayTitle}
-            </div>
-            <div className="truncate text-xs text-muted-foreground">{displayArtist}</div>
-          </div>
-        </button>
-      ) : (
-        <section className="w-[min(calc(100vw-2rem),21rem)] rounded-2xl border border-border/70 bg-card/95 p-3 shadow-2xl shadow-black/15 backdrop-blur dark:bg-card/90">
-          <div className="flex items-start gap-3">
-            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted ring-1 ring-border/70">
+      <div
+        ref={playerSurfaceRef}
+        className={cn(
+          'music-player-surface absolute',
+          isCollapsed && 'cursor-grab active:cursor-grabbing'
+        )}
+        style={getPlayerSurfaceStyle(playerAnchor)}
+        onPointerDown={handlePlayerPointerDown}
+        onPointerMove={handlePlayerPointerMove}
+        onPointerUp={handlePlayerPointerEnd}
+        onPointerCancel={handlePlayerPointerEnd}
+      >
+        {isCollapsed ? (
+          <button
+            type="button"
+            onClick={handleCapsuleClick}
+            className="group flex max-w-[15rem] touch-none items-center gap-2 rounded-full border border-border/70 bg-card/95 px-2.5 py-2 text-left shadow-lg shadow-black/10 backdrop-blur transition-[border-color,box-shadow,background-color,color] duration-300 hover:border-primary/30 hover:shadow-xl active:cursor-grabbing dark:bg-card/90"
+            aria-label="展开音乐播放器"
+          >
+            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
               <RecordCover
                 coverUrl={displayCover}
                 title={displayTitle}
                 isPlaying={isPlaying}
-                className="h-12 w-12 shadow-inner"
-                iconClassName="h-6 w-6"
-                centerClassName="h-2.5 w-2.5"
+                className="h-full w-full"
               />
               {isPlaying && (
-                <span className="pointer-events-none absolute inset-1 rounded-full ring-2 ring-primary/20" />
+                <span className="absolute inset-0 rounded-full ring-2 ring-primary/30" />
               )}
             </div>
+            <div className="hidden min-w-0 sm:block">
+              <div className="truncate text-sm font-medium leading-tight text-foreground">
+                {displayTitle}
+              </div>
+              <div className="truncate text-xs text-muted-foreground">{displayArtist}</div>
+            </div>
+          </button>
+        ) : (
+          <section className="w-[min(calc(100vw-2rem),21rem)] rounded-2xl border border-border/70 bg-card/95 p-3 shadow-2xl shadow-black/15 backdrop-blur dark:bg-card/90">
+            <div className="flex items-start gap-3">
+              <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted ring-1 ring-border/70">
+                <RecordCover
+                  coverUrl={displayCover}
+                  title={displayTitle}
+                  isPlaying={isPlaying}
+                  className="h-12 w-12 shadow-inner"
+                  iconClassName="h-6 w-6"
+                  centerClassName="h-2.5 w-2.5"
+                />
+                {isPlaying && (
+                  <span className="pointer-events-none absolute inset-1 rounded-full ring-2 ring-primary/20" />
+                )}
+              </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold text-foreground">{displayTitle}</h2>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {displayArtist}
-                    {displayAlbum ? ` · ${displayAlbum}` : ''}
-                  </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-sm font-semibold text-foreground">
+                      {displayTitle}
+                    </h2>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {displayArtist}
+                      {displayAlbum ? ` · ${displayAlbum}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCollapsedWithAnchor(true)}
+                    className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    aria-label="折叠音乐播放器"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
                 </div>
+
+                {metadataLoading && (
+                  <p className="mt-1 text-xs text-muted-foreground">正在读取 MP3 信息...</p>
+                )}
+              </div>
+            </div>
+
+            {hasLyrics && (
+              <div className="mt-3 rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-center">
+                {syncedLyrics.length > 0 ? (
+                  <div className="space-y-1" aria-live="polite">
+                    <p className="line-clamp-1 min-h-5 text-xs leading-relaxed text-muted-foreground">
+                      {previousLyric?.text || '\u00A0'}
+                    </p>
+                    <p className="line-clamp-1 min-h-6 text-sm font-medium leading-relaxed text-foreground">
+                      {activeLyric?.text || '等待歌词'}
+                    </p>
+                    <p className="line-clamp-1 min-h-5 text-xs leading-relaxed text-muted-foreground">
+                      {nextLyric?.text || '\u00A0'}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="line-clamp-3 whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+                    {currentMetadata?.lyrics}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {hasMultipleTracks && isPlaylistOpen && (
+              <div className="mt-3 rounded-xl border border-border/60 bg-background/60 p-2">
+                <div className="mb-2 flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+                  <span>播放列表</span>
+                  <span>{playlistItems.length} 首</span>
+                </div>
+                <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+                  {playlistItems.map((track, index) => {
+                    const isCurrentTrack = index === currentIndex;
+
+                    return (
+                      <button
+                        key={track.audio}
+                        type="button"
+                        onClick={() => selectTrack(index)}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-accent',
+                          isCurrentTrack && 'bg-primary/10 text-foreground ring-1 ring-primary/20'
+                        )}
+                        aria-current={isCurrentTrack ? 'true' : undefined}
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-border/50">
+                          {track.coverUrl ? (
+                            <img
+                              src={track.coverUrl}
+                              alt={track.title}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <Music2 className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs font-medium text-foreground">
+                            {track.title}
+                          </div>
+                          <div className="truncate text-[11px] text-muted-foreground">
+                            {track.artist}
+                            {track.album ? ` · ${track.album}` : ''}
+                          </div>
+                        </div>
+                        {isCurrentTrack && (
+                          <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] text-primary-foreground">
+                            当前
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3">
+              <div
+                ref={progressTrackRef}
+                role="slider"
+                tabIndex={duration > 0 ? 0 : -1}
+                aria-label="音乐播放进度"
+                aria-valuemin={0}
+                aria-valuemax={Math.max(0, Math.round(duration))}
+                aria-valuenow={Math.round(progress)}
+                aria-valuetext={`${formatTime(progress)} / ${formatTime(duration)}`}
+                aria-disabled={duration <= 0}
+                onPointerDown={handleProgressPointerDown}
+                onPointerMove={handleProgressPointerMove}
+                onPointerUp={stopProgressSeeking}
+                onPointerCancel={stopProgressSeeking}
+                onKeyDown={handleProgressKeyDown}
+                className={cn(
+                  'relative h-8 touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                  duration > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                )}
+              >
+                <div className="absolute top-1/2 right-0 left-0 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <div
+                  className="absolute top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
+                  style={{ left: `${progressPercent}%` }}
+                >
+                  <span className="h-3 w-3 rounded-full bg-primary shadow-sm ring-2 ring-background" />
+                </div>
+              </div>
+              <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+                <span>{formatTime(progress)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+
+            <div className="mt-2 relative flex items-center justify-center">
+              <div className="flex items-center justify-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setCollapsedWithAnchor(true)}
-                  className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  aria-label="折叠音乐播放器"
+                  onClick={cyclePlayMode}
+                  className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  aria-label={`切换播放模式，当前：${activePlayMode.label}`}
+                  title={activePlayMode.label}
                 >
-                  <ChevronDown className="h-4 w-4" />
+                  <ActivePlayModeIcon className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={selectPreviousTrack}
+                  disabled={!hasMultipleTracks && playMode !== 'single'}
+                  className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="上一首"
+                >
+                  <SkipBack className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={togglePlayback}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-105"
+                  aria-label={isPlaying ? '暂停音乐' : '播放音乐'}
+                >
+                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={selectNextTrack}
+                  disabled={!hasMultipleTracks && playMode !== 'single'}
+                  className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="下一首"
+                >
+                  <SkipForward className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlaylistOpen((value) => !value);
+                    setIsVolumeOpen(false);
+                  }}
+                  disabled={!hasMultipleTracks}
+                  className={cn(
+                    'rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40',
+                    isPlaylistOpen && 'bg-accent text-foreground'
+                  )}
+                  aria-label={isPlaylistOpen ? '收起播放列表' : '展开播放列表'}
+                  aria-expanded={isPlaylistOpen}
+                >
+                  <Menu className="h-4 w-4" />
                 </button>
               </div>
 
-              {metadataLoading && (
-                <p className="mt-1 text-xs text-muted-foreground">正在读取 MP3 信息...</p>
-              )}
-            </div>
-          </div>
+              <div className="absolute right-0">
+                <button
+                  type="button"
+                  onClick={() => setIsVolumeOpen((value) => !value)}
+                  className={cn(
+                    'rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+                    isVolumeOpen && 'bg-accent text-foreground'
+                  )}
+                  aria-label="调整音乐播放音量"
+                  aria-expanded={isVolumeOpen}
+                >
+                  <VolumeIcon className="h-4 w-4" />
+                </button>
 
-          {hasLyrics && (
-            <div className="mt-3 rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-center">
-              {syncedLyrics.length > 0 ? (
-                <div className="space-y-1" aria-live="polite">
-                  <p className="line-clamp-1 min-h-5 text-xs leading-relaxed text-muted-foreground">
-                    {previousLyric?.text || '\u00A0'}
-                  </p>
-                  <p className="line-clamp-1 min-h-6 text-sm font-medium leading-relaxed text-foreground">
-                    {activeLyric?.text || '等待歌词'}
-                  </p>
-                  <p className="line-clamp-1 min-h-5 text-xs leading-relaxed text-muted-foreground">
-                    {nextLyric?.text || '\u00A0'}
-                  </p>
-                </div>
-              ) : (
-                <p className="line-clamp-3 whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
-                  {currentMetadata?.lyrics}
-                </p>
-              )}
-            </div>
-          )}
-
-          {hasMultipleTracks && isPlaylistOpen && (
-            <div className="mt-3 rounded-xl border border-border/60 bg-background/60 p-2">
-              <div className="mb-2 flex items-center justify-between px-1 text-[11px] text-muted-foreground">
-                <span>播放列表</span>
-                <span>{playlistItems.length} 首</span>
-              </div>
-              <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
-                {playlistItems.map((track, index) => {
-                  const isCurrentTrack = index === currentIndex;
-
-                  return (
-                    <button
-                      key={track.audio}
-                      type="button"
-                      onClick={() => selectTrack(index)}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-accent',
-                        isCurrentTrack && 'bg-primary/10 text-foreground ring-1 ring-primary/20'
-                      )}
-                      aria-current={isCurrentTrack ? 'true' : undefined}
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-border/50">
-                        {track.coverUrl ? (
-                          <img
-                            src={track.coverUrl}
-                            alt={track.title}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        ) : (
-                          <Music2 className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-xs font-medium text-foreground">
-                          {track.title}
-                        </div>
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {track.artist}
-                          {track.album ? ` · ${track.album}` : ''}
-                        </div>
-                      </div>
-                      {isCurrentTrack && (
-                        <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] text-primary-foreground">
-                          当前
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-3">
-            <div
-              ref={progressTrackRef}
-              role="slider"
-              tabIndex={duration > 0 ? 0 : -1}
-              aria-label="音乐播放进度"
-              aria-valuemin={0}
-              aria-valuemax={Math.max(0, Math.round(duration))}
-              aria-valuenow={Math.round(progress)}
-              aria-valuetext={`${formatTime(progress)} / ${formatTime(duration)}`}
-              aria-disabled={duration <= 0}
-              onPointerDown={handleProgressPointerDown}
-              onPointerMove={handleProgressPointerMove}
-              onPointerUp={stopProgressSeeking}
-              onPointerCancel={stopProgressSeeking}
-              onKeyDown={handleProgressKeyDown}
-              className={cn(
-                'relative h-8 touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                duration > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
-              )}
-            >
-              <div className="absolute top-1/2 right-0 left-0 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              <div
-                className="absolute top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
-                style={{ left: `${progressPercent}%` }}
-              >
-                <span className="h-3 w-3 rounded-full bg-primary shadow-sm ring-2 ring-background" />
-              </div>
-            </div>
-            <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-              <span>{formatTime(progress)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
-
-          <div className="mt-2 relative flex items-center justify-center">
-            <div className="flex items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={cyclePlayMode}
-                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                aria-label={`切换播放模式，当前：${activePlayMode.label}`}
-                title={activePlayMode.label}
-              >
-                <ActivePlayModeIcon className="h-4 w-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={selectPreviousTrack}
-                disabled={!hasMultipleTracks && playMode !== 'single'}
-                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="上一首"
-              >
-                <SkipBack className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={togglePlayback}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-105"
-                aria-label={isPlaying ? '暂停音乐' : '播放音乐'}
-              >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
-              </button>
-              <button
-                type="button"
-                onClick={selectNextTrack}
-                disabled={!hasMultipleTracks && playMode !== 'single'}
-                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="下一首"
-              >
-                <SkipForward className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlaylistOpen((value) => !value);
-                  setIsVolumeOpen(false);
-                }}
-                disabled={!hasMultipleTracks}
-                className={cn(
-                  'rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40',
-                  isPlaylistOpen && 'bg-accent text-foreground'
+                {isVolumeOpen && (
+                  <div className="absolute right-0 bottom-11 flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card/95 px-3 py-3 shadow-xl shadow-black/15 backdrop-blur dark:bg-card/90">
+                    <span className="text-[11px] tabular-nums text-muted-foreground">
+                      {volumePercent}%
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step="0.01"
+                      value={volume}
+                      onChange={(event) => handleVolumeChange(Number(event.target.value))}
+                      className="h-24 w-2 cursor-pointer appearance-none rounded-full bg-muted accent-primary [direction:rtl] [writing-mode:vertical-lr]"
+                      style={{
+                        background: `linear-gradient(to top, var(--primary) 0%, var(--primary) ${volumePercent}%, var(--muted) ${volumePercent}%, var(--muted) 100%)`,
+                      }}
+                      aria-label="音乐播放音量"
+                    />
+                  </div>
                 )}
-                aria-label={isPlaylistOpen ? '收起播放列表' : '展开播放列表'}
-                aria-expanded={isPlaylistOpen}
-              >
-                <Menu className="h-4 w-4" />
-              </button>
+              </div>
             </div>
 
-            <div className="absolute right-0">
-              <button
-                type="button"
-                onClick={() => setIsVolumeOpen((value) => !value)}
-                className={cn(
-                  'rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-                  isVolumeOpen && 'bg-accent text-foreground'
-                )}
-                aria-label="调整音乐播放音量"
-                aria-expanded={isVolumeOpen}
-              >
-                <VolumeIcon className="h-4 w-4" />
-              </button>
-
-              {isVolumeOpen && (
-                <div className="absolute right-0 bottom-11 flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card/95 px-3 py-3 shadow-xl shadow-black/15 backdrop-blur dark:bg-card/90">
-                  <span className="text-[11px] tabular-nums text-muted-foreground">
-                    {volumePercent}%
-                  </span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step="0.01"
-                    value={volume}
-                    onChange={(event) => handleVolumeChange(Number(event.target.value))}
-                    className="h-24 w-2 cursor-pointer appearance-none rounded-full bg-muted accent-primary [direction:rtl] [writing-mode:vertical-lr]"
-                    style={{
-                      background: `linear-gradient(to top, var(--primary) 0%, var(--primary) ${volumePercent}%, var(--muted) ${volumePercent}%, var(--muted) 100%)`,
-                    }}
-                    aria-label="音乐播放音量"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {error && <p className="mt-2 text-center text-xs text-destructive">{error}</p>}
-        </section>
-      )}
+            {error && <p className="mt-2 text-center text-xs text-destructive">{error}</p>}
+          </section>
+        )}
+      </div>
     </div>
   );
 }

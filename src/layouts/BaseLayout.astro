@@ -35,6 +35,7 @@ const ogImage = image
   : new URL(settings.og.defaultImage, Astro.site || Astro.url);
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 const busuanzi = settings.analytics.busuanzi;
+const busuanziClientConfig = JSON.stringify(busuanzi).replace(/</g, '\\u003c');
 const socialLinks = Object.fromEntries(settings.socials.map((item) => [item.label, item.href]));
 const musicTracks = await getMusicTracks();
 ---
@@ -53,9 +54,15 @@ const musicTracks = await getMusicTracks();
       title={settings.rss.title}
       href={settings.links.rss}
     />
-    <!-- 不蒜子预连接优化 -->
-    <link rel="dns-prefetch" href={busuanzi.origin} />
-    <link rel="preconnect" href={busuanzi.origin} crossorigin />
+    {
+      busuanzi.enabled && (
+        <>
+          <!-- 不蒜子预连接优化 -->
+          <link rel="dns-prefetch" href={busuanzi.origin} />
+          <link rel="preconnect" href={busuanzi.origin} crossorigin />
+        </>
+      )
+    }
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     {
@@ -100,6 +107,77 @@ const musicTracks = await getMusicTracks();
 
     {/* Theme Initialization Script to prevent FOUC */}
     <script is:inline type="module" src="/theme.js"></script>
+    {
+      busuanzi.enabled && (
+        <script
+          is:inline
+          set:html={`
+(() => {
+  const config = ${busuanziClientConfig};
+  const stateKey = '__busuanziPageviewLoader';
+  const state = (window[stateKey] ||= { installed: false, timer: 0, lastUrl: '', lastAt: 0 });
+
+  const hideCounter = (container) => {
+    if (!container) return;
+    container.style.display = 'none';
+    container.setAttribute('aria-hidden', 'true');
+  };
+
+  const resetCounter = (container, value) => {
+    value.textContent = '...';
+    container.style.display = 'inline-flex';
+    container.removeAttribute('aria-hidden');
+  };
+
+  const loadCounter = () => {
+    const container = document.getElementById(config.pagePvContainerId);
+    const value = document.getElementById(config.pagePvValueId);
+    if (!container || !value) return;
+
+    const now = Date.now();
+    const currentUrl = window.location.href;
+    if (state.lastUrl === currentUrl && now - state.lastAt < 2000) return;
+    state.lastUrl = currentUrl;
+    state.lastAt = now;
+
+    resetCounter(container, value);
+    window.clearTimeout(state.timer);
+
+    document.getElementById(config.scriptId)?.remove();
+
+    const script = document.createElement('script');
+    script.id = config.scriptId;
+    script.src = config.scriptSrc;
+    script.async = true;
+    script.defer = true;
+    script.referrerPolicy = 'no-referrer-when-downgrade';
+    script.onerror = () => hideCounter(container);
+
+    state.timer = window.setTimeout(() => {
+      const latestContainer = document.getElementById(config.pagePvContainerId);
+      const latestValue = document.getElementById(config.pagePvValueId);
+      const text = latestValue?.textContent?.trim();
+      if (!text || text === '...') hideCounter(latestContainer);
+    }, Number(config.timeoutMs) || 5000);
+
+    document.head.appendChild(script);
+  };
+
+  if (!state.installed) {
+    state.installed = true;
+    document.addEventListener('astro:page-load', loadCounter);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadCounter, { once: true });
+  } else {
+    loadCounter();
+  }
+})();
+          `}
+        />
+      )
+    }
   </head>
   <body class="min-h-screen bg-background font-sans antialiased">
     <!-- 跳过导航链接 - 改进可访问性 -->

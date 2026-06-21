@@ -43,6 +43,7 @@ interface Props {
 }
 
 const settings = await getSiteSettings();
+const busuanzi = settings.analytics.busuanzi;
 
 const { post, allPosts } = Astro.props;
 const { Content, headings } = await render(post);
@@ -212,27 +213,30 @@ const pageUrl = Astro.url.href;
           >
           约 {readingTime} 分钟
         </span>
-        <!-- 阅读量 - 不蒜子 (优化：加载中显示骨架) -->
-        <span
-          class="inline-flex items-center gap-1.5 busuanzi-loading"
-          id="busuanzi_container_page_pv"
-        >
-          <svg
-            class="size-4"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle
-              cx="12"
-              cy="12"
-              r="3"></circle></svg
-          >
-          <span id="busuanzi_value_page_pv" class="min-w-[1.5rem] text-center">...</span>次浏览
-        </span>
+        {
+          busuanzi.enabled && (
+            <span
+              class="inline-flex items-center gap-1.5 busuanzi-loading"
+              id={busuanzi.pagePvContainerId}
+            >
+              <svg
+                class="size-4"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle
+                  cx="12"
+                  cy="12"
+                  r="3"></circle></svg
+              >
+              <span id={busuanzi.pagePvValueId} class="min-w-[1.5rem] text-center">...</span>次浏览
+            </span>
+          )
+        }
       </div>
       {
         tagIds.length > 0 && (
