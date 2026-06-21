@@ -1,8 +1,610 @@
 // @ts-check
-import { config, fields, collection, singleton } from '@keystatic/core';
+import {
+  config,
+  fields,
+  collection,
+  singleton,
+  type AssetsFormField,
+  type BasicFormField,
+  type FormFieldInputProps,
+  type FormFieldStoredValue,
+} from '@keystatic/core';
 import { block } from '@keystatic/core/content-components';
 import { normalizeIframeUrl } from './src/utils/iframe-url';
-import type { ReactNode } from 'react';
+import { getIconComponent, iconOptions, type IconType } from './src/lib/icons';
+import { useMemo, useState, type ChangeEvent, type CSSProperties, type ReactNode } from 'react';
+
+const defaultIconValue: IconType = 'link';
+
+type IconPickerFieldOptions = {
+  label: string;
+  description?: string;
+  defaultValue?: IconType;
+};
+
+const iconPickerFieldStyle: CSSProperties = {
+  display: 'grid',
+  gap: '0.75rem',
+};
+
+const iconPickerHeaderStyle: CSSProperties = {
+  display: 'grid',
+  gap: '0.25rem',
+};
+
+const iconPickerLabelStyle: CSSProperties = {
+  color: '#111827',
+  fontSize: 14,
+  fontWeight: 600,
+};
+
+const iconPickerDescriptionStyle: CSSProperties = {
+  color: '#6b7280',
+  fontSize: 12,
+  lineHeight: 1.5,
+};
+
+const iconPreviewCardStyle: CSSProperties = {
+  alignItems: 'center',
+  background: '#f9fafb',
+  border: '1px solid #d1d5db',
+  borderRadius: 10,
+  display: 'flex',
+  gap: '0.75rem',
+  padding: '0.75rem',
+};
+
+const iconPreviewBoxStyle: CSSProperties = {
+  alignItems: 'center',
+  background: '#fff',
+  border: '1px solid #e5e7eb',
+  borderRadius: 8,
+  color: '#111827',
+  display: 'inline-flex',
+  flexShrink: 0,
+  height: 40,
+  justifyContent: 'center',
+  width: 40,
+};
+
+const iconPreviewTextStyle: CSSProperties = {
+  display: 'grid',
+  gap: 2,
+  minWidth: 0,
+};
+
+const iconPreviewNameStyle: CSSProperties = {
+  color: '#111827',
+  fontSize: 14,
+  fontWeight: 600,
+};
+
+const iconPreviewValueStyle: CSSProperties = {
+  color: '#6b7280',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+  fontSize: 12,
+};
+
+const iconGridStyle: CSSProperties = {
+  display: 'grid',
+  gap: '0.5rem',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))',
+};
+
+const iconSvgStyle: CSSProperties = {
+  display: 'block',
+  flexShrink: 0,
+};
+
+const getIconChoiceStyle = (selected: boolean): CSSProperties => ({
+  alignItems: 'center',
+  background: selected ? '#eff6ff' : '#fff',
+  border: selected ? '2px solid #2563eb' : '1px solid #d1d5db',
+  borderRadius: 8,
+  color: selected ? '#1d4ed8' : '#374151',
+  cursor: 'pointer',
+  display: 'flex',
+  fontSize: 13,
+  fontWeight: selected ? 600 : 500,
+  gap: '0.5rem',
+  minHeight: 42,
+  padding: selected ? '0.5625rem 0.6875rem' : '0.625rem 0.75rem',
+  textAlign: 'left',
+});
+
+function IconPickerInput({
+  value,
+  onChange,
+  autoFocus,
+  label,
+  description,
+}: FormFieldInputProps<string> & IconPickerFieldOptions) {
+  const selectedValue = value || defaultIconValue;
+  const selectedOption = iconOptions.find((option) => option.value === selectedValue);
+  const focusValue = selectedOption?.value ?? defaultIconValue;
+  const CurrentIcon = getIconComponent(selectedValue);
+
+  return (
+    <div style={iconPickerFieldStyle}>
+      <div style={iconPickerHeaderStyle}>
+        <span style={iconPickerLabelStyle}>{label}</span>
+        {description ? <span style={iconPickerDescriptionStyle}>{description}</span> : null}
+      </div>
+      <div style={iconPreviewCardStyle}>
+        <span style={iconPreviewBoxStyle}>
+          <CurrentIcon aria-hidden="true" height={24} style={iconSvgStyle} width={24} />
+        </span>
+        <span style={iconPreviewTextStyle}>
+          <strong style={iconPreviewNameStyle}>{selectedOption?.label ?? '自定义图标'}</strong>
+          <span style={iconPreviewValueStyle}>{selectedValue}</span>
+        </span>
+      </div>
+      <div aria-label={label} role="radiogroup" style={iconGridStyle}>
+        {iconOptions.map((option) => {
+          const selected = option.value === selectedValue;
+          const Icon = getIconComponent(option.value);
+
+          return (
+            <button
+              aria-checked={selected}
+              autoFocus={autoFocus && option.value === focusValue}
+              key={option.value}
+              onClick={() => onChange(option.value)}
+              role="radio"
+              style={getIconChoiceStyle(selected)}
+              type="button"
+            >
+              <Icon aria-hidden="true" height={18} style={iconSvgStyle} width={18} />
+              <span>{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function iconPickerField({
+  label,
+  description = '点击图标即可选择，保存值仍然是原来的图标标识。',
+  defaultValue = defaultIconValue,
+}: IconPickerFieldOptions): BasicFormField<string> & { options: typeof iconOptions } {
+  const normalizeValue = (value: FormFieldStoredValue) =>
+    typeof value === 'string' && value.length > 0 ? value : defaultValue;
+
+  return {
+    kind: 'form',
+    label,
+    options: iconOptions,
+    Input(props) {
+      return <IconPickerInput description={description} label={label} {...props} />;
+    },
+    defaultValue() {
+      return defaultValue;
+    },
+    parse: normalizeValue,
+    serialize(value) {
+      return { value: value || defaultValue };
+    },
+    validate(value) {
+      return value || defaultValue;
+    },
+    reader: {
+      parse: normalizeValue,
+    },
+  };
+}
+
+const musicPublicDirectory = 'public/music';
+const musicPublicPath = '/music/';
+
+type MusicFilesFieldOptions = {
+  label: string;
+  description?: string;
+};
+
+type MusicFileItem = {
+  path: string;
+  filename: string;
+  relativePath?: string;
+  content?: Uint8Array;
+};
+
+type MusicFilesValue = {
+  files: MusicFileItem[];
+  knownRelativePaths: string[];
+};
+
+type MusicUploadStatus = {
+  added: number;
+  duplicate: number;
+  invalid: number;
+};
+
+const musicUploadFieldStyle: CSSProperties = {
+  display: 'grid',
+  gap: '0.75rem',
+};
+
+const musicUploadHeaderStyle: CSSProperties = {
+  display: 'grid',
+  gap: '0.25rem',
+};
+
+const musicUploadLabelStyle: CSSProperties = {
+  color: '#111827',
+  fontSize: 14,
+  fontWeight: 600,
+};
+
+const musicUploadDescriptionStyle: CSSProperties = {
+  color: '#6b7280',
+  fontSize: 12,
+  lineHeight: 1.5,
+};
+
+const musicUploadButtonStyle: CSSProperties = {
+  alignItems: 'center',
+  background: '#fff',
+  border: '1px solid #d1d5db',
+  borderRadius: 8,
+  color: '#374151',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  fontSize: 14,
+  fontWeight: 500,
+  justifyContent: 'center',
+  justifySelf: 'start',
+  minHeight: 38,
+  padding: '0.5rem 0.875rem',
+};
+
+const musicUploadSummaryStyle: CSSProperties = {
+  color: '#6b7280',
+  fontSize: 12,
+};
+
+const musicUploadListStyle: CSSProperties = {
+  display: 'grid',
+  gap: '0.5rem',
+};
+
+const musicUploadItemStyle: CSSProperties = {
+  alignItems: 'center',
+  background: '#fff',
+  border: '1px solid #e5e7eb',
+  borderRadius: 10,
+  display: 'flex',
+  gap: '0.75rem',
+  justifyContent: 'space-between',
+  minHeight: 46,
+  padding: '0.625rem 0.75rem',
+};
+
+const musicUploadFileTextStyle: CSSProperties = {
+  display: 'grid',
+  gap: 2,
+  minWidth: 0,
+};
+
+const musicUploadFileNameStyle: CSSProperties = {
+  color: '#111827',
+  fontSize: 14,
+  fontWeight: 600,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+const musicUploadFilePathStyle: CSSProperties = {
+  color: '#6b7280',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+  fontSize: 12,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+const musicUploadRemoveButtonStyle: CSSProperties = {
+  background: '#fff',
+  border: '1px solid #fecaca',
+  borderRadius: 8,
+  color: '#dc2626',
+  cursor: 'pointer',
+  flexShrink: 0,
+  fontSize: 13,
+  padding: '0.375rem 0.625rem',
+};
+
+const musicUploadEmptyStyle: CSSProperties = {
+  background: '#f9fafb',
+  border: '1px dashed #d1d5db',
+  borderRadius: 10,
+  color: '#6b7280',
+  fontSize: 13,
+  padding: '0.875rem',
+};
+
+const musicUploadInputStyle: CSSProperties = {
+  display: 'none',
+};
+
+const isMp3Path = (value: string) => /\.mp3(?:$|[?#])/i.test(value);
+
+const decodePath = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const normalizeStoredMusicPath = (value: unknown) => {
+  if (typeof value !== 'string') return undefined;
+
+  const trimmed = value.trim().replace(/\\/g, '/');
+  if (!trimmed || !isMp3Path(trimmed)) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  const withoutPublic = trimmed.replace(/^\/?public\//i, '');
+  if (withoutPublic.startsWith('/music/')) return withoutPublic;
+  if (withoutPublic.startsWith('music/')) return `/${withoutPublic}`;
+  if (withoutPublic.startsWith('/')) return withoutPublic;
+
+  return `${musicPublicPath}${withoutPublic.replace(/^\/+/, '')}`;
+};
+
+const getMusicRelativePath = (path: string) => {
+  const normalized = normalizeStoredMusicPath(path);
+  if (!normalized || /^https?:\/\//i.test(normalized)) return undefined;
+
+  const pathname = normalized.split(/[?#]/, 1)[0];
+  if (!pathname.startsWith(musicPublicPath)) return undefined;
+
+  const relativePath = decodePath(pathname.slice(musicPublicPath.length));
+  return relativePath || undefined;
+};
+
+const toMusicPublicPath = (relativePath: string) =>
+  `${musicPublicPath}${relativePath.replace(/^\/+/, '')}`;
+
+const getMusicFilename = (path: string) => {
+  const relativePath = getMusicRelativePath(path);
+  const filename = relativePath ? relativePath.split('/').pop() : path.split('/').pop();
+  return decodePath(filename || 'MP3 音乐');
+};
+
+const getMusicPathKey = (path: string) => {
+  const normalized = normalizeStoredMusicPath(path) ?? path;
+  return decodePath(normalized).replace(/\\/g, '/').toLowerCase();
+};
+
+const sanitizeMp3Filename = (filename: string) => {
+  const sanitized = filename
+    .normalize('NFC')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!sanitized) return 'track.mp3';
+  if (/\.mp3$/i.test(sanitized)) return sanitized;
+
+  return `${sanitized.replace(/\.[^.]*$/, '')}.mp3`;
+};
+
+const normalizeMusicFilesFromStoredValue = (value: FormFieldStoredValue) => {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const paths: string[] = [];
+
+  value.forEach((item) => {
+    const path = normalizeStoredMusicPath(item);
+    if (!path) return;
+
+    const key = getMusicPathKey(path);
+    if (seen.has(key)) return;
+
+    seen.add(key);
+    paths.push(path);
+  });
+
+  return paths;
+};
+
+function MusicFilesInput({
+  value,
+  onChange,
+  autoFocus,
+  label,
+  description,
+}: FormFieldInputProps<MusicFilesValue> & MusicFilesFieldOptions) {
+  const [status, setStatus] = useState<MusicUploadStatus | null>(null);
+
+  const knownPathKeys = useMemo(() => {
+    const keys = new Set<string>();
+
+    value.knownRelativePaths.forEach((relativePath) => {
+      keys.add(getMusicPathKey(toMusicPublicPath(relativePath)));
+    });
+
+    value.files.forEach((file) => {
+      keys.add(getMusicPathKey(file.path));
+    });
+
+    return keys;
+  }, [value.files, value.knownRelativePaths]);
+
+  const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const selectedFiles = Array.from(input.files ?? []);
+    const nextFiles = [...value.files];
+    const nextKnownRelativePaths = new Set(value.knownRelativePaths);
+    const nextKnownPathKeys = new Set(knownPathKeys);
+    const nextStatus: MusicUploadStatus = { added: 0, duplicate: 0, invalid: 0 };
+
+    for (const file of selectedFiles) {
+      if (!/\.mp3$/i.test(file.name)) {
+        nextStatus.invalid += 1;
+        continue;
+      }
+
+      const filename = sanitizeMp3Filename(file.name);
+      const path = toMusicPublicPath(filename);
+      const key = getMusicPathKey(path);
+
+      if (nextKnownPathKeys.has(key)) {
+        nextStatus.duplicate += 1;
+        continue;
+      }
+
+      const content = new Uint8Array(await file.arrayBuffer());
+      nextFiles.push({
+        path,
+        filename,
+        relativePath: filename,
+        content,
+      });
+      nextKnownRelativePaths.add(filename);
+      nextKnownPathKeys.add(key);
+      nextStatus.added += 1;
+    }
+
+    input.value = '';
+    onChange({
+      files: nextFiles,
+      knownRelativePaths: Array.from(nextKnownRelativePaths),
+    });
+    setStatus(nextStatus);
+  };
+
+  const handleRemove = (index: number) => {
+    onChange({
+      ...value,
+      files: value.files.filter((_, itemIndex) => itemIndex !== index),
+    });
+  };
+
+  return (
+    <div style={musicUploadFieldStyle}>
+      <div style={musicUploadHeaderStyle}>
+        <span style={musicUploadLabelStyle}>{label}</span>
+        {description ? <span style={musicUploadDescriptionStyle}>{description}</span> : null}
+      </div>
+      <label style={musicUploadButtonStyle}>
+        多选上传 MP3
+        <input
+          accept="audio/mpeg,.mp3"
+          autoFocus={autoFocus}
+          multiple
+          onChange={handleUpload}
+          style={musicUploadInputStyle}
+          type="file"
+        />
+      </label>
+      {status ? (
+        <div style={musicUploadSummaryStyle}>
+          已添加 {status.added} 个，跳过重复 {status.duplicate} 个，忽略非 MP3 {status.invalid} 个。
+        </div>
+      ) : null}
+      {value.files.length > 0 ? (
+        <div style={musicUploadListStyle}>
+          {value.files.map((file, index) => (
+            <div key={`${file.path}-${index}`} style={musicUploadItemStyle}>
+              <span style={musicUploadFileTextStyle}>
+                <span style={musicUploadFileNameStyle}>{file.filename}</span>
+                <span style={musicUploadFilePathStyle}>{file.path}</span>
+              </span>
+              <button
+                onClick={() => handleRemove(index)}
+                style={musicUploadRemoveButtonStyle}
+                type="button"
+              >
+                移除
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={musicUploadEmptyStyle}>尚未添加 MP3 文件。</div>
+      )}
+    </div>
+  );
+}
+
+function musicFilesField({
+  label,
+  description = '可一次选择多个 MP3；保存到 public/music 并保留原文件名，重复文件会自动跳过。',
+}: MusicFilesFieldOptions): AssetsFormField<MusicFilesValue, MusicFilesValue, string[]> {
+  return {
+    kind: 'form',
+    formKind: 'assets',
+    directories: [musicPublicDirectory],
+    Input(props) {
+      return <MusicFilesInput description={description} label={label} {...props} />;
+    },
+    defaultValue() {
+      return { files: [], knownRelativePaths: [] };
+    },
+    parse(value, { external }) {
+      const externalMusicFiles = external.get(musicPublicDirectory);
+      const knownRelativePaths = Array.from(externalMusicFiles?.keys() ?? []).filter(isMp3Path);
+      const files = normalizeMusicFilesFromStoredValue(value).map((path) => {
+        const relativePath = getMusicRelativePath(path);
+        const content =
+          relativePath && externalMusicFiles?.has(relativePath)
+            ? externalMusicFiles.get(relativePath)
+            : undefined;
+
+        return {
+          path,
+          filename: getMusicFilename(path),
+          relativePath,
+          content,
+        };
+      });
+
+      return { files, knownRelativePaths };
+    },
+    serialize(value) {
+      const seen = new Set<string>();
+      const paths: string[] = [];
+      const externalFiles = new Map<string, Uint8Array>();
+
+      value.files.forEach((file) => {
+        const path = normalizeStoredMusicPath(file.path);
+        if (!path) return;
+
+        const key = getMusicPathKey(path);
+        if (seen.has(key)) return;
+
+        seen.add(key);
+        paths.push(path);
+
+        if (file.relativePath && file.content) {
+          externalFiles.set(file.relativePath, file.content);
+        }
+      });
+
+      return {
+        value: paths,
+        other: new Map<string, Uint8Array>(),
+        external: new Map<string, ReadonlyMap<string, Uint8Array>>([
+          [musicPublicDirectory, externalFiles],
+        ]),
+      };
+    },
+    validate(value) {
+      return {
+        ...value,
+        files: value.files.filter((file) => Boolean(normalizeStoredMusicPath(file.path))),
+      };
+    },
+    reader: {
+      parse: normalizeMusicFilesFromStoredValue,
+    },
+  };
+}
 
 const keystaticStorage =
   process.env.NODE_ENV === 'production'
@@ -59,6 +661,7 @@ export default config({
     navigation: {
       博客管理: ['posts'],
       页面管理: ['about', 'friendsPage', 'projects'],
+      音乐管理: ['musicLibrary'],
       友链管理: ['friends'],
       站点设置: ['siteSettings'],
     },
@@ -90,37 +693,7 @@ export default config({
           fields.object({
             name: fields.text({ label: '名称' }),
             url: fields.text({ label: '链接' }),
-            icon: fields.select({
-              label: '图标类型',
-              options: [
-                { label: 'GitHub', value: 'github' },
-                { label: '邮箱', value: 'mail' },
-                { label: 'QQ', value: 'qq' },
-                { label: '微信', value: 'wechat' },
-                { label: 'Twitter/X', value: 'twitter' },
-                { label: 'Instagram', value: 'instagram' },
-                { label: 'Bilibili', value: 'bilibili' },
-                { label: 'YouTube', value: 'youtube' },
-                { label: 'Telegram', value: 'telegram' },
-                { label: 'Discord', value: 'discord' },
-                { label: 'LinkedIn', value: 'linkedin' },
-                { label: '微博', value: 'weibo' },
-                { label: '知乎', value: 'zhihu' },
-                { label: '抖音/TikTok', value: 'tiktok' },
-                { label: '小红书', value: 'xiaohongshu' },
-                { label: '掘金', value: 'juejin' },
-                { label: '电话', value: 'phone' },
-                { label: '网站', value: 'globe' },
-                { label: 'RSS', value: 'rss' },
-                { label: 'X (Twitter)', value: 'x' },
-                { label: 'Facebook', value: 'facebook' },
-                { label: 'GitLab', value: 'gitlab' },
-                { label: 'Gitee', value: 'gitee' },
-                { label: 'CSDN', value: 'csdn' },
-                { label: '其他', value: 'link' },
-              ],
-              defaultValue: 'link',
-            }),
+            icon: iconPickerField({ label: '图标类型' }),
           }),
           {
             label: '联系方式',
@@ -156,37 +729,7 @@ export default config({
           fields.object({
             name: fields.text({ label: '名称' }),
             url: fields.text({ label: '链接' }),
-            icon: fields.select({
-              label: '图标类型',
-              options: [
-                { label: 'GitHub', value: 'github' },
-                { label: '邮箱', value: 'mail' },
-                { label: 'QQ', value: 'qq' },
-                { label: '微信', value: 'wechat' },
-                { label: 'Twitter/X', value: 'twitter' },
-                { label: 'Instagram', value: 'instagram' },
-                { label: 'Bilibili', value: 'bilibili' },
-                { label: 'YouTube', value: 'youtube' },
-                { label: 'Telegram', value: 'telegram' },
-                { label: 'Discord', value: 'discord' },
-                { label: 'LinkedIn', value: 'linkedin' },
-                { label: '微博', value: 'weibo' },
-                { label: '知乎', value: 'zhihu' },
-                { label: '抖音/TikTok', value: 'tiktok' },
-                { label: '小红书', value: 'xiaohongshu' },
-                { label: '掘金', value: 'juejin' },
-                { label: '电话', value: 'phone' },
-                { label: '网站', value: 'globe' },
-                { label: 'RSS', value: 'rss' },
-                { label: 'X (Twitter)', value: 'x' },
-                { label: 'Facebook', value: 'facebook' },
-                { label: 'GitLab', value: 'gitlab' },
-                { label: 'Gitee', value: 'gitee' },
-                { label: 'CSDN', value: 'csdn' },
-                { label: '其他', value: 'link' },
-              ],
-              defaultValue: 'link',
-            }),
+            icon: iconPickerField({ label: '图标类型' }),
           }),
           {
             label: '联系方式',
@@ -194,6 +737,18 @@ export default config({
             description: '添加申请友链的联系方式',
           }
         ),
+      },
+    }),
+    musicLibrary: singleton({
+      label: '🎵 音乐管理',
+      path: 'src/content/music/library',
+      format: { data: 'json' },
+      schema: {
+        files: musicFilesField({
+          label: '音乐文件',
+          description:
+            '可一次选择多个 MP3，保存时保留原文件名；重复文件会自动跳过。歌名、歌手、专辑、封面和歌词都从 MP3 标签读取。',
+        }),
       },
     }),
     siteSettings: singleton({

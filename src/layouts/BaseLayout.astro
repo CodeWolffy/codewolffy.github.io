@@ -1,7 +1,9 @@
 ---
 import { ClientRouter } from 'astro:transitions'; // Using ClientRouter for ViewTransitions in modern Astro
 import { Header } from '@/components/layout/Header';
+import { FloatingMusicPlayer } from '@/components/music/FloatingMusicPlayer';
 import ScrollToTop from '@/components/ui/ScrollToTop.astro';
+import { getMusicTracks } from '@/utils/music-tracks';
 import { getSiteSettings } from '@/utils/site-settings';
 import '@/styles/global.css';
 
@@ -34,6 +36,7 @@ const ogImage = image
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 const busuanzi = settings.analytics.busuanzi;
 const socialLinks = Object.fromEntries(settings.socials.map((item) => [item.label, item.href]));
+const musicTracks = await getMusicTracks();
 ---
 
 <!doctype html>
@@ -255,6 +258,7 @@ const socialLinks = Object.fromEntries(settings.socials.map((item) => [item.labe
 
       <!-- 滚动到顶部按钮 -->
       <ScrollToTop />
+      {musicTracks.length > 0 && <FloatingMusicPlayer client:load transition:persist tracks={musicTracks} />}
     </div>
   </body>
 </html>

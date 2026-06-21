@@ -145,6 +145,22 @@ const projects = defineCollection({
   }),
 });
 
+const music = defineCollection({
+  loader: dataLoader('music'),
+  schema: z
+    .object({
+      files: z.array(z.string()).default([]),
+      audio: z.string().optional(),
+      priority: z.number().default(0),
+      enabled: z.boolean().default(true),
+    })
+    .transform((data) => ({
+      files: data.files.length > 0 ? data.files : data.audio ? [data.audio] : [],
+      priority: data.priority,
+      enabled: data.enabled,
+    })),
+});
+
 const site = defineCollection({
   loader: dataLoader('site'),
   schema: z.object({
@@ -221,4 +237,4 @@ const site = defineCollection({
   }),
 });
 
-export const collections = { blog, pages, friendsPage, friends, projects, categories, tags, site };
+export const collections = { blog, pages, friendsPage, friends, projects, music, categories, tags, site };
