@@ -328,15 +328,69 @@ const applyFrameToMetadata = (
   }
 };
 
+const readPrefixBytes = async (response: Response, limit: number): Promise<Uint8Array> => {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer).subarray(0, limit);
+  }
+
+  const chunks: Uint8Array[] = [];
+  let receivedLength = 0;
+  try {
+    while (receivedLength < limit) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        receivedLength += value.length;
+      }
+    }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      // 忽略取消流时的错误
+    }
+  }
+
+  const result = new Uint8Array(receivedLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result.subarray(0, limit);
+};
+
 const fetchBytes = async (src: string, range?: string) => {
   const response = await fetch(src, range ? { headers: { Range: range } } : undefined);
 
-  if (range && response.status !== 206) {
-    await response.body?.cancel();
-    throw new Error(`服务器未按 Range 返回 MP3 片段：${response.status}`);
+  if (!response.ok) {
+    throw new Error(`无法读取 MP3 文件：${response.status}`);
   }
 
-  if (!range && !response.ok) throw new Error(`无法读取 MP3 文件：${response.status}`);
+  if (range && response.status !== 206) {
+    if (response.status === 200) {
+      const match = range.match(/bytes=(\d+)-(\d+)?/);
+      if (match) {
+        const start = parseInt(match[1], 10);
+        const end = match[2] ? parseInt(match[2], 10) : null;
+        if (start === 0 && end !== null) {
+          const limit = end + 1;
+          return await readPrefixBytes(response, limit);
+        }
+      }
+
+      if (range.includes('=-') || range.startsWith('bytes=-')) {
+        await response.body?.cancel().catch(() => {});
+        return new Uint8Array(0);
+      }
+    }
+
+    await response.body?.cancel().catch(() => {});
+    throw new Error(`服务器未按 Range 返回 MP3 片段，且状态码非 200：${response.status}`);
+  }
 
   return new Uint8Array(await response.arrayBuffer());
 };
@@ -397,48 +451,55 @@ export const getFallbackMetadata = (
 };
 
 export const loadMp3Metadata = async (src: string): Promise<Mp3Metadata> => {
-  const tag = await fetchId3Tag(src);
-  if (!tag) return fetchId3v1Metadata(src);
+  try {
+    const tag = await fetchId3Tag(src).catch(() => undefined);
+    if (!tag) {
+      return await fetchId3v1Metadata(src).catch(() => ({}));
+    }
 
-  const majorVersion = tag[3];
-  const flags = tag[5];
-  const tagSize = decodeSyncSafeInteger(tag.subarray(6, 10));
-  const tagEnd = Math.min(tag.length, ID3_HEADER_SIZE + tagSize);
-  let frameSource = tag;
-  let frameSourceEnd = tagEnd;
-  let cursor = ID3_HEADER_SIZE;
+    const majorVersion = tag[3];
+    const flags = tag[5];
+    const tagSize = decodeSyncSafeInteger(tag.subarray(6, 10));
+    const tagEnd = Math.min(tag.length, ID3_HEADER_SIZE + tagSize);
+    let frameSource = tag;
+    let frameSourceEnd = tagEnd;
+    let cursor = ID3_HEADER_SIZE;
 
-  if ((flags & 0x80) !== 0) {
-    const normalizedBody = removeUnsynchronization(tag.subarray(ID3_HEADER_SIZE, tagEnd));
-    frameSource = new Uint8Array(ID3_HEADER_SIZE + normalizedBody.length);
-    frameSource.set(tag.subarray(0, ID3_HEADER_SIZE), 0);
-    frameSource.set(normalizedBody, ID3_HEADER_SIZE);
-    frameSourceEnd = frameSource.length;
+    if ((flags & 0x80) !== 0) {
+      const normalizedBody = removeUnsynchronization(tag.subarray(ID3_HEADER_SIZE, tagEnd));
+      frameSource = new Uint8Array(ID3_HEADER_SIZE + normalizedBody.length);
+      frameSource.set(tag.subarray(0, ID3_HEADER_SIZE), 0);
+      frameSource.set(normalizedBody, ID3_HEADER_SIZE);
+      frameSourceEnd = frameSource.length;
+    }
+
+    if ((flags & 0x40) !== 0 && cursor + 4 <= frameSourceEnd) {
+      const extendedHeaderSize =
+        majorVersion === 4
+          ? decodeSyncSafeInteger(frameSource.subarray(cursor, cursor + 4))
+          : decodeUint32(frameSource.subarray(cursor, cursor + 4));
+      cursor += majorVersion === 4 ? 4 + extendedHeaderSize : extendedHeaderSize + 4;
+    }
+
+    const metadata: Mp3Metadata = {};
+    const syncedLyrics: SyncedLyricLine[] = [];
+
+    while (cursor < frameSourceEnd) {
+      const frame = parseFrame(frameSource, cursor, frameSourceEnd, majorVersion);
+      if (!frame) break;
+
+      applyFrameToMetadata(metadata, syncedLyrics, frame, majorVersion);
+      cursor = frame.next;
+    }
+
+    const timedLyrics = syncedLyrics.length > 0 ? syncedLyrics : parseTimedLyrics(metadata.lyrics);
+    if (timedLyrics.length > 0) metadata.syncedLyrics = timedLyrics;
+
+    if (metadata.title && metadata.artist) return metadata;
+
+    const fallbackV1 = await fetchId3v1Metadata(src).catch(() => ({}));
+    return mergeMetadata(metadata, fallbackV1);
+  } catch {
+    return {};
   }
-
-  if ((flags & 0x40) !== 0 && cursor + 4 <= frameSourceEnd) {
-    const extendedHeaderSize =
-      majorVersion === 4
-        ? decodeSyncSafeInteger(frameSource.subarray(cursor, cursor + 4))
-        : decodeUint32(frameSource.subarray(cursor, cursor + 4));
-    cursor += majorVersion === 4 ? 4 + extendedHeaderSize : extendedHeaderSize + 4;
-  }
-
-  const metadata: Mp3Metadata = {};
-  const syncedLyrics: SyncedLyricLine[] = [];
-
-  while (cursor < frameSourceEnd) {
-    const frame = parseFrame(frameSource, cursor, frameSourceEnd, majorVersion);
-    if (!frame) break;
-
-    applyFrameToMetadata(metadata, syncedLyrics, frame, majorVersion);
-    cursor = frame.next;
-  }
-
-  const timedLyrics = syncedLyrics.length > 0 ? syncedLyrics : parseTimedLyrics(metadata.lyrics);
-  if (timedLyrics.length > 0) metadata.syncedLyrics = timedLyrics;
-
-  if (metadata.title && metadata.artist) return metadata;
-
-  return mergeMetadata(metadata, await fetchId3v1Metadata(src));
 };

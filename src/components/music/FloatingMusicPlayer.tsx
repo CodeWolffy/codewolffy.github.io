@@ -108,7 +108,11 @@ const resolveAudioSrc = (src: string) => {
   if (typeof window === 'undefined') return src;
 
   try {
-    return new URL(src, window.location.href).href;
+    const url = new URL(src, window.location.href);
+    if (['http:', 'https:'].includes(url.protocol)) {
+      return url.href;
+    }
+    return src;
   } catch {
     return src;
   }
@@ -326,6 +330,8 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const playerSurfaceRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressTrackRef = useRef<HTMLDivElement>(null);
+  const volumeBtnRef = useRef<HTMLButtonElement>(null);
+  const volumePanelRef = useRef<HTMLDivElement>(null);
   const isSeekingRef = useRef(false);
   const dragStateRef = useRef<PlayerDragState | null>(null);
   const playerAnchorRef = useRef<PlayerTransitionAnchor | null>(null);
@@ -406,6 +412,37 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
       });
   }, []);
 
+  const cleanupUnusedCoverUrls = useCallback((index: number, currentTracks: MusicTrack[]) => {
+    if (currentTracks.length <= 3) return;
+
+    const activeIndices = new Set([
+      (index - 1 + currentTracks.length) % currentTracks.length,
+      index,
+      (index + 1) % currentTracks.length,
+    ]);
+
+    setMetadataByAudio((prevMetadata) => {
+      let changed = false;
+      const nextMetadata = { ...prevMetadata };
+
+      Object.keys(nextMetadata).forEach((audio) => {
+        const trackIndex = currentTracks.findIndex((t) => t.audio === audio);
+        if (trackIndex !== -1 && !activeIndices.has(trackIndex)) {
+          const metadata = nextMetadata[audio];
+          if (metadata?.coverUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(metadata.coverUrl);
+            coverUrlsRef.current.delete(metadata.coverUrl);
+            delete nextMetadata[audio];
+            metadataRequestsRef.current.delete(audio);
+            changed = true;
+          }
+        }
+      });
+
+      return changed ? nextMetadata : prevMetadata;
+    });
+  }, []);
+
   const commitPlayerAnchor = useCallback(
     (nextAnchor: PlayerTransitionAnchor, player = playerRef.current) => {
       playerAnchorRef.current = nextAnchor;
@@ -451,7 +488,8 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   useEffect(() => {
     if (!currentAudio) return;
     requestTrackMetadata(currentAudio);
-  }, [currentAudio, requestTrackMetadata]);
+    cleanupUnusedCoverUrls(currentIndex, tracks);
+  }, [currentAudio, currentIndex, tracks, requestTrackMetadata, cleanupUnusedCoverUrls]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -512,17 +550,26 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   }, []);
 
   useEffect(() => {
-    if (isCollapsed) return;
-
     const handleDocumentPointerDown = (event: globalThis.PointerEvent) => {
       const player = playerRef.current;
-      if (!player || player.contains(event.target as Node)) return;
-      setCollapsedWithAnchor(true);
+      const target = event.target as Node;
+
+      if (player && !player.contains(target)) {
+        setCollapsedWithAnchor(true);
+        setIsVolumeOpen(false);
+        return;
+      }
+
+      const isVolumeBtn = volumeBtnRef.current?.contains(target);
+      const isVolumePanel = volumePanelRef.current?.contains(target);
+      if (!isVolumeBtn && !isVolumePanel) {
+        setIsVolumeOpen(false);
+      }
     };
 
-    document.addEventListener('pointerdown', handleDocumentPointerDown);
-    return () => document.removeEventListener('pointerdown', handleDocumentPointerDown);
-  }, [isCollapsed, setCollapsedWithAnchor]);
+    document.addEventListener('pointerdown', handleDocumentPointerDown, { capture: true });
+    return () => document.removeEventListener('pointerdown', handleDocumentPointerDown, { capture: true });
+  }, [setCollapsedWithAnchor]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -646,7 +693,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     const { left, width } = track.getBoundingClientRect();
     if (width <= 0) return;
 
-    const ratio = Math.min(1, Math.max(0, (clientX - left) / width));
+    const thumbRadius = 14;
+    const effectiveWidth = Math.max(1, width - thumbRadius * 2);
+    const ratio = Math.min(1, Math.max(0, (clientX - left - thumbRadius) / effectiveWidth));
     handleSeek(ratio * duration);
   };
 
@@ -1112,7 +1161,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
 
               <div className="absolute right-0">
                 <button
+                  ref={volumeBtnRef}
                   type="button"
+                  data-volume-trigger="true"
                   onClick={() => setIsVolumeOpen((value) => !value)}
                   className={cn(
                     'rounded-full p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
@@ -1125,7 +1176,12 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                 </button>
 
                 {isVolumeOpen && (
-                  <div className="absolute right-0 bottom-11 flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card/95 px-3 py-3 shadow-xl shadow-black/15 backdrop-blur dark:bg-card/90">
+                  <div
+                    ref={volumePanelRef}
+                    className="absolute right-0 bottom-11 flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card/95 px-3 py-3 shadow-xl shadow-black/15 backdrop-blur dark:bg-card/90"
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
                     <span className="text-[11px] tabular-nums text-muted-foreground">
                       {volumePercent}%
                     </span>
@@ -1136,7 +1192,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                       step="0.01"
                       value={volume}
                       onChange={(event) => handleVolumeChange(Number(event.target.value))}
-                      className="h-24 w-2 cursor-pointer appearance-none rounded-full bg-muted accent-primary [direction:rtl] [writing-mode:vertical-lr]"
+                      className="h-24 w-1.5 cursor-pointer appearance-none rounded-full bg-muted accent-primary [direction:rtl] [writing-mode:vertical-lr]"
                       style={{
                         background: `linear-gradient(to top, var(--primary) 0%, var(--primary) ${volumePercent}%, var(--muted) ${volumePercent}%, var(--muted) 100%)`,
                       }}

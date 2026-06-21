@@ -86,7 +86,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
 
             {/* Right Actions - 固定宽度 */}
             <div className="flex items-center shrink-0 space-x-1">
-              <a href={githubUrl} target="_blank" rel="noreferrer" className="inline-flex">
+              <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="inline-flex">
                 <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 w-9 md:h-10 md:w-10 py-2 px-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

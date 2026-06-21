@@ -98,7 +98,7 @@
             <body>
                 <div class="container">
                     <div class="alert">
-                        📢 这是一个 RSS 订阅源。建议使用 <a href="https://feedly.com" target="_blank">Feedly</a> 或 <a href="https://netnewswire.com" target="_blank">NetNewsWire</a> 等阅读器订阅。
+                        📢 这是一个 RSS 订阅源。建议使用 <a href="https://feedly.com" target="_blank" rel="noopener noreferrer">Feedly</a> 或 <a href="https://netnewswire.com" target="_blank" rel="noopener noreferrer">NetNewsWire</a> 等阅读器订阅。
                     </div>
                     <div class="header">
                         <h1><xsl:value-of select="/rss/channel/title"/></h1>
@@ -121,7 +121,7 @@
                     <xsl:for-each select="/rss/channel/item">
                         <div class="item">
                             <h2>
-                                <a href="{link}" target="_blank">
+                                <a href="{link}" target="_blank" rel="noopener noreferrer">
                                     <xsl:value-of select="title"/>
                                 </a>
                             </h2>
