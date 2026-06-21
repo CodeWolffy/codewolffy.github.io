@@ -17,6 +17,7 @@
     "check:mermaid": "node scripts/check-mermaid-regression.mjs",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx,.astro,.mjs",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx,.astro,.mjs --fix",
+    "check:all": "npm run format:check && npm run typecheck && npm run lint && npm run sync-content:check && npm run clean-content:dry-run",
     "typecheck": "astro check && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

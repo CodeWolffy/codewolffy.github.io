@@ -107,7 +107,9 @@ const relatedPosts = allPosts
   .slice(0, 3);
 
 // 获取上一篇和下一篇文章
-const sortedPosts = allPosts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const sortedPosts = [...allPosts].sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
 const currentIndex = sortedPosts.findIndex((p) => p.id === post.id);
 const prevPost = currentIndex < sortedPosts.length - 1 ? sortedPosts[currentIndex + 1] : null;
 const nextPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
@@ -585,7 +587,10 @@ const pageUrl = Astro.url.href;
               oldIframe.setAttribute('allowfullscreen', 'true');
               oldIframe.setAttribute('webkitallowfullscreen', 'true');
               oldIframe.setAttribute('mozallowfullscreen', 'true');
-              oldIframe.removeAttribute('sandbox');
+              oldIframe.setAttribute(
+                'sandbox',
+                'allow-same-origin allow-scripts allow-popups allow-presentation'
+              );
 
               // B站移动端播放器替换 + 禁用自动播放
               const src = oldIframe.getAttribute('src') || '';
@@ -622,9 +627,11 @@ const pageUrl = Astro.url.href;
           newIframe.setAttribute('webkitallowfullscreen', 'true');
           newIframe.setAttribute('mozallowfullscreen', 'true');
 
-          // 移除 sandbox 属性以确保移动端全屏功能正常
-          // 视频来自可信源（B站、YouTube），无需 sandbox 安全限制
-          newIframe.removeAttribute('sandbox');
+          // 保留 iframe sandbox 防护，同时允许播放器脚本、弹窗和演示/全屏能力。
+          newIframe.setAttribute(
+            'sandbox',
+            'allow-same-origin allow-scripts allow-popups allow-presentation'
+          );
 
           // iOS specific
           newIframe.setAttribute('playsinline', 'true');

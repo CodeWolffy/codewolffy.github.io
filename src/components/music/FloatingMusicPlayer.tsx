@@ -568,7 +568,8 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     };
 
     document.addEventListener('pointerdown', handleDocumentPointerDown, { capture: true });
-    return () => document.removeEventListener('pointerdown', handleDocumentPointerDown, { capture: true });
+    return () =>
+      document.removeEventListener('pointerdown', handleDocumentPointerDown, { capture: true });
   }, [setCollapsedWithAnchor]);
 
   useEffect(() => {

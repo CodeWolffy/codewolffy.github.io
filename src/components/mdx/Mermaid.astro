@@ -240,6 +240,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
 <script>
   let isInitializing = false;
   let mermaidPromise: Promise<(typeof import('mermaid'))['default']> | null = null;
+  let mermaidEscapeHandlerInstalled = false;
 
   const loadMermaid = () => {
     mermaidPromise ??= import('mermaid').then((module) => module.default);
@@ -650,6 +651,8 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
       });
 
     // ESC 关闭模态框
+    if (mermaidEscapeHandlerInstalled) return;
+    mermaidEscapeHandlerInstalled = true;
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         document.querySelectorAll('.mermaid-modal.active').forEach((modal) => {

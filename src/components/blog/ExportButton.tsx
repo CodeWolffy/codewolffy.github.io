@@ -40,6 +40,14 @@ const MAX_IMAGE_DIMENSION = 1200;
 const JPEG_QUALITY = 0.75;
 const MAX_FILENAME_LENGTH = 50;
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 // ============================================================
 // 通用工具函数
 // ============================================================
@@ -514,21 +522,22 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     if (coverImage) {
       coverImageBase64 = await urlToBase64(resolveImageUrl(coverImage), true);
     }
+    const escapedTitle = escapeHtml(title);
 
     const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${title}</title>
+    <title>${escapedTitle}</title>
     <style>${EXPORT_HTML_STYLES}</style>
 </head>
 <body>
-    <h1>${title}</h1>
+    <h1>${escapedTitle}</h1>
     <div class="meta">
         ${frontmatter.pubDate ? `<span>发布于 ${new Date(frontmatter.pubDate).toLocaleDateString('zh-CN')}</span>` : ''}
     </div>
-    ${coverImageBase64 ? `<img src="${coverImageBase64}" class="cover-img" alt="${title}" />` : ''}
+    ${coverImageBase64 ? `<img src="${coverImageBase64}" class="cover-img" alt="${escapedTitle}" />` : ''}
     <article>
         ${clone.innerHTML}
     </article>
