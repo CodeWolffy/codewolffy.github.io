@@ -64,6 +64,7 @@ const autoSyncContent = () => {
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 const isBuild = process.argv.includes('build');
 const isPreview = process.argv.includes('preview');
+const isDev = process.argv.includes('dev');
 const enableCloudflareAdapter = (isBuild || isPreview) && !isGitHubActions;
 const enableKeystatic = !isGitHubActions;
 
@@ -156,6 +157,8 @@ export default defineConfig({
       dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
     },
     optimizeDeps: {
+      force: isDev,
+      include: ['slate-react', 'lodash/debounce', 'lodash/throttle'],
       exclude: [
         '@keystatic/astro',
         '@keystatic/astro/internal/keystatic-api.js',

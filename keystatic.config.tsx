@@ -607,18 +607,21 @@ function musicFilesField({
   };
 }
 
-const keystaticStorage =
-  process.env.NODE_ENV === 'production'
-    ? {
-        kind: 'github' as const,
-        repo: {
-          owner: 'CodeWolffy',
-          name: 'codewolffy.github.io',
-        },
-      }
-    : {
-        kind: 'local' as const,
-      };
+const keyStaticStorageMode =
+  typeof process !== 'undefined' ? process.env.KEYSTATIC_STORAGE : undefined;
+const useLocalKeystaticStorage = keyStaticStorageMode === 'local' || import.meta.env.DEV;
+
+const keystaticStorage = useLocalKeystaticStorage
+  ? {
+      kind: 'local' as const,
+    }
+  : {
+      kind: 'github' as const,
+      repo: {
+        owner: 'CodeWolffy',
+        name: 'codewolffy.github.io',
+      },
+    };
 
 export default config({
   ui: {
