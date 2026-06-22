@@ -126,21 +126,19 @@ export async function syncContent(
   const allTags = new Set<string>();
   const allCategories = new Set<string>();
 
-  for (const file of blogFiles) {
-    let content = '';
-
-    try {
-      content = await fs.readFile(file, 'utf-8');
-    } catch (e) {
-      reportError(`Error reading blog file ${file}: ${formatError(e)}`);
-      continue;
-    }
-
-    const { tags, categories } = extractTagsAndCategories(content, file, reportError);
-
-    tags.forEach((t) => allTags.add(t));
-    categories.forEach((c) => allCategories.add(c));
-  }
+  // 并发读取和处理所有 MDX 文章文件
+  await Promise.all(
+    blogFiles.map(async (file) => {
+      try {
+        const content = await fs.readFile(file, 'utf-8');
+        const { tags, categories } = extractTagsAndCategories(content, file, reportError);
+        tags.forEach((t) => allTags.add(t));
+        categories.forEach((c) => allCategories.add(c));
+      } catch (e) {
+        reportError(`Error reading blog file ${file}: ${formatError(e)}`);
+      }
+    })
+  );
 
   // Helper to check existing files and detect casing mismatches
   const existsInDir = async (dir: string, tagName: string): Promise<boolean> => {

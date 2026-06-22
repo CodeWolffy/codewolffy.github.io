@@ -74,6 +74,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const suppressPlayerClickRef = useRef(false);
   const coverUrlsRef = useRef<Set<string>>(new Set());
   const metadataRequestsRef = useRef<Set<string>>(new Set());
+  const metadataDebounceTimerRef = useRef<number | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -126,27 +127,92 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     [metadataByAudio, tracks]
   );
 
-  const requestTrackMetadata = useCallback((audio: string) => {
-    if (!audio || metadataRequestsRef.current.has(audio)) return;
+  const requestTrackMetadata = useCallback(
+    (audio: string) => {
+      if (!audio) return;
 
-    metadataRequestsRef.current.add(audio);
-    setMetadataLoadingAudio(audio);
+      // 清除上一次的防抖计时器
+      if (metadataDebounceTimerRef.current !== null) {
+        window.clearTimeout(metadataDebounceTimerRef.current);
+      }
 
-    loadMp3Metadata(audio)
-      .then((metadata) => {
-        if (metadata.coverUrl?.startsWith('blob:')) {
-          coverUrlsRef.current.add(metadata.coverUrl);
-        }
+      // 如果已经缓存了此音频，则不需要再次请求
+      if (metadataByAudio[audio]) return;
 
-        setMetadataByAudio((value) => (value[audio] ? value : { ...value, [audio]: metadata }));
-      })
-      .catch(() => {
-        setMetadataByAudio((value) => (value[audio] ? value : { ...value, [audio]: {} }));
-      })
-      .finally(() => {
-        setMetadataLoadingAudio((value) => (value === audio ? null : value));
-      });
-  }, []);
+      // 已经有正在执行的请求了，避免重复请求
+      if (metadataRequestsRef.current.has(audio)) return;
+
+      // 延迟 200ms 发起元数据网络读取，防止连续切歌瞬间发起大量网络请求
+      metadataDebounceTimerRef.current = window.setTimeout(() => {
+        metadataDebounceTimerRef.current = null;
+
+        if (metadataRequestsRef.current.has(audio)) return;
+        metadataRequestsRef.current.add(audio);
+        setMetadataLoadingAudio(audio);
+
+        loadMp3Metadata(audio)
+          .then((metadata) => {
+            if (metadata.coverUrl?.startsWith('blob:')) {
+              coverUrlsRef.current.add(metadata.coverUrl);
+            }
+
+            setMetadataByAudio((value) => {
+              if (value[audio]) return value;
+
+              const nextMetadata = { ...value, [audio]: metadata };
+
+              // 统计当前带 blob: 封面的缓存项
+              const itemsWithBlobCover = Object.entries(nextMetadata).filter(([, item]) =>
+                item.coverUrl?.startsWith('blob:')
+              );
+
+              // 仅当包含 blob: 封面的歌曲数量超过 30 首时，才去清理最久未播放音频的封面图片
+              // 清理时只注销 coverUrl，保留其余的文本数据（歌名、歌手、歌词等），确保体验不受损
+              if (itemsWithBlobCover.length > 30) {
+                // 找出距离当前播放位置最远的带有 blob 封面的歌曲进行清理
+                const currentTrackIndex = tracks.findIndex((t) => t.audio === audio);
+
+                if (currentTrackIndex !== -1) {
+                  // 计算所有歌曲到当前播放歌曲的距离（环形距离）
+                  const sortedByDistance = itemsWithBlobCover
+                    .map(([key, item]) => {
+                      const idx = tracks.findIndex((t) => t.audio === key);
+                      let distance = 0;
+                      if (idx !== -1) {
+                        const rawDiff = Math.abs(idx - currentTrackIndex);
+                        distance = Math.min(rawDiff, tracks.length - rawDiff);
+                      }
+                      return { key, item, distance };
+                    })
+                    .sort((a, b) => b.distance - a.distance); // 距离最远的排在最前面
+
+                  const itemToPrune = sortedByDistance[0];
+                  if (itemToPrune && itemToPrune.item.coverUrl) {
+                    URL.revokeObjectURL(itemToPrune.item.coverUrl);
+                    coverUrlsRef.current.delete(itemToPrune.item.coverUrl);
+
+                    // 只把封面置空以防内存泄露，文字元数据（歌名、歌词）等全部保留
+                    nextMetadata[itemToPrune.key] = {
+                      ...itemToPrune.item,
+                      coverUrl: undefined,
+                    };
+                  }
+                }
+              }
+
+              return nextMetadata;
+            });
+          })
+          .catch(() => {
+            setMetadataByAudio((value) => (value[audio] ? value : { ...value, [audio]: {} }));
+          })
+          .finally(() => {
+            setMetadataLoadingAudio((value) => (value === audio ? null : value));
+          });
+      }, 200);
+    },
+    [tracks, metadataByAudio]
+  );
 
   const commitPlayerAnchor = useCallback(
     (nextAnchor: PlayerTransitionAnchor, player = playerRef.current) => {
@@ -253,6 +319,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     const coverUrls = coverUrlsRef.current;
 
     return () => {
+      if (metadataDebounceTimerRef.current !== null) {
+        window.clearTimeout(metadataDebounceTimerRef.current);
+      }
       coverUrls.forEach((coverUrl) => URL.revokeObjectURL(coverUrl));
       coverUrls.clear();
     };
