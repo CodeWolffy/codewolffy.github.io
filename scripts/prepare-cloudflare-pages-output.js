@@ -6,6 +6,7 @@ const clientDir = join(distDir, 'client');
 const serverEntry = join(distDir, 'server', 'entry.mjs');
 const pagesWorkerEntry = join(distDir, '_worker.js');
 const assetsIgnorePath = join(distDir, '.assetsignore');
+const routesPath = join(distDir, '_routes.json');
 const privateKeystaticEnvKeys = [
   'KEYSTATIC_GITHUB_CLIENT_ID',
   'KEYSTATIC_GITHUB_CLIENT_SECRET',
@@ -70,5 +71,19 @@ writeFileSync(
   ['server/', 'client/', 'wrangler.json', '.dev.vars', ''].join('\n')
 );
 
+writeFileSync(
+  routesPath,
+  `${JSON.stringify(
+    {
+      version: 1,
+      include: ['/*'],
+      exclude: ['/music/*'],
+    },
+    null,
+    2
+  )}\n`
+);
+
 console.log('[cloudflare-pages] Synced dist/client assets to dist root.');
 console.log('[cloudflare-pages] Generated Pages advanced mode worker entry.');
+console.log('[cloudflare-pages] Generated Pages function routes excluding /music/*.');
