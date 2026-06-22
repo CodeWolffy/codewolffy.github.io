@@ -226,10 +226,12 @@
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
 4. **环境变量 (Environment Variables)**:
-   - 若需在生产环境启用 Keystatic 的 GitHub 模式，需配置：
+   - 若需在生产环境启用 Keystatic 的 GitHub 模式，需在 Cloudflare Pages 配置：
      - `KEYSTATIC_GITHUB_CLIENT_ID`
      - `KEYSTATIC_GITHUB_CLIENT_SECRET`
      - `KEYSTATIC_SECRET` (生成方式: `openssl rand -base64 32`)
+     - `PUBLIC_KEYSTATIC_GITHUB_APP_SLUG`
+   - 建议额外设置 `NODE_VERSION=22.12.0`，与 `package.json` 的 Node 版本要求保持一致。
 
 ### GitHub Pages 部署步骤
 

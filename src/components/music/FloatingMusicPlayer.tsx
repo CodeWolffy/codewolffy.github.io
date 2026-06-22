@@ -10,7 +10,6 @@ import {
 import {
   ChevronDown,
   Menu,
-  Music2,
   Pause,
   Play,
   Repeat,
@@ -23,6 +22,30 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getFallbackMetadata, loadMp3Metadata, type Mp3Metadata } from '@/lib/mp3-metadata';
+import { RecordCover } from './RecordCover';
+import {
+  MUSIC_VOLUME_STORAGE_KEY,
+  PLAYER_DRAG_THRESHOLD,
+  VOLUME_PERSIST_DEBOUNCE_MS,
+  applyPlayerAnchorStyle,
+  capturePointer,
+  clampPlayerAnchor,
+  clampPlayerPosition,
+  clampVolume,
+  formatTime,
+  getActiveLyricIndex,
+  getPlayerAnchorFromPosition,
+  getPlayerAnchorStyle,
+  getPlayerSurfaceStyle,
+  isInteractiveDragTarget,
+  isSameAnchor,
+  readStoredVolume,
+  resetPlayerDragStyle,
+  resolveAudioSrc,
+  type PlayMode,
+  type PlayerDragState,
+  type PlayerTransitionAnchor,
+} from './player-utils';
 
 export type MusicTrack = {
   audio: string;
@@ -32,298 +55,11 @@ type FloatingMusicPlayerProps = {
   tracks: MusicTrack[];
 };
 
-type PlayMode = 'sequence' | 'single' | 'shuffle';
-
-type PlayerPosition = {
-  x: number;
-  y: number;
-};
-
-type PlayerDragState = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  originX: number;
-  originY: number;
-  width: number;
-  height: number;
-  visualX: number;
-  visualY: number;
-  frameId: number | null;
-  moved: boolean;
-};
-
-type PlayerTransitionAnchor = {
-  horizontal: {
-    edge: 'left' | 'right';
-    offset: number;
-  };
-  vertical: {
-    edge: 'top' | 'bottom';
-    offset: number;
-  };
-};
-
-const PLAYER_EDGE_GAP = 16;
-const PLAYER_DRAG_THRESHOLD = 6;
-
 const playModeOptions: { value: PlayMode; label: string; Icon: typeof Repeat }[] = [
   { value: 'sequence', label: '顺序播放', Icon: Repeat },
   { value: 'single', label: '单曲循环', Icon: Repeat1 },
   { value: 'shuffle', label: '随机播放', Icon: Shuffle },
 ];
-
-const MUSIC_VOLUME_STORAGE_KEY = 'blog-music-volume';
-const defaultVolume = 0.8;
-
-const clampVolume = (value: number) => Math.min(1, Math.max(0, value));
-
-const getPlayerViewportSize = () => {
-  const root = document.documentElement;
-
-  return {
-    width: root?.clientWidth || window.innerWidth,
-    height: root?.clientHeight || window.innerHeight,
-  };
-};
-
-const readStoredVolume = () => {
-  if (typeof window === 'undefined') return defaultVolume;
-  const storedValue = window.localStorage.getItem(MUSIC_VOLUME_STORAGE_KEY);
-  if (storedValue === null) return defaultVolume;
-  const parsedValue = Number(storedValue);
-  return Number.isFinite(parsedValue) ? clampVolume(parsedValue) : defaultVolume;
-};
-
-const formatTime = (seconds: number) => {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
-  const minutes = Math.floor(seconds / 60);
-  const remainSeconds = Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, '0');
-  return `${minutes}:${remainSeconds}`;
-};
-
-const resolveAudioSrc = (src: string) => {
-  if (typeof window === 'undefined') return src;
-
-  try {
-    const url = new URL(src, window.location.href);
-    if (['http:', 'https:'].includes(url.protocol)) {
-      return url.href;
-    }
-    return src;
-  } catch {
-    return src;
-  }
-};
-
-const clampPlayerPosition = (
-  position: PlayerPosition,
-  width: number,
-  height: number
-): PlayerPosition => {
-  if (typeof window === 'undefined') return position;
-
-  const viewport = getPlayerViewportSize();
-  const maxX = Math.max(PLAYER_EDGE_GAP, viewport.width - width - PLAYER_EDGE_GAP);
-  const maxY = Math.max(PLAYER_EDGE_GAP, viewport.height - height - PLAYER_EDGE_GAP);
-
-  return {
-    x: Math.min(maxX, Math.max(PLAYER_EDGE_GAP, position.x)),
-    y: Math.min(maxY, Math.max(PLAYER_EDGE_GAP, position.y)),
-  };
-};
-
-const getPlayerAnchorFromPosition = (
-  position: PlayerPosition,
-  width: number,
-  height: number
-): PlayerTransitionAnchor => {
-  const viewport = getPlayerViewportSize();
-  const leftOffset = position.x;
-  const rightOffset = viewport.width - position.x - width;
-  const topOffset = position.y;
-  const bottomOffset = viewport.height - position.y - height;
-
-  return {
-    horizontal:
-      leftOffset <= rightOffset
-        ? { edge: 'left', offset: leftOffset }
-        : { edge: 'right', offset: rightOffset },
-    vertical:
-      topOffset <= bottomOffset
-        ? { edge: 'top', offset: topOffset }
-        : { edge: 'bottom', offset: bottomOffset },
-  };
-};
-
-const getAnchoredPlayerPosition = (anchor: PlayerTransitionAnchor, width: number, height: number) =>
-  (() => {
-    const viewport = getPlayerViewportSize();
-
-    return clampPlayerPosition(
-      {
-        x:
-          anchor.horizontal.edge === 'right'
-            ? viewport.width - width - anchor.horizontal.offset
-            : anchor.horizontal.offset,
-        y:
-          anchor.vertical.edge === 'bottom'
-            ? viewport.height - height - anchor.vertical.offset
-            : anchor.vertical.offset,
-      },
-      width,
-      height
-    );
-  })();
-
-const clampPlayerAnchor = (
-  anchor: PlayerTransitionAnchor,
-  width: number,
-  height: number
-): PlayerTransitionAnchor => {
-  const position = getAnchoredPlayerPosition(anchor, width, height);
-
-  return {
-    horizontal:
-      anchor.horizontal.edge === 'right'
-        ? { edge: 'right', offset: getPlayerViewportSize().width - position.x - width }
-        : { edge: 'left', offset: position.x },
-    vertical:
-      anchor.vertical.edge === 'bottom'
-        ? { edge: 'bottom', offset: getPlayerViewportSize().height - position.y - height }
-        : { edge: 'top', offset: position.y },
-  };
-};
-
-const applyPlayerAnchorStyle = (player: HTMLDivElement, anchor: PlayerTransitionAnchor) => {
-  if (anchor.horizontal.edge === 'right') {
-    player.style.right = `${anchor.horizontal.offset}px`;
-    player.style.left = 'auto';
-  } else {
-    player.style.left = `${anchor.horizontal.offset}px`;
-    player.style.right = 'auto';
-  }
-
-  if (anchor.vertical.edge === 'bottom') {
-    player.style.bottom = `${anchor.vertical.offset}px`;
-    player.style.top = 'auto';
-  } else {
-    player.style.top = `${anchor.vertical.offset}px`;
-    player.style.bottom = 'auto';
-  }
-};
-
-const getPlayerAnchorStyle = (anchor: PlayerTransitionAnchor) => ({
-  left: anchor.horizontal.edge === 'left' ? `${anchor.horizontal.offset}px` : 'auto',
-  right: anchor.horizontal.edge === 'right' ? `${anchor.horizontal.offset}px` : 'auto',
-  top: anchor.vertical.edge === 'top' ? `${anchor.vertical.offset}px` : 'auto',
-  bottom: anchor.vertical.edge === 'bottom' ? `${anchor.vertical.offset}px` : 'auto',
-});
-
-const getPlayerSurfaceStyle = (anchor: PlayerTransitionAnchor | null) => ({
-  left: anchor?.horizontal.edge === 'left' ? '0px' : 'auto',
-  right: anchor?.horizontal.edge === 'left' ? 'auto' : '0px',
-  top: anchor?.vertical.edge === 'top' ? '0px' : 'auto',
-  bottom: anchor?.vertical.edge === 'top' ? 'auto' : '0px',
-});
-
-const isSameAnchor = (a: PlayerTransitionAnchor, b: PlayerTransitionAnchor) => {
-  return (
-    a.horizontal.edge === b.horizontal.edge &&
-    a.vertical.edge === b.vertical.edge &&
-    a.horizontal.offset === b.horizontal.offset &&
-    a.vertical.offset === b.vertical.offset
-  );
-};
-
-const resetPlayerDragStyle = (player: HTMLDivElement) => {
-  player.style.transform = '';
-  player.style.willChange = '';
-  player.removeAttribute('data-dragging');
-};
-
-const capturePointer = (target: HTMLDivElement, pointerId: number) => {
-  try {
-    if (!target.hasPointerCapture(pointerId)) {
-      target.setPointerCapture(pointerId);
-    }
-  } catch {
-    // Synthetic pointer events in tests may not have an active pointer to capture.
-  }
-};
-
-const isInteractiveDragTarget = (target: EventTarget | null) =>
-  typeof HTMLElement !== 'undefined' &&
-  target instanceof HTMLElement &&
-  Boolean(target.closest('button, a, input, textarea, select, [role="slider"]'));
-
-const getActiveLyricIndex = (
-  lyrics: NonNullable<Mp3Metadata['syncedLyrics']>,
-  progress: number
-) => {
-  const index = lyrics.findLastIndex((line) => progress >= line.time);
-  return Math.max(index, 0);
-};
-
-type RecordCoverProps = {
-  coverUrl?: string;
-  title: string;
-  isPlaying: boolean;
-  className?: string;
-  iconClassName?: string;
-  centerClassName?: string;
-};
-
-function RecordCover({
-  coverUrl,
-  title,
-  isPlaying,
-  className,
-  iconClassName,
-  centerClassName,
-}: RecordCoverProps) {
-  return (
-    <div
-      data-playing={isPlaying ? 'true' : undefined}
-      className={cn(
-        'music-record relative flex items-center justify-center overflow-hidden rounded-full bg-muted',
-        coverUrl ? 'music-record--has-cover' : 'music-record--fallback',
-        isPlaying && 'music-record--spinning',
-        className
-      )}
-    >
-      {coverUrl ? (
-        <>
-          <img
-            src={coverUrl}
-            alt={title}
-            className="h-full w-full rounded-full object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-          <span className="pointer-events-none absolute inset-1 rounded-full border border-white/20" />
-          <span className="pointer-events-none absolute inset-[24%] rounded-full border border-black/10 dark:border-white/10" />
-          <span
-            className={cn(
-              'pointer-events-none absolute top-1/2 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background/95 ring-1 ring-border/70',
-              centerClassName
-            )}
-          />
-        </>
-      ) : (
-        <Music2
-          className={cn(
-            'h-4 w-4 text-muted-foreground',
-            isPlaying && 'text-primary',
-            iconClassName
-          )}
-        />
-      )}
-    </div>
-  );
-}
 
 export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const playerRef = useRef<HTMLDivElement>(null);
@@ -412,37 +148,6 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
       });
   }, []);
 
-  const cleanupUnusedCoverUrls = useCallback((index: number, currentTracks: MusicTrack[]) => {
-    if (currentTracks.length <= 3) return;
-
-    const activeIndices = new Set([
-      (index - 1 + currentTracks.length) % currentTracks.length,
-      index,
-      (index + 1) % currentTracks.length,
-    ]);
-
-    setMetadataByAudio((prevMetadata) => {
-      let changed = false;
-      const nextMetadata = { ...prevMetadata };
-
-      Object.keys(nextMetadata).forEach((audio) => {
-        const trackIndex = currentTracks.findIndex((t) => t.audio === audio);
-        if (trackIndex !== -1 && !activeIndices.has(trackIndex)) {
-          const metadata = nextMetadata[audio];
-          if (metadata?.coverUrl?.startsWith('blob:')) {
-            URL.revokeObjectURL(metadata.coverUrl);
-            coverUrlsRef.current.delete(metadata.coverUrl);
-            delete nextMetadata[audio];
-            metadataRequestsRef.current.delete(audio);
-            changed = true;
-          }
-        }
-      });
-
-      return changed ? nextMetadata : prevMetadata;
-    });
-  }, []);
-
   const commitPlayerAnchor = useCallback(
     (nextAnchor: PlayerTransitionAnchor, player = playerRef.current) => {
       playerAnchorRef.current = nextAnchor;
@@ -488,8 +193,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   useEffect(() => {
     if (!currentAudio) return;
     requestTrackMetadata(currentAudio);
-    cleanupUnusedCoverUrls(currentIndex, tracks);
-  }, [currentAudio, currentIndex, tracks, requestTrackMetadata, cleanupUnusedCoverUrls]);
+  }, [currentAudio, requestTrackMetadata]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -522,7 +226,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
 
     const nextSrc = resolveAudioSrc(currentAudio);
     if (audio.src !== nextSrc) {
-      audio.src = currentAudio;
+      audio.src = nextSrc;
       audio.load();
     }
 
@@ -537,7 +241,12 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   useEffect(() => {
     const audio = audioRef.current;
     if (audio) audio.volume = volume;
-    window.localStorage.setItem(MUSIC_VOLUME_STORAGE_KEY, volume.toString());
+
+    const timer = window.setTimeout(() => {
+      window.localStorage.setItem(MUSIC_VOLUME_STORAGE_KEY, volume.toString());
+    }, VOLUME_PERSIST_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
   }, [volume]);
 
   useEffect(() => {
@@ -1030,19 +739,14 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                         )}
                         aria-current={isCurrentTrack ? 'true' : undefined}
                       >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-border/50">
-                          {track.coverUrl ? (
-                            <img
-                              src={track.coverUrl}
-                              alt={track.title}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <Music2 className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </div>
+                        <RecordCover
+                          coverUrl={track.coverUrl}
+                          title={track.title}
+                          isPlaying={isCurrentTrack && isPlaying}
+                          className="h-8 w-8 shrink-0 rounded-md ring-1 ring-border/50"
+                          iconClassName="h-4 w-4"
+                          centerClassName="h-1.5 w-1.5"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-xs font-medium text-foreground">
                             {track.title}

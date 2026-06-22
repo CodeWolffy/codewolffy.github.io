@@ -6,7 +6,13 @@ const clientDir = join(distDir, 'client');
 const serverEntry = join(distDir, 'server', 'entry.mjs');
 const pagesWorkerEntry = join(distDir, '_worker.js');
 const assetsIgnorePath = join(distDir, '.assetsignore');
-
+const privateKeystaticEnvKeys = [
+  'KEYSTATIC_GITHUB_CLIENT_ID',
+  'KEYSTATIC_GITHUB_CLIENT_SECRET',
+  'KEYSTATIC_SECRET',
+];
+const publicKeystaticEnvKeys = ['PUBLIC_KEYSTATIC_GITHUB_APP_SLUG'];
+const keystaticEnvKeys = [...privateKeystaticEnvKeys, ...publicKeystaticEnvKeys];
 const patchKeystaticApiEnvAccess = () => {
   const chunksDir = join(distDir, 'server', 'chunks');
 
@@ -56,7 +62,7 @@ patchKeystaticApiEnvAccess();
 
 writeFileSync(
   pagesWorkerEntry,
-  `import worker from './server/entry.mjs';\n\nconst syncProcessEnv = (env) => {\n  globalThis.process ??= {};\n  globalThis.process.env ??= {};\n\n  for (const key of ['KEYSTATIC_GITHUB_CLIENT_ID', 'KEYSTATIC_GITHUB_CLIENT_SECRET', 'KEYSTATIC_SECRET']) {\n    if (typeof env?.[key] === 'string') {\n      globalThis.process.env[key] = env[key];\n    }\n  }\n};\n\nexport default {\n  fetch(request, env, context) {\n    syncProcessEnv(env);\n    return worker.fetch(request, env, context);\n  },\n};\n`
+  `import worker from './server/entry.mjs';\n\nconst keystaticEnvKeys = ${JSON.stringify(keystaticEnvKeys)};\nconst requiredKeystaticEnvKeys = ${JSON.stringify(privateKeystaticEnvKeys)};\n\nconst syncProcessEnv = (env) => {\n  globalThis.process ??= {};\n  globalThis.process.env ??= {};\n\n  for (const key of keystaticEnvKeys) {\n    if (typeof env?.[key] === 'string') {\n      globalThis.process.env[key] = env[key];\n    }\n  }\n};\n\nconst warnMissingKeystaticEnv = () => {\n  const missing = requiredKeystaticEnvKeys.filter((key) => !globalThis.process?.env?.[key]);\n  if (missing.length > 0) {\n    console.warn(\`[cloudflare-pages] Missing Keystatic environment variables: \${missing.join(', ')}\`);\n  }\n};\n\nexport default {\n  fetch(request, env, context) {\n    syncProcessEnv(env);\n\n    const url = new URL(request.url);\n    if (url.pathname.startsWith('/keystatic') || url.pathname.startsWith('/api/keystatic')) {\n      warnMissingKeystaticEnv();\n    }\n\n    return worker.fetch(request, env, context);\n  },\n};\n`
 );
 
 writeFileSync(

@@ -24,6 +24,8 @@ declare global {
 
 const PAGEFIND_CSS_ID = 'pagefind-ui-css';
 const PAGEFIND_SCRIPT_ID = 'pagefind-ui-script';
+const SEARCH_FOCUS_DELAY_MS = 100;
+const PAGEFIND_INIT_DELAY_MS = 50;
 let pagefindAssetPromise: Promise<void> | null = null;
 
 function loadPagefindAssets() {
@@ -134,7 +136,7 @@ export function Search() {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setIsExpanded(true);
-        setTimeout(() => inputRef.current?.focus(), 100);
+        setTimeout(() => inputRef.current?.focus(), SEARCH_FOCUS_DELAY_MS);
       }
       if (e.key === 'Escape' && isExpanded) {
         setIsExpanded(false);
@@ -186,7 +188,7 @@ export function Search() {
         console.warn('Pagefind init failed:', error);
         setSearchStatus('unavailable');
       }
-    }, 50);
+    }, PAGEFIND_INIT_DELAY_MS);
 
     return () => {
       clearTimeout(timer);
@@ -210,14 +212,7 @@ export function Search() {
     if (searchValue) {
       instance.triggerSearch(searchValue);
     } else {
-      // Clear pagefind results by dispatching to its input directly
-      const pfInput = pagefindContainerRef.current?.querySelector(
-        '.pagefind-ui__search-input'
-      ) as HTMLInputElement | null;
-      if (pfInput) {
-        pfInput.value = '';
-        pfInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      instance.triggerSearch('');
     }
   }, [searchValue, isExpanded, searchStatus]);
 

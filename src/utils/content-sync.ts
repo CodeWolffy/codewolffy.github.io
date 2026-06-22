@@ -12,6 +12,16 @@ interface ExtractedTaxonomies {
   categories: Set<string>;
 }
 
+const DEFINITION_FILENAME_SAFE_PATTERN = /[\\/:*?"<>|]/g;
+
+function logScopedError(scope: string, message: string): void {
+  console.error(`[${scope}] ${message}`);
+}
+
+function normalizeDefinitionName(name: string): string {
+  return name.replace(DEFINITION_FILENAME_SAFE_PATTERN, '_');
+}
+
 function normalizeReferenceValue(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
@@ -40,7 +50,7 @@ function formatError(error: unknown): string {
 }
 
 function safeDefinitionFilename(name: string): string {
-  return `${name.replace(/[\\/:*?"<>|]/g, '_')}.json`;
+  return `${normalizeDefinitionName(name)}.json`;
 }
 
 function parseFrontmatter(content: string, filePath = ''): Record<string, unknown> {
@@ -59,7 +69,7 @@ function parseFrontmatter(content: string, filePath = ''): Record<string, unknow
 function extractTagsAndCategories(
   content: string,
   filePath = '',
-  reportError: (message: string) => void = (message) => console.error(`[ContentSync] ${message}`)
+  reportError: (message: string) => void = (message) => logScopedError('ContentSync', message)
 ): ExtractedTaxonomies {
   const tags = new Set<string>();
   const categories = new Set<string>();
@@ -95,7 +105,7 @@ export async function syncContent(
 
   const reportError = (message: string) => {
     errors.push(message);
-    console.error(`[ContentSync] ${message}`);
+    logScopedError('ContentSync', message);
   };
 
   async function getFiles(dir: string): Promise<string[]> {
@@ -105,15 +115,9 @@ export async function syncContent(
         .filter((dirent) => dirent.isFile() && dirent.name.endsWith('.mdx'))
         .map((dirent) => path.join(dir, dirent.name));
     } catch (e) {
-      const message = `Error reading directory ${dir}: ${formatError(e)}`;
-      if (strict) reportError(message);
-      else console.error(message);
+      reportError(`Error reading directory ${dir}: ${formatError(e)}`);
       return [];
     }
-  }
-
-  async function readFileContent(filePath: string): Promise<string> {
-    return await fs.readFile(filePath, 'utf-8');
   }
 
   console.log('[AutoSync] Scanning content...');
@@ -123,7 +127,15 @@ export async function syncContent(
   const allCategories = new Set<string>();
 
   for (const file of blogFiles) {
-    const content = await readFileContent(file);
+    let content = '';
+
+    try {
+      content = await fs.readFile(file, 'utf-8');
+    } catch (e) {
+      reportError(`Error reading blog file ${file}: ${formatError(e)}`);
+      continue;
+    }
+
     const { tags, categories } = extractTagsAndCategories(content, file, reportError);
 
     tags.forEach((t) => allTags.add(t));
@@ -155,6 +167,7 @@ export async function syncContent(
         } catch (e) {
           const message = `Error reading definition file ${path.join(dir, file)}: ${formatError(e)}`;
           if (strict) reportError(message);
+          else logScopedError('ContentSync', message);
         }
       }
 
@@ -167,7 +180,7 @@ export async function syncContent(
     } catch (e) {
       const message = `Error reading definition directory ${dir}: ${formatError(e)}`;
       if (strict) reportError(message);
-      else console.error(message);
+      else logScopedError('ContentSync', message);
     }
     return false;
   };
@@ -224,6 +237,8 @@ export async function pruneContent(rootDir: string, dryRun = false): Promise<voi
   const TAGS_DIR = path.resolve(rootDir, 'src/content/tags');
   const CATEGORIES_DIR = path.resolve(rootDir, 'src/content/categories');
 
+  const reportError = (message: string) => logScopedError('ContentCleanup', message);
+
   async function getMdxFiles(dir: string): Promise<string[]> {
     try {
       const dirents = await fs.readdir(dir, { withFileTypes: true });
@@ -231,7 +246,7 @@ export async function pruneContent(rootDir: string, dryRun = false): Promise<voi
         .filter((dirent) => dirent.isFile() && dirent.name.endsWith('.mdx'))
         .map((dirent) => path.join(dir, dirent.name));
     } catch (e) {
-      console.error(`Error reading blog directory ${dir}:`, e);
+      reportError(`Error reading blog directory ${dir}: ${formatError(e)}`);
       return [];
     }
   }
@@ -249,13 +264,9 @@ export async function pruneContent(rootDir: string, dryRun = false): Promise<voi
         .filter((dirent) => dirent.isFile() && dirent.name.endsWith('.json'))
         .map((dirent) => dirent.name);
     } catch (e) {
-      console.error(`Error reading definition directory ${dir}:`, e);
+      reportError(`Error reading definition directory ${dir}: ${formatError(e)}`);
       return [];
     }
-  }
-
-  async function readFileContent(filePath: string): Promise<string> {
-    return await fs.readFile(filePath, 'utf-8');
   }
 
   console.log('[ContentCleanup] Scanning usage...');
@@ -265,8 +276,16 @@ export async function pruneContent(rootDir: string, dryRun = false): Promise<voi
   const usedCategories = new Set<string>();
 
   for (const file of blogFiles) {
-    const content = await readFileContent(file);
-    const { tags, categories } = extractTagsAndCategories(content, file);
+    let content = '';
+
+    try {
+      content = await fs.readFile(file, 'utf-8');
+    } catch (e) {
+      reportError(`Error reading blog file ${file}: ${formatError(e)}`);
+      continue;
+    }
+
+    const { tags, categories } = extractTagsAndCategories(content, file, reportError);
     tags.forEach((t) => usedTags.add(t));
     categories.forEach((c) => usedCategories.add(c));
   }
@@ -297,7 +316,7 @@ export async function pruneContent(rootDir: string, dryRun = false): Promise<voi
         }
       }
     } catch (e) {
-      console.error(`Error processing tag file ${file}:`, e);
+      reportError(`Error processing tag file ${file}: ${formatError(e)}`);
     }
   }
 
@@ -323,7 +342,7 @@ export async function pruneContent(rootDir: string, dryRun = false): Promise<voi
         }
       }
     } catch (e) {
-      console.error(`Error processing category file ${file}:`, e);
+      reportError(`Error processing category file ${file}: ${formatError(e)}`);
     }
   }
 

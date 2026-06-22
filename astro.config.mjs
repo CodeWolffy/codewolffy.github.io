@@ -17,13 +17,19 @@ import { rehypeTableWrapper } from './src/plugins/rehype-table-wrapper.mjs';
 import { syncContent } from './src/utils/content-sync.ts';
 
 // Auto-sync plugin
+function formatAutoSyncError(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function debounce(fn, delay) {
   let timer = null;
   return (...args) => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
-      fn(...args);
+      void fn(...args).catch((error) => {
+        console.error(`[AutoSync] ${formatAutoSyncError(error)}`);
+      });
     }, delay);
   };
 }
