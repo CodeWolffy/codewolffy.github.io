@@ -50,7 +50,7 @@ const footerSocials = settings.socials
     ...item,
     icon: socialIconByLabel[item.label as keyof typeof socialIconByLabel],
   }))
-  .filter((item): item is (typeof item) & { icon: string } => Boolean(item.icon));
+  .filter((item): item is typeof item & { icon: string } => Boolean(item.icon));
 const musicTracks = await getMusicTracks();
 ---
 

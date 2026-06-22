@@ -43,7 +43,8 @@ export const isSafeImageUrl = (url: string): boolean => {
   if (value.startsWith('data:')) return false;
 
   try {
-    const baseUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.invalid/';
+    const baseUrl =
+      typeof window !== 'undefined' ? window.location.href : 'https://example.invalid/';
     const parsed = new URL(value, baseUrl);
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch {
