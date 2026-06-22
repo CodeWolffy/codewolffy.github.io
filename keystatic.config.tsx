@@ -267,6 +267,7 @@ const musicUploadSummaryStyle: CSSProperties = {
 const musicUploadListStyle: CSSProperties = {
   display: 'grid',
   gap: '0.5rem',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
 };
 
 const musicUploadItemStyle: CSSProperties = {
@@ -488,6 +489,24 @@ function MusicFilesInput({
 
   return (
     <div style={musicUploadFieldStyle}>
+      <style>{`
+        [data-scrollable] > div:has([data-music-upload-list]) {
+          max-width: none !important;
+          width: 100% !important;
+        }
+
+        @media (max-width: 1180px) {
+          [data-music-upload-list] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+        }
+
+        @media (max-width: 860px) {
+          [data-music-upload-list] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
       <div style={musicUploadHeaderStyle}>
         <span style={musicUploadLabelStyle}>{label}</span>
         {description ? <span style={musicUploadDescriptionStyle}>{description}</span> : null}
@@ -509,7 +528,7 @@ function MusicFilesInput({
         </div>
       ) : null}
       {value.files.length > 0 ? (
-        <div style={musicUploadListStyle}>
+        <div data-music-upload-list="" style={musicUploadListStyle}>
           {value.files.map((file, index) => (
             <div key={`${file.path}-${index}`} style={musicUploadItemStyle}>
               <span style={musicUploadFileTextStyle}>
