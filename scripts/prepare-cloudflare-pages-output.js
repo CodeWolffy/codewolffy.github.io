@@ -69,7 +69,9 @@ const patchServerWranglerConfig = () => {
   // 其中包含 Pages 项目保留的 ASSETS binding。Pages 部署只需要 _worker.js 和 _routes.json，
   // 保留该文件会导致 wrangler 尝试使用错误的 Workers 配置，从而引发部署内部错误。
   rmSync(serverWranglerPath, { force: true });
-  console.log('[cloudflare-pages] Removed dist/server/wrangler.json to avoid Pages deploy conflict.');
+  console.log(
+    '[cloudflare-pages] Removed dist/server/wrangler.json to avoid Pages deploy conflict.'
+  );
 };
 
 patchServerWranglerConfig();
