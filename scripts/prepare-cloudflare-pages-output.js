@@ -65,15 +65,17 @@ const patchServerWranglerConfig = () => {
   const serverWranglerPath = join(distDir, 'server', 'wrangler.json');
   if (!existsSync(serverWranglerPath)) return;
 
-  const config = JSON.parse(readFileSync(serverWranglerPath, 'utf8'));
+  // Astro Cloudflare adapter 生成的是 Workers 配置，包含 main/rules 等 Pages 不支持的字段。
+  // Pages 部署只需要一个干净的 Pages 配置，故重写该文件。
+  const pagesConfig = {
+    name: 'blog',
+    pages_build_output_dir: 'dist',
+    compatibility_date: '2026-04-15',
+    compatibility_flags: ['nodejs_compat'],
+  };
 
-  // Astro Cloudflare adapter 生成的是 Workers 配置，其中 ASSETS binding 与 Pages 项目保留名冲突。
-  // 我们把它改成有效的 Pages 配置，同时保留 Pages 部署所需的 compatibility_flags。
-  delete config.assets;
-  config.pages_build_output_dir = 'dist';
-
-  writeFileSync(serverWranglerPath, `${JSON.stringify(config, null, 2)}\n`);
-  console.log('[cloudflare-pages] Patched dist/server/wrangler.json for Cloudflare Pages.');
+  writeFileSync(serverWranglerPath, `${JSON.stringify(pagesConfig, null, 2)}\n`);
+  console.log('[cloudflare-pages] Rewrote dist/server/wrangler.json for Cloudflare Pages.');
 };
 
 patchServerWranglerConfig();
