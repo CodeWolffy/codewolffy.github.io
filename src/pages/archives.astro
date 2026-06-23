@@ -2,6 +2,7 @@
 export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
 import Sidebar from '@/components/Sidebar.astro';
 import { getCollection } from 'astro:content';
 import { getBlogPostPath } from '@/utils/content-paths';
@@ -109,9 +110,7 @@ const archiveSummary = [
 
         {
           allPosts.length === 0 ? (
-            <div class="rounded-[1.75rem] border border-dashed border-border p-12 text-center text-muted-foreground">
-              暂无文章。
-            </div>
+            <EmptyState type="post" class="w-full" />
           ) : (
             <div class="space-y-10 rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-6">
               {groupedPosts.map((yearGroup) => (
@@ -178,12 +177,21 @@ const archiveSummary = [
       </div>
 
       <div class="lg:hidden w-full mt-2">
-        <Sidebar tags={topTags} categories={topCategories} className="w-full" />
+        <Sidebar
+          tags={topTags}
+          categories={topCategories}
+          years={groupedPosts.map((g) => ({ year: g.year, count: g.posts.length }))}
+          className="w-full"
+        />
       </div>
 
       <div class="hidden lg:block lg:col-span-4 pl-4">
         <div class="sticky top-24">
-          <Sidebar tags={topTags} categories={topCategories} />
+          <Sidebar
+            tags={topTags}
+            categories={topCategories}
+            years={groupedPosts.map((g) => ({ year: g.year, count: g.posts.length }))}
+          />
         </div>
       </div>
     </div>

@@ -151,16 +151,13 @@ export async function syncContent(
         try {
           const filePath = path.join(dir, file);
           const content = JSON.parse(await fs.readFile(filePath, 'utf-8')) as { name?: string };
-          const fileName = file.replace('.json', '');
-          const safeTagName = tagName.replace(/[\\/:*?"<>|]/g, '_');
 
           // 1. Exact match (case-sensitive) - preferred
           if (content.name === tagName) return true;
-          if (fileName === safeTagName) return true;
 
           // 2. Case-insensitive match - record it but keep looking for an exact match
-          if (fileName.toLowerCase() === safeTagName.toLowerCase()) {
-            caseInsensitiveMatch = { file, name: content.name ?? fileName };
+          if (content.name?.toLowerCase() === tagName.toLowerCase()) {
+            caseInsensitiveMatch = { file, name: content.name ?? file };
           }
         } catch (e) {
           const message = `Error reading definition file ${path.join(dir, file)}: ${formatError(e)}`;
@@ -173,7 +170,6 @@ export async function syncContent(
         console.warn(
           `[AutoSync] Casing mismatch detected: "${tagName}" in posts does not match existing definition "${caseInsensitiveMatch.name}" (${caseInsensitiveMatch.file}). Skipping creation to avoid duplicates.`
         );
-        return true;
       }
     } catch (e) {
       const message = `Error reading definition directory ${dir}: ${formatError(e)}`;

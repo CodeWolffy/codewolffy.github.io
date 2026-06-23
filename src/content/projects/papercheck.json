@@ -1,7 +1,7 @@
 {
   "title": "抄了吗",
   "description": "前后端分离的自建库论文查重系统：支持班级/院系/课题组建立私有比对库，检测论文与库内其他文档的相似度，提供左右对照报告与 AI 降重指南，适用于高校毕业论文校内互检场景。",
-  "image": "/default-share.jpg",
+  "coverImage": "/images/projects/papercheck/coverImage.png",
   "tags": ["Python", "Vue", "FastApi"],
   "github": "https://github.com/CodeWolffy/papercheck",
   "priority": 20

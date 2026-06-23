@@ -128,7 +128,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   );
 
   const requestTrackMetadata = useCallback(
-    (audio: string) => {
+    (audio: string, currentTracks: MusicTrack[]) => {
       if (!audio) return;
 
       // 清除上一次的防抖计时器
@@ -170,17 +170,17 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
               // 清理时只注销 coverUrl，保留其余的文本数据（歌名、歌手、歌词等），确保体验不受损
               if (itemsWithBlobCover.length > 30) {
                 // 找出距离当前播放位置最远的带有 blob 封面的歌曲进行清理
-                const currentTrackIndex = tracks.findIndex((t) => t.audio === audio);
+                const currentTrackIndex = currentTracks.findIndex((t) => t.audio === audio);
 
                 if (currentTrackIndex !== -1) {
                   // 计算所有歌曲到当前播放歌曲的距离（环形距离）
                   const sortedByDistance = itemsWithBlobCover
                     .map(([key, item]) => {
-                      const idx = tracks.findIndex((t) => t.audio === key);
+                      const idx = currentTracks.findIndex((t) => t.audio === key);
                       let distance = 0;
                       if (idx !== -1) {
                         const rawDiff = Math.abs(idx - currentTrackIndex);
-                        distance = Math.min(rawDiff, tracks.length - rawDiff);
+                        distance = Math.min(rawDiff, currentTracks.length - rawDiff);
                       }
                       return { key, item, distance };
                     })
@@ -211,7 +211,10 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
           });
       }, 200);
     },
-    [tracks, metadataByAudio]
+    // metadataByAudio 不再作为依赖，避免闭包陷阱。
+    // metadataByAudio 的读取是在 setState 的回调中进行的，始终能获取最新值。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const commitPlayerAnchor = useCallback(
@@ -258,7 +261,8 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
 
   useEffect(() => {
     if (!currentAudio) return;
-    requestTrackMetadata(currentAudio);
+    requestTrackMetadata(currentAudio, tracks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAudio, requestTrackMetadata]);
 
   useEffect(() => {
@@ -296,12 +300,13 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
       audio.load();
     }
 
-    requestTrackMetadata(currentAudio);
+    requestTrackMetadata(currentAudio, tracks);
 
     audio.play().catch(() => {
       setIsPlaying(false);
       setError('音频暂时无法播放');
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAudio, isPlaying, requestTrackMetadata]);
 
   useEffect(() => {
