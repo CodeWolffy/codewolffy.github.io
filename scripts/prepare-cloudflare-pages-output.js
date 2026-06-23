@@ -209,7 +209,7 @@ writeFileSync(
   `${JSON.stringify(
     {
       version: 1,
-      include: ['/keystatic/*', '/api/keystatic/*'],
+      include: ['/music/*', '/keystatic/*', '/api/keystatic/*'],
       exclude: [],
     },
     null,
