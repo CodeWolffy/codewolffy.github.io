@@ -477,9 +477,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     const { left, width } = track.getBoundingClientRect();
     if (width <= 0) return;
 
-    const thumbRadius = 14;
-    const effectiveWidth = Math.max(1, width - thumbRadius * 2);
-    const ratio = Math.min(1, Math.max(0, (clientX - left - thumbRadius) / effectiveWidth));
+    const ratio = Math.min(1, Math.max(0, (clientX - left) / width));
     handleSeek(ratio * duration);
   };
 
@@ -487,8 +485,13 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     if (duration <= 0) return;
 
     event.preventDefault();
+    event.stopPropagation();
     isSeekingRef.current = true;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // 部分 WebView/浏览器在非活动指针上会拒绝捕获，不影响后续 seek。
+    }
     seekToClientX(event.clientX);
   };
 
@@ -496,10 +499,15 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     if (!isSeekingRef.current) return;
 
     event.preventDefault();
+    event.stopPropagation();
     seekToClientX(event.clientX);
   };
 
   const stopProgressSeeking = (event: PointerEvent<HTMLDivElement>) => {
+    if (!isSeekingRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
     isSeekingRef.current = false;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -846,6 +854,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
               <div
                 ref={progressTrackRef}
                 role="slider"
+                data-player-interactive="true"
                 tabIndex={duration > 0 ? 0 : -1}
                 aria-label="音乐播放进度"
                 aria-valuemin={0}
