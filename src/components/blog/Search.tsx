@@ -37,7 +37,7 @@ function loadPagefindAssets() {
     return Promise.resolve();
   }
 
-  if (import.meta.env?.PROD === false) {
+  if (import.meta.env.PROD === false) {
     return Promise.reject(new Error('Pagefind is only available after production build.'));
   }
 

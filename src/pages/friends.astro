@@ -2,6 +2,7 @@
 export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
 import { Button } from '@/components/ui/button';
 import { Comments } from '@/components/blog/Comments';
 import { getIconComponent } from '@/lib/icons';
@@ -75,61 +76,67 @@ const pageConfig = {
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {
-            friends.map((friend, index) => (
-              <a
-                href={friend.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="group relative flex flex-col items-center p-5 rounded-2xl bg-card border border-border/60 shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up opacity-0"
-                style={`animation-delay: ${index * 100}ms;`}
-              >
-                <div class="absolute inset-0 rounded-2xl bg-card -z-5" />
+            friends.length === 0 ? (
+              <div class="sm:col-span-2 lg:col-span-3">
+                <EmptyState type="friend" />
+              </div>
+            ) : (
+              friends.map((friend, index) => (
+                <a
+                  href={friend.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="group relative flex flex-col items-center p-5 rounded-2xl bg-card border border-border/60 shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up opacity-0"
+                  style={`animation-delay: ${index * 100}ms;`}
+                >
+                  <div class="absolute inset-0 rounded-2xl bg-card z-[-1]" />
 
-                {/* 悬停背景渐变 */}
-                <div class="absolute inset-0 bg-muted/35 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0" />
+                  {/* 悬停背景渐变 */}
+                  <div class="absolute inset-0 bg-muted/35 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0" />
 
-                {/* 头像带旋转边框 */}
-                <div class="relative mb-3 z-10">
-                  <div class="absolute -inset-1 rounded-full bg-primary/20 opacity-0 group-hover:opacity-70 blur-sm transition-opacity duration-300" />
-                  <div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-all duration-300">
-                    <img
-                      src={friend.displayAvatar}
-                      alt={friend.name}
-                      class="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                      decoding="async"
-                    />
+                  {/* 头像带旋转边框 */}
+                  <div class="relative mb-3 z-10">
+                    <div class="absolute -inset-1 rounded-full bg-primary/20 opacity-0 group-hover:opacity-70 blur-sm transition-opacity duration-300" />
+                    <div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-all duration-300">
+                      <img
+                        src={friend.displayAvatar}
+                        alt={friend.name}
+                        class="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <h3 class="font-semibold text-base group-hover:text-primary transition-colors duration-300 relative z-10">
-                  {friend.name}
-                </h3>
-                <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2 relative z-10">
-                  {friend.description}
-                </p>
+                  <h3 class="font-semibold text-base group-hover:text-primary transition-colors duration-300 relative z-10">
+                    {friend.name}
+                  </h3>
+                  <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2 relative z-10">
+                    {friend.description}
+                  </p>
 
-                {/* 外链图标 */}
-                <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="text-primary"
-                  >
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
-                  </svg>
-                </div>
-              </a>
-            ))
+                  {/* 外链图标 */}
+                  <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="text-primary"
+                    >
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </div>
+                </a>
+              ))
+            )
           }
         </div>
 

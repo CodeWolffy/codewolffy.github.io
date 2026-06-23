@@ -124,7 +124,8 @@
 
   .site-header-shell {
     width: min(calc(100% - 0.75rem), 1464px);
-    margin-inline: auto;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   @media (min-width: 768px) {
@@ -847,7 +848,8 @@
 }
 
 .animate-slide-up {
-  animation: slide-up 0.6s ease forwards;
+  animation: slide-up 0.6s ease-out forwards;
+  animation-fill-mode: forwards;
 }
 
 /* 技能条填充动画 */

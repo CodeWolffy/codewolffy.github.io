@@ -2,6 +2,7 @@
 export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
 import { getCollection } from 'astro:content';
 import { getTagPath } from '@/utils/content-paths';
 import { countPostTags, createTaxonomyNameMap, getPublicBlogPosts } from '@/utils/posts';
@@ -33,8 +34,8 @@ const sortedTags = countPostTags(allPosts, tagMap);
           <div class="flex flex-wrap justify-start gap-3 sm:gap-4">
             {
               sortedTags.length === 0 ? (
-                <div class="text-center py-20 text-muted-foreground w-full">
-                  <p>暂无标签。</p>
+                <div class="w-full">
+                  <EmptyState type="tag" />
                 </div>
               ) : (
                 sortedTags.map((tag, index) => {

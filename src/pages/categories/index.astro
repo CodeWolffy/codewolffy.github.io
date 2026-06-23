@@ -2,6 +2,7 @@
 export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
 import { getCollection } from 'astro:content';
 import { getCategoryPath, getTagPath } from '@/utils/content-paths';
 import {
@@ -52,7 +53,9 @@ const sortedTags = countPostTags(allPosts, tagMap);
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {
                 sortedCategories.length === 0 ? (
-                  <p class="text-muted-foreground">暂无分类。</p>
+                  <div class="col-span-full">
+                    <EmptyState type="category" />
+                  </div>
                 ) : (
                   sortedCategories.map((category, index) => (
                     <a
@@ -88,7 +91,9 @@ const sortedTags = countPostTags(allPosts, tagMap);
             <div class="flex flex-wrap gap-3">
               {
                 sortedTags.length === 0 ? (
-                  <p class="text-muted-foreground">暂无标签。</p>
+                  <div class="w-full">
+                    <EmptyState type="tag" />
+                  </div>
                 ) : (
                   sortedTags.map((tag, index) => (
                     <a

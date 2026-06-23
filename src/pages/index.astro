@@ -5,6 +5,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import PostCard from '@/components/blog/PostCard.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
 import Sidebar from '@/components/Sidebar.astro';
 import { getCollection, getEntry } from 'astro:content';
 import { getReadingTimeMinutes } from '@/utils/reading-time';
@@ -72,7 +73,7 @@ const topTags = sortedTags.slice(0, 8);
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-full px-8 bg-white hover:bg-gray-100 text-black shadow-sm border transition-all"
+                className="rounded-full px-8 bg-background hover:bg-muted text-foreground shadow-sm border transition-all"
               >
                 开始阅读 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
@@ -80,7 +81,7 @@ const topTags = sortedTags.slice(0, 8);
             <a href="/archives/">
               <Button
                 size="lg"
-                className="rounded-full px-8 bg-black hover:bg-gray-800 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
+                className="rounded-full px-8 bg-foreground text-background hover:bg-foreground/90 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
               >
                 归档列表
               </Button>
@@ -115,13 +116,7 @@ const topTags = sortedTags.slice(0, 8);
           }
         </div>
 
-        {
-          posts.length === 0 && (
-            <div class="text-center py-20 bg-muted/30 rounded-xl border border-dashed">
-              <p class="text-muted-foreground">暂无文章，待更新...</p>
-            </div>
-          )
-        }
+        {posts.length === 0 && <EmptyState type="post" class="w-full" />}
       </div>
 
       <!-- Mobile Sidebar Content (Moved to bottom) -->

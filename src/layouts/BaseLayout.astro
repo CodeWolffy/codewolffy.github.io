@@ -36,7 +36,7 @@ const ogImage = image
   : new URL(settings.og.defaultImage, Astro.site || Astro.url);
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
 const busuanzi = settings.analytics.busuanzi;
-const busuanziClientConfig = JSON.stringify(busuanzi).replace(/</g, '\\u003c');
+const busuanziClientConfig = JSON.stringify(busuanzi).replace(/</g, '\\x3c');
 const socialIconByLabel = {
   Bilibili: 'bilibili',
   Douyin: 'douyin',
