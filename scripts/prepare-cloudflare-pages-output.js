@@ -69,7 +69,8 @@ const patchServerWranglerConfig = () => {
   // Pages 部署只需要一个干净的 Pages 配置，故重写该文件。
   const pagesConfig = {
     name: 'blog',
-    pages_build_output_dir: 'dist',
+    // wrangler.json 位于 dist/server/，pages_build_output_dir 是相对于该文件的路径。
+    pages_build_output_dir: '..',
     compatibility_date: '2026-04-15',
     compatibility_flags: ['nodejs_compat'],
   };
