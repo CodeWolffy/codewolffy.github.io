@@ -689,7 +689,10 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
         ref={audioRef}
         preload="none"
         onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
-        onTimeUpdate={(event) => setProgress(event.currentTarget.currentTime || 0)}
+        onTimeUpdate={(event) => {
+          if (isSeekingRef.current) return;
+          setProgress(event.currentTarget.currentTime || 0);
+        }}
         onEnded={handleTrackEnded}
         onError={() => {
           setIsPlaying(false);
