@@ -68,7 +68,7 @@ writeFileSync(
 
 writeFileSync(
   assetsIgnorePath,
-  ['server/', 'client/', 'wrangler.json', '.dev.vars', ''].join('\n')
+  ['server/', 'client/', 'wrangler.json', '_worker.js', '.dev.vars', ''].join('\n')
 );
 
 writeFileSync(
