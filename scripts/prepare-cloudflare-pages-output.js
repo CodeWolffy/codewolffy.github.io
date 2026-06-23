@@ -65,12 +65,11 @@ const patchServerWranglerConfig = () => {
   const serverWranglerPath = join(distDir, 'server', 'wrangler.json');
   if (!existsSync(serverWranglerPath)) return;
 
-  const config = JSON.parse(readFileSync(serverWranglerPath, 'utf8'));
-  if (config.assets?.binding === 'ASSETS') {
-    delete config.assets;
-    writeFileSync(serverWranglerPath, `${JSON.stringify(config, null, 2)}\n`);
-    console.log('[cloudflare-pages] Removed reserved ASSETS binding from server/wrangler.json.');
-  }
+  // dist/server/wrangler.json 是 Astro Cloudflare adapter 为 Workers 部署生成的配置，
+  // 其中包含 Pages 项目保留的 ASSETS binding。Pages 部署只需要 _worker.js 和 _routes.json，
+  // 保留该文件会导致 wrangler 尝试使用错误的 Workers 配置，从而引发部署内部错误。
+  rmSync(serverWranglerPath, { force: true });
+  console.log('[cloudflare-pages] Removed dist/server/wrangler.json to avoid Pages deploy conflict.');
 };
 
 patchServerWranglerConfig();
@@ -204,6 +203,7 @@ writeFileSync(
     {
       version: 1,
       include: ['/keystatic/*', '/api/keystatic/*'],
+      exclude: [],
     },
     null,
     2
