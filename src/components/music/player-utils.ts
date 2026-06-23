@@ -223,7 +223,11 @@ export const capturePointer = (target: HTMLDivElement, pointerId: number) => {
 export const isInteractiveDragTarget = (target: EventTarget | null) =>
   typeof HTMLElement !== 'undefined' &&
   target instanceof HTMLElement &&
-  Boolean(target.closest('button, a, input, textarea, select, [role="slider"], [data-player-interactive="true"]'));
+  Boolean(
+    target.closest(
+      'button, a, input, textarea, select, [role="slider"], [data-player-interactive="true"]'
+    )
+  );
 
 export const getActiveLyricIndex = (
   lyrics: NonNullable<Mp3Metadata['syncedLyrics']>,
