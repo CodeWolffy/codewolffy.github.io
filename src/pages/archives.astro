@@ -6,12 +6,16 @@ import EmptyState from '@/components/ui/EmptyState.astro';
 import Sidebar from '@/components/Sidebar.astro';
 import { getCollection } from 'astro:content';
 import { getBlogPostPath } from '@/utils/content-paths';
+import { getSiteSettings } from '@/utils/site-settings';
 import {
   countPostCategories,
   countPostTags,
   createTaxonomyNameMap,
   getPublicBlogPostsSorted,
 } from '@/utils/posts';
+
+const settings = await getSiteSettings();
+const archivesUi = settings.ui.archives;
 
 const allPosts = await getPublicBlogPostsSorted();
 
@@ -71,7 +75,7 @@ const archiveSummary = [
 ];
 ---
 
-<BaseLayout title="文章归档 | 狼码纪" description="按时间、分类和标签浏览所有文章">
+<BaseLayout title={`文章归档 | ${settings.name}`} description="按时间、分类和标签浏览所有文章">
   <section class="container mx-auto pt-0 pb-8">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
       <div class="lg:col-span-8 space-y-4">
@@ -79,14 +83,14 @@ const archiveSummary = [
           <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div class="space-y-2">
               <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Archive Index
+                {archivesUi.eyebrow}
               </p>
               <div class="space-y-1.5">
                 <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-                  写作归档
+                  {archivesUi.title}
                 </h1>
                 <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  按时间保留写作痕迹，顺着年份快速回看文章脉络。
+                  {archivesUi.description}
                 </p>
               </div>
             </div>

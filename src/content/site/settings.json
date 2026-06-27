@@ -71,5 +71,47 @@
     "github": "https://github.com/CodeWolffy",
     "rss": "/rss.xml",
     "keystaticPosts": "https://codewolffy.pages.dev/keystatic/branch/main/collection/posts/item"
+  },
+  "ui": {
+    "home": {
+      "badge": "✨ 探索 · 记录 · 分享",
+      "taglineFallback": "StackOverflow 野生代言人",
+      "subtitleFallback": "如果代码一次就跑通了，那一定是哪里出 bug 了",
+      "readButton": "开始阅读",
+      "archivesButton": "归档列表",
+      "latestTitle": "最新文章",
+      "viewAllText": "查看全部"
+    },
+    "archives": {
+      "eyebrow": "Archive Index",
+      "title": "写作归档",
+      "description": "按时间保留写作痕迹，顺着年份快速回看文章脉络。"
+    },
+    "taxonomy": {
+      "eyebrow": "Taxonomy",
+      "title": "分类与标签",
+      "description": "浏览所有分类与标签，快速找到相关主题内容。"
+    },
+    "tags": {
+      "eyebrow": "Tags",
+      "title": "所有标签",
+      "description": "浏览博客的所有标签"
+    },
+    "projects": {
+      "eyebrow": "Projects",
+      "title": "项目展示",
+      "description": "我的开源项目与作品集。",
+      "moreTitle": "更多项目",
+      "moreDescription": "访问我的 GitHub 主页查看更多开源项目"
+    },
+    "copyright": {
+      "licenseName": "CC BY-NC-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      "noticePrefix": "本博客所有文章除特别声明外，均采用",
+      "noticeSuffix": "许可协议。文章可能参考了其他优秀文章，如有侵权请联系删除。"
+    },
+    "footer": {
+      "rights": "All rights reserved."
+    }
   }
 }

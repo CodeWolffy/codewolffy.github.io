@@ -2,7 +2,7 @@
 
 > **探索技术、编程与设计的边界**
 
-一个基于 [Astro 5](https://astro.build/) 构建的现代个人技术博客，完美融合了极速性能与卓越的用户体验。本项目采用最新的前沿 Web 技术栈（React 18.3、Tailwind CSS 4.1、Keystatic 0.5），旨在提供一个开箱即用、功能强大且设计精美的高性能博客解决方案。
+一个基于 [Astro 6](https://astro.build/) 构建的现代个人技术博客，完美融合了极速性能与卓越的用户体验。本项目采用最新的前沿 Web 技术栈（React 18.3、Tailwind CSS 4.1、Keystatic 0.5），旨在提供一个开箱即用、功能强大且设计精美的高性能博客解决方案。
 
 [![Built with Astro](https://img.shields.io/badge/Built%20with-Astro-FF5D01?logo=astro&logoColor=white)](https://astro.build)
 [![Deployed on Cloudflare Pages](https://img.shields.io/badge/Deployed%20on-Cloudflare%20Pages-orange?logo=cloudflare)](https://pages.cloudflare.com/)
@@ -16,9 +16,9 @@
 
 ### 🏗️ 架构与性能 (Architecture & Performance)
 
-- **极速加载**: 基于 **Astro 5** 的静态生成 (SSG) 架构，默认移除未使用的 JavaScript，仅在需要交互的组件上使用 React Hydration (岛屿架构)。
+- **极速加载**: 基于 **Astro 6** 的静态生成 (SSG) 架构，默认移除未使用的 JavaScript，仅在需要交互的组件上使用 React Hydration (岛屿架构)。
 - **混合渲染 (Hybrid Rendering)**: 结合静态页面与按需服务器端渲染 (SSR) API，兼顾 SEO 与动态功能。
-- **现代化构建**: 利用 **Vite 6** + **esbuild 0.25** 进行极速构建，配置了精细化的 `manualChunks` 分包策略，最大化缓存利用率。
+- **现代化构建**: 利用 **Vite 7** + **esbuild 0.28** 进行极速构建，并使用 esbuild 压缩产物，最大化构建速度与缓存利用率。
 - **Core Web Vitals**: 在 Mobile/Web 端均能达到 Lighthouse 满分 💯 性能表现。
 
 ### 🎨 UI 与交互 (UI & Interaction)
@@ -61,12 +61,12 @@
 
 | 领域         | 核心库                                                      | 版本     | 作用说明                              |
 | :----------- | :---------------------------------------------------------- | :------- | :------------------------------------ |
-| **Core**     | [Astro](https://astro.build/)                               | v5.18.1  | 静态站点生成器，路由管理              |
-| **Build**    | [Vite](https://vitejs.dev/)                                 | v6.4.2   | 极速构建引擎与开发服务器              |
+| **Core**     | [Astro](https://astro.build/)                               | v6.4.8   | 静态站点生成器，路由管理              |
+| **Build**    | [Vite](https://vitejs.dev/)                                 | v7.3.5   | 极速构建引擎与开发服务器              |
 | **UI**       | [React](https://react.dev/)                                 | v18.3.1  | 构建交互式岛屿组件 (Search, Comments) |
 | **Language** | [TypeScript](https://www.typescriptlang.org/)               | v5.9.3   | 类型安全的 JavaScript 超集            |
 | **Style**    | [Tailwind CSS](https://tailwindcss.com/)                    | v4.1.18  | CSS 框架 (配合 Vite 插件)             |
-| **CMS**      | [Keystatic](https://keystatic.com/)                         | v0.5.48  | 可视化内容编辑器                      |
+| **CMS**      | [Keystatic](https://keystatic.com/)                         | v0.5.50  | 可视化内容编辑器                      |
 | **Search**   | [Pagefind](https://pagefind.app/)                           | v1.4.0   | 静态搜索索引生成器                    |
 | **Icons**    | [Lucide React](https://lucide.dev/)                         | v0.562.0 | 统一的 SVG 图标库                     |
 | **Utility**  | [clsx](https://github.com/lukeed/clsx)                      | v2.1.1   | 动态类名拼接                          |
@@ -100,8 +100,8 @@
 │   │   ├── friends/        # 友情链接定义 (.json)
 │   │   ├── pages/          # 单页面内容 (about, friends)
 │   │   ├── projects/       # 项目展示定义 (.json)
-│   │   ├── tags/           # 标签定义 (.json)
-│   │   └── config.ts       # Astro Content Collections 定义
+│   │   └── tags/           # 标签定义 (.json)
+│   ├── content.config.ts   # Astro Content Collections 定义 (位于 src/ 根)
 │   ├── layouts/            # 页面骨架
 │   │   └── BaseLayout.astro # 基础 HTML 结构, SEO Meta, Theme Script
 │   ├── lib/                # 工具函数 (图标映射、类名合并等)
@@ -120,7 +120,7 @@
 │   └── utils/              # 内容同步、阅读时间等工具
 ├── astro.config.mjs        # Astro 主配置文件 (集成插件配置)
 ├── components.json         # shadcn/ui 风格组件配置
-├── keystatic.config.ts     # Keystatic CMS 数据模型配置
+├── keystatic.config.tsx    # Keystatic CMS 数据模型配置
 └── package.json            # 依赖管理
 ```
 
@@ -130,7 +130,7 @@
 
 ### 环境准备 (Prerequisites)
 
-- **Node.js**: `v18.17.1` 或更高 (推荐 v20 LTS)
+- **Node.js**: `v22.12.0` 或更高 (推荐 v22 LTS)
 - **Package Manager**: 推荐使用 `pnpm` 或 `npm`
 
 ### 常用命令
@@ -174,8 +174,10 @@
 
 ### 1. 站点基本信息
 
-修改 `astro.config.mjs` 中的 `site` 字段为你的实际域名。
-修改 `src/layouts/BaseLayout.astro` 中的默认 `title` 和 `description`。
+站点核心信息集中在 `src/content/site/settings.json`（也可在 Keystatic 后台「站点设置」中可视化修改）：
+
+- `name` / `description` / `author`: 站点名称、描述与作者，作为页面标题与 SEO 的默认值。
+- `urls.primary` / `urls.githubPages`: 主域名与备用域名，`astro.config.mjs` 的 `site` 字段会通过 `src/config/site.js` 自动读取此处。
 
 ### 2. 调整 UI 主题
 
@@ -188,24 +190,28 @@
 
 ### 3. 修改 CMS 字段
 
-编辑 `keystatic.config.ts` 可以增删 CMS 的字段模型：
+编辑 `keystatic.config.tsx` 可以增删 CMS 的字段模型：
 
 - `collections`: 修改文章、分类的字段结构。
 - `singletons`: 修改“关于我”等单页面的字段。
 
 ### 4. 评论系统配置
 
-打开 `src/components/blog/Comments.tsx`，修改 Giscus 配置参数：
+评论配置集中在 `src/content/site/settings.json` 的 `comments.giscus` 字段（也可在 Keystatic 后台「站点设置」中可视化修改），`src/components/blog/Comments.tsx` 会自动读取这些值：
 
-```tsx
-<Giscus
-  repo="username/repo" // 你的 GitHub 仓库
-  repoId="R_kgDO..." // 仓库 ID
-  category="Announcements" // Discussion 分类
-  categoryId="DIC_kwDO..." // 分类 ID
-  mapping="pathname" // 映射规则
-  // ...
-/>
+```jsonc
+{
+  "comments": {
+    "giscus": {
+      "enabled": true,
+      "repo": "username/repo", // 你的 GitHub 仓库
+      "repoId": "R_kgDO...", // 仓库 ID
+      "category": "Announcements", // Discussion 分类
+      "categoryId": "DIC_kwDO...", // 分类 ID
+      "mapping": "pathname", // 映射规则
+    },
+  },
+}
 ```
 
 ---
@@ -242,7 +248,7 @@
 
 ### 常见问题
 
-- **构建失败？** 检查 Node.js 版本设置，建议在 Cloudflare 环境变量中添加 `NODE_VERSION: 20`。
+- **构建失败？** 检查 Node.js 版本设置，建议在 Cloudflare 环境变量中添加 `NODE_VERSION: 22.12.0`。
 - **样式丢失？** 确保 `src/styles/global.css` 中的 `@source` 路径覆盖了所有模板文件。
 
 ---

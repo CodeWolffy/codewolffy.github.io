@@ -147,18 +147,9 @@ const projects = defineCollection({
 
 const music = defineCollection({
   loader: dataLoader('music'),
-  schema: z
-    .object({
-      files: z.array(z.string()).default([]),
-      audio: z.string().optional(),
-      priority: z.number().default(0),
-      enabled: z.boolean().default(true),
-    })
-    .transform((data) => ({
-      files: data.files.length > 0 ? data.files : data.audio ? [data.audio] : [],
-      priority: data.priority,
-      enabled: data.enabled,
-    })),
+  schema: z.object({
+    files: z.array(z.string()).default([]),
+  }),
 });
 
 const site = defineCollection({
@@ -233,6 +224,48 @@ const site = defineCollection({
       github: z.string(),
       rss: z.string(),
       keystaticPosts: z.string(),
+    }),
+    ui: z.object({
+      home: z.object({
+        badge: z.string(),
+        taglineFallback: z.string(),
+        subtitleFallback: z.string(),
+        readButton: z.string(),
+        archivesButton: z.string(),
+        latestTitle: z.string(),
+        viewAllText: z.string(),
+      }),
+      archives: z.object({
+        eyebrow: z.string(),
+        title: z.string(),
+        description: z.string(),
+      }),
+      taxonomy: z.object({
+        eyebrow: z.string(),
+        title: z.string(),
+        description: z.string(),
+      }),
+      tags: z.object({
+        eyebrow: z.string(),
+        title: z.string(),
+        description: z.string(),
+      }),
+      projects: z.object({
+        eyebrow: z.string(),
+        title: z.string(),
+        description: z.string(),
+        moreTitle: z.string(),
+        moreDescription: z.string(),
+      }),
+      copyright: z.object({
+        licenseName: z.string(),
+        licenseUrl: z.string(),
+        noticePrefix: z.string(),
+        noticeSuffix: z.string(),
+      }),
+      footer: z.object({
+        rights: z.string(),
+      }),
     }),
   }),
 });

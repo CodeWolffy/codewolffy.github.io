@@ -925,6 +925,72 @@ export default config({
           },
           { label: '其他链接' }
         ),
+        ui: fields.object(
+          {
+            home: fields.object(
+              {
+                badge: fields.text({ label: '首页徽标文案' }),
+                taglineFallback: fields.text({ label: '主标题兜底文案 (未填关于页签名时)' }),
+                subtitleFallback: fields.text({ label: '副标题兜底文案 (未填关于页副标题时)' }),
+                readButton: fields.text({ label: '“开始阅读”按钮' }),
+                archivesButton: fields.text({ label: '“归档列表”按钮' }),
+                latestTitle: fields.text({ label: '最新文章区标题' }),
+                viewAllText: fields.text({ label: '“查看全部”文案' }),
+              },
+              { label: '首页文案' }
+            ),
+            archives: fields.object(
+              {
+                eyebrow: fields.text({ label: '眉头标签' }),
+                title: fields.text({ label: '页面标题' }),
+                description: fields.text({ label: '页面描述', multiline: true }),
+              },
+              { label: '归档页文案' }
+            ),
+            taxonomy: fields.object(
+              {
+                eyebrow: fields.text({ label: '眉头标签' }),
+                title: fields.text({ label: '页面标题' }),
+                description: fields.text({ label: '页面描述', multiline: true }),
+              },
+              { label: '分类与标签页文案' }
+            ),
+            tags: fields.object(
+              {
+                eyebrow: fields.text({ label: '眉头标签' }),
+                title: fields.text({ label: '页面标题' }),
+                description: fields.text({ label: '页面描述', multiline: true }),
+              },
+              { label: '标签页文案' }
+            ),
+            projects: fields.object(
+              {
+                eyebrow: fields.text({ label: '眉头标签' }),
+                title: fields.text({ label: '页面标题' }),
+                description: fields.text({ label: '页面描述', multiline: true }),
+                moreTitle: fields.text({ label: '“更多项目”区标题' }),
+                moreDescription: fields.text({ label: '“更多项目”区描述', multiline: true }),
+              },
+              { label: '项目页文案' }
+            ),
+            copyright: fields.object(
+              {
+                licenseName: fields.text({ label: '许可协议名称' }),
+                licenseUrl: fields.text({ label: '许可协议链接' }),
+                noticePrefix: fields.text({ label: '版权声明前缀', multiline: true }),
+                noticeSuffix: fields.text({ label: '版权声明后缀', multiline: true }),
+              },
+              { label: '文章版权声明' }
+            ),
+            footer: fields.object(
+              {
+                rights: fields.text({ label: '页脚版权后缀' }),
+              },
+              { label: '页脚' }
+            ),
+          },
+          { label: '界面文案 (UI)' }
+        ),
       },
     }),
   },

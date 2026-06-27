@@ -54,10 +54,7 @@ const uniqueTracks = (files: string[]): MusicTrack[] => {
 };
 
 export const getMusicTracks = async (): Promise<MusicTrack[]> => {
-  const configuredFiles = (await getCollection('music'))
-    .filter((entry) => entry.data.enabled)
-    .sort((a, b) => b.data.priority - a.data.priority)
-    .flatMap((entry) => entry.data.files);
+  const configuredFiles = (await getCollection('music')).flatMap((entry) => entry.data.files);
 
   const discoveredFiles = discoveredMusicFiles
     .map((filePath) => toPublicMusicUrl(filePath))

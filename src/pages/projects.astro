@@ -18,7 +18,7 @@ const projects = (await getCollection('projects'))
   .sort((a, b) => b.priority - a.priority);
 ---
 
-<BaseLayout title="项目展示 | 狼码纪" description="我的个人项目作品集">
+<BaseLayout title={`项目展示 | ${settings.name}`} description="我的个人项目作品集">
   {/* 装饰背景 */}
   <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
     <div
@@ -37,11 +37,15 @@ const projects = (await getCollection('projects'))
         {/* 页面标题 */}
         <section class="rounded-xl border border-border/70 bg-card/80 px-4 py-5 shadow-sm sm:px-5">
           <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Projects
+            {settings.ui.projects.eyebrow}
           </p>
           <div class="mt-2 space-y-1.5">
-            <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">项目展示</h1>
-            <p class="max-w-2xl text-sm leading-6 text-muted-foreground">我的开源项目与作品集。</p>
+            <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+              {settings.ui.projects.title}
+            </h1>
+            <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+              {settings.ui.projects.description}
+            </p>
           </div>
         </section>
 
@@ -160,9 +164,9 @@ const projects = (await getCollection('projects'))
           <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-primary/50 rounded-full">
           </div>
 
-          <h2 class="text-2xl font-bold mb-4 text-foreground">更多项目</h2>
-          <p class="text-muted-foreground mb-6">访问我的 GitHub 主页查看更多开源项目</p>
-          <a href="https://github.com/CodeWolffy" target="_blank" rel="noopener noreferrer">
+          <h2 class="text-2xl font-bold mb-4 text-foreground">{settings.ui.projects.moreTitle}</h2>
+          <p class="text-muted-foreground mb-6">{settings.ui.projects.moreDescription}</p>
+          <a href={settings.links.github} target="_blank" rel="noopener noreferrer">
             <Button
               size="lg"
               className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"

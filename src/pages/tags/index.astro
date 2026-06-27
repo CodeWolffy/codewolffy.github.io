@@ -5,7 +5,11 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
 import { getCollection } from 'astro:content';
 import { getTagPath } from '@/utils/content-paths';
+import { getSiteSettings } from '@/utils/site-settings';
 import { countPostTags, createTaxonomyNameMap, getPublicBlogPosts } from '@/utils/posts';
+
+const settings = await getSiteSettings();
+const tagsUi = settings.ui.tags;
 
 const allPosts = await getPublicBlogPosts();
 const allTags = await getCollection('tags');
@@ -14,16 +18,18 @@ const tagMap = createTaxonomyNameMap(allTags);
 const sortedTags = countPostTags(allPosts, tagMap);
 ---
 
-<BaseLayout title="所有标签 | 狼码纪" description="浏览博客的所有标签">
+<BaseLayout title={`${tagsUi.title} | ${settings.name}`} description="浏览博客的所有标签">
   <section class="container mx-auto pt-0 pb-8">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
       <div class="lg:col-span-12 space-y-4">
         <section class="rounded-xl border border-border/70 bg-card/80 px-4 py-5 shadow-sm sm:px-5">
           <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Tags
+            {tagsUi.eyebrow}
           </p>
           <div class="mt-2 space-y-1.5">
-            <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">所有标签</h1>
+            <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+              {tagsUi.title}
+            </h1>
             <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
               共 <span class="font-bold text-foreground">{sortedTags.length}</span> 个标签。
             </p>

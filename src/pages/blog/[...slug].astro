@@ -430,7 +430,13 @@ const pageUrl = Astro.url.href;
         )
       }
 
-      <Copyright />
+      <Copyright
+        author={settings.author.name}
+        licenseName={settings.ui.copyright.licenseName}
+        licenseUrl={settings.ui.copyright.licenseUrl}
+        noticePrefix={settings.ui.copyright.noticePrefix}
+        noticeSuffix={settings.ui.copyright.noticeSuffix}
+      />
 
       <hr class="mt-2" />
       <Comments client:visible giscus={settings.comments.giscus} />
@@ -447,6 +453,27 @@ const pageUrl = Astro.url.href;
 
       const isMobileDevice = () =>
         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      const IFRAME_ALLOW =
+        'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation';
+      const IFRAME_SANDBOX = 'allow-same-origin allow-scripts allow-popups allow-presentation';
+
+      // 统一设置播放器所需的权限与全屏/沙箱属性
+      const applyIframePermissions = (iframe: Element) => {
+        iframe.setAttribute('allow', IFRAME_ALLOW);
+        iframe.setAttribute('allowfullscreen', 'true');
+        iframe.setAttribute('webkitallowfullscreen', 'true');
+        iframe.setAttribute('mozallowfullscreen', 'true');
+        iframe.setAttribute('sandbox', IFRAME_SANDBOX);
+      };
+
+      // 规范化 src（B 站移动端播放器替换 + 禁用自动播放）
+      const normalizeIframeSrc = (iframe: Element) => {
+        const src = iframe.getAttribute('src') || '';
+        if (src) {
+          iframe.setAttribute('src', normalizeIframeUrl(src, { isMobile: isMobileDevice() }));
+        }
+      };
 
       let mediumZoomModulePromise: Promise<typeof import('medium-zoom')> | null = null;
 
@@ -584,27 +611,8 @@ const pageUrl = Astro.url.href;
             // 如果是 video-wrapper，需要添加必要的属性确保全屏工作
             if (parent.classList.contains('video-wrapper')) {
               parent.classList.add('video-container');
-              // 更新 iframe 属性
-              oldIframe.setAttribute(
-                'allow',
-                'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation'
-              );
-              oldIframe.setAttribute('allowfullscreen', 'true');
-              oldIframe.setAttribute('webkitallowfullscreen', 'true');
-              oldIframe.setAttribute('mozallowfullscreen', 'true');
-              oldIframe.setAttribute(
-                'sandbox',
-                'allow-same-origin allow-scripts allow-popups allow-presentation'
-              );
-
-              // B站移动端播放器替换 + 禁用自动播放
-              const src = oldIframe.getAttribute('src') || '';
-              if (src) {
-                oldIframe.setAttribute(
-                  'src',
-                  normalizeIframeUrl(src, { isMobile: isMobileDevice() })
-                );
-              }
+              applyIframePermissions(oldIframe);
+              normalizeIframeSrc(oldIframe);
             }
             return;
           }
@@ -618,25 +626,10 @@ const pageUrl = Astro.url.href;
           });
 
           // Update Src (Autoplay handling + Mobile player)
-          const src = newIframe.getAttribute('src') || '';
-          if (src) {
-            newIframe.setAttribute('src', normalizeIframeUrl(src, { isMobile: isMobileDevice() }));
-          }
+          normalizeIframeSrc(newIframe);
 
           // Enforce Fullscreen & Mobile Attributes
-          newIframe.setAttribute(
-            'allow',
-            'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation'
-          );
-          newIframe.setAttribute('allowfullscreen', 'true');
-          newIframe.setAttribute('webkitallowfullscreen', 'true');
-          newIframe.setAttribute('mozallowfullscreen', 'true');
-
-          // 保留 iframe sandbox 防护，同时允许播放器脚本、弹窗和演示/全屏能力。
-          newIframe.setAttribute(
-            'sandbox',
-            'allow-same-origin allow-scripts allow-popups allow-presentation'
-          );
+          applyIframePermissions(newIframe);
 
           // iOS specific
           newIframe.setAttribute('playsinline', 'true');

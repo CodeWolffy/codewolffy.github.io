@@ -5,6 +5,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
 import { getCollection } from 'astro:content';
 import { getCategoryPath, getTagPath } from '@/utils/content-paths';
+import { getSiteSettings } from '@/utils/site-settings';
 import {
   countPostCategories,
   countPostTags,
@@ -12,10 +13,13 @@ import {
   getPublicBlogPosts,
 } from '@/utils/posts';
 
+const settings = await getSiteSettings();
+const taxonomyUi = settings.ui.taxonomy;
+
 const allPosts = await getPublicBlogPosts();
 const categories = await getCollection('categories');
 const tags = await getCollection('tags');
-const pageTitle = '分类与标签';
+const pageTitle = taxonomyUi.title;
 
 const categoryMap = createTaxonomyNameMap(categories);
 const sortedCategories = countPostCategories(allPosts, categoryMap);
@@ -30,14 +34,14 @@ const sortedTags = countPostTags(allPosts, tagMap);
       <div class="lg:col-span-12 space-y-4">
         <section class="rounded-xl border border-border/70 bg-card/80 px-4 py-5 shadow-sm sm:px-5">
           <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Taxonomy
+            {taxonomyUi.eyebrow}
           </p>
           <div class="mt-2 space-y-1.5">
             <h1 class="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-              分类与标签
+              {taxonomyUi.title}
             </h1>
             <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
-              浏览所有分类与标签，快速找到相关主题内容。
+              {taxonomyUi.description}
             </p>
           </div>
         </section>

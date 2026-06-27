@@ -16,7 +16,10 @@ const { Content } = await render(aboutPage);
 const settings = await getSiteSettings();
 ---
 
-<BaseLayout title={`${aboutPage.data.title} | 狼码纪`} description={aboutPage.data.subtitle}>
+<BaseLayout
+  title={`${aboutPage.data.title} | ${settings.name}`}
+  description={aboutPage.data.subtitle}
+>
   <div class="container mx-auto max-w-4xl py-8 lg:py-12">
     {/* 头部区域 - 左右布局 */}
     <div

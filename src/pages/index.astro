@@ -9,12 +9,16 @@ import EmptyState from '@/components/ui/EmptyState.astro';
 import Sidebar from '@/components/Sidebar.astro';
 import { getCollection, getEntry } from 'astro:content';
 import { getReadingTimeMinutes } from '@/utils/reading-time';
+import { getSiteSettings } from '@/utils/site-settings';
 import {
   countPostCategories,
   countPostTags,
   createTaxonomyNameMap,
   getPublicBlogPostsSorted,
 } from '@/utils/posts';
+
+const settings = await getSiteSettings();
+const homeUi = settings.ui.home;
 
 const aboutPage = await getEntry('pages', 'about');
 const about = aboutPage?.data;
@@ -39,7 +43,7 @@ const topCategories = sortedCategories.slice(0, 4);
 const topTags = sortedTags.slice(0, 8);
 ---
 
-<BaseLayout title="狼码纪">
+<BaseLayout title={settings.name}>
   <!-- Hero Section -->
 
   <!-- Main Content Grid -->
@@ -55,17 +59,17 @@ const topTags = sortedTags.slice(0, 8);
             <div
               class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20"
             >
-              ✨ 探索 · 记录 · 分享
+              {homeUi.badge}
             </div>
             <h1
               class="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none pb-3 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70"
             >
-              {about?.tagline || 'StackOverflow 野生代言人'}
+              {about?.tagline || homeUi.taglineFallback}
             </h1>
             <p
               class="mx-auto md:mx-0 max-w-[600px] text-muted-foreground text-lg md:text-xl leading-relaxed"
             >
-              {about?.subtitle || '如果代码一次就跑通了，那一定是哪里出 bug 了'}
+              {about?.subtitle || homeUi.subtitleFallback}
             </p>
           </div>
           <div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
@@ -75,7 +79,8 @@ const topTags = sortedTags.slice(0, 8);
                 variant="outline"
                 className="rounded-full px-8 bg-background hover:bg-muted text-foreground shadow-sm border transition-all"
               >
-                开始阅读 <ArrowRight className="ml-2 w-4 h-4" />
+                {homeUi.readButton}
+                <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </a>
             <a href="/archives/">
@@ -83,19 +88,22 @@ const topTags = sortedTags.slice(0, 8);
                 size="lg"
                 className="rounded-full px-8 bg-foreground text-background hover:bg-foreground/90 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
               >
-                归档列表
+                {homeUi.archivesButton}
               </Button>
             </a>
           </div>
         </div>
 
         <div id="latest-posts" class="flex items-center justify-between border-b pb-1 scroll-mt-20">
-          <h2 class="text-2xl font-bold tracking-tight flex items-center gap-2">最新文章</h2>
+          <h2 class="text-2xl font-bold tracking-tight flex items-center gap-2">
+            {homeUi.latestTitle}
+          </h2>
           <a
             href="/archives/"
             class="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
           >
-            查看全部 <ArrowRight className="w-4 h-4" />
+            {homeUi.viewAllText}
+            <ArrowRight className="w-4 h-4" />
           </a>
         </div>
 
