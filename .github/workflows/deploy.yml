@@ -25,11 +25,12 @@ jobs:
         run: npm ci
       - name: Run code quality checks
         run: npm run check:all
-      - name: Install, build, and upload your site
-        uses: withastro/action@v2
+      - name: Build site
+        run: npm run build
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          node-version: 22
-          package-manager: npm
+          path: dist
 
   deploy:
     needs: build

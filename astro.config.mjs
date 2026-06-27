@@ -187,7 +187,7 @@ export default defineConfig({
       minify: 'esbuild',
     },
   },
-  // Astro 6 中 static 输出会预渲染前台页面；
+  // Astro 7 中 static 输出会预渲染前台页面；
   // Cloudflare adapter 负责承载 Keystatic 后台的 SSR 路由。
   output: 'static',
 });

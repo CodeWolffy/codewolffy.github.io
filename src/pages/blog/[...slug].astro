@@ -271,6 +271,9 @@ const pageUrl = Astro.url.href;
             alt={post.data.title}
             width={720}
             height={405}
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
             class="block max-w-full w-auto h-auto mb-4 rounded-md border bg-muted transition-colors max-h-[50vh] mx-auto cursor-zoom-in cover-image"
           />
         )
@@ -412,6 +415,10 @@ const pageUrl = Astro.url.href;
                     <img
                       src={relatedPost.data.coverImage || relatedPost.data.heroImage}
                       alt={relatedPost.data.title}
+                      width={128}
+                      height={72}
+                      loading="lazy"
+                      decoding="async"
                       class="hidden w-32 aspect-video object-cover shrink-0 sm:block"
                     />
                   )}

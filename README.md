@@ -2,7 +2,7 @@
 
 > **探索技术、编程与设计的边界**
 
-一个基于 [Astro 6](https://astro.build/) 构建的现代个人技术博客，完美融合了极速性能与卓越的用户体验。本项目采用最新的前沿 Web 技术栈（React 18.3、Tailwind CSS 4.1、Keystatic 0.5），旨在提供一个开箱即用、功能强大且设计精美的高性能博客解决方案。
+一个基于 [Astro 7](https://astro.build/) 构建的现代个人技术博客，完美融合了极速性能与卓越的用户体验。本项目采用最新的前沿 Web 技术栈（React 18.3、Tailwind CSS 4.1、Keystatic 0.5），旨在提供一个开箱即用、功能强大且设计精美的高性能博客解决方案。
 
 [![Built with Astro](https://img.shields.io/badge/Built%20with-Astro-FF5D01?logo=astro&logoColor=white)](https://astro.build)
 [![Deployed on Cloudflare Pages](https://img.shields.io/badge/Deployed%20on-Cloudflare%20Pages-orange?logo=cloudflare)](https://pages.cloudflare.com/)
@@ -16,9 +16,9 @@
 
 ### 🏗️ 架构与性能 (Architecture & Performance)
 
-- **极速加载**: 基于 **Astro 6** 的静态生成 (SSG) 架构，默认移除未使用的 JavaScript，仅在需要交互的组件上使用 React Hydration (岛屿架构)。
+- **极速加载**: 基于 **Astro 7** 的静态生成 (SSG) 架构，默认移除未使用的 JavaScript，仅在需要交互的组件上使用 React Hydration (岛屿架构)。
 - **混合渲染 (Hybrid Rendering)**: 结合静态页面与按需服务器端渲染 (SSR) API，兼顾 SEO 与动态功能。
-- **现代化构建**: 利用 **Vite 7** + **esbuild 0.28** 进行极速构建，并使用 esbuild 压缩产物，最大化构建速度与缓存利用率。
+- **现代化构建**: 利用 **Vite 8** + **esbuild 0.28** 进行极速构建，并使用 esbuild 压缩产物，最大化构建速度与缓存利用率。
 - **Core Web Vitals**: 在 Mobile/Web 端均能达到 Lighthouse 满分 💯 性能表现。
 
 ### 🎨 UI 与交互 (UI & Interaction)
@@ -61,8 +61,8 @@
 
 | 领域         | 核心库                                                      | 版本     | 作用说明                              |
 | :----------- | :---------------------------------------------------------- | :------- | :------------------------------------ |
-| **Core**     | [Astro](https://astro.build/)                               | v6.4.8   | 静态站点生成器，路由管理              |
-| **Build**    | [Vite](https://vitejs.dev/)                                 | v7.3.5   | 极速构建引擎与开发服务器              |
+| **Core**     | [Astro](https://astro.build/)                               | v7.0.3   | 静态站点生成器，路由管理              |
+| **Build**    | [Vite](https://vitejs.dev/)                                 | v8.1.0   | 极速构建引擎与开发服务器              |
 | **UI**       | [React](https://react.dev/)                                 | v18.3.1  | 构建交互式岛屿组件 (Search, Comments) |
 | **Language** | [TypeScript](https://www.typescriptlang.org/)               | v5.9.3   | 类型安全的 JavaScript 超集            |
 | **Style**    | [Tailwind CSS](https://tailwindcss.com/)                    | v4.1.18  | CSS 框架 (配合 Vite 插件)             |

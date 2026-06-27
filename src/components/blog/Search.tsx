@@ -147,6 +147,16 @@ export function Search() {
     return () => document.removeEventListener('keydown', down);
   }, [isExpanded]);
 
+  // 支持 ?q= 深链（结构化数据 SearchAction / 外部直达搜索时自动展开并检索）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (!q) return;
+    setIsExpanded(true);
+    setSearchValue(q);
+    setTimeout(() => inputRef.current?.focus(), SEARCH_FOCUS_DELAY_MS);
+  }, []);
+
   // Initialize Pagefind when expanded
   useEffect(() => {
     if (!isExpanded) return;

@@ -41,9 +41,38 @@ const sortedCategories = countPostCategories(posts, categoryMap);
 // Limit items for homepage (Preview)
 const topCategories = sortedCategories.slice(0, 4);
 const topTags = sortedTags.slice(0, 8);
+
+// 首页结构化数据：WebSite + 站内搜索（SearchAction 指向 /?q=，由 Search 组件接管）
+const siteUrl = (Astro.site ?? new URL(settings.urls.primary)).href.replace(/\/$/, '');
+const externalSocials = settings.socials
+  .map((s) => s.href)
+  .filter((href) => /^https?:\/\//.test(href));
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: settings.name,
+  url: `${siteUrl}/`,
+  description: settings.description,
+  inLanguage: 'zh-CN',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${siteUrl}/?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+  publisher: {
+    '@type': 'Person',
+    name: settings.author.name,
+    url: `${siteUrl}/`,
+    ...(externalSocials.length > 0 ? { sameAs: externalSocials } : {}),
+  },
+};
 ---
 
 <BaseLayout title={settings.name}>
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteJsonLd)} />
   <!-- Hero Section -->
 
   <!-- Main Content Grid -->

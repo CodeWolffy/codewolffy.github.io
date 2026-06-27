@@ -58,10 +58,27 @@ const musicTracks = await getMusicTracks();
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    {/* 无闪烁主题：在首屏绘制前同步应用 .dark，避免深色用户看到浅色闪烁 */}
+    <script is:inline>
+      (() => {
+        try {
+          const stored = localStorage.getItem('theme');
+          const isDark = stored
+            ? stored === 'dark'
+            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.classList.toggle('dark', isDark);
+        } catch {
+          /* localStorage 不可用时忽略 */
+        }
+      })();
+    </script>
     <meta name="description" content={description} />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/icon-192x192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link
       rel="alternate"
       type="application/rss+xml"
