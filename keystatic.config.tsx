@@ -10,11 +10,80 @@ import {
   type FormFieldStoredValue,
 } from '@keystatic/core';
 import { block } from '@keystatic/core/content-components';
-import { normalizeIframeUrl } from './src/utils/iframe-url';
 import { getIconComponent, iconOptions, type IconType } from './src/lib/icons';
-import { useMemo, useState, type ChangeEvent, type CSSProperties, type ReactNode } from 'react';
+import postOptions from './src/generated/post-options.json';
+import {
+  CalloutContentView,
+  CodeGroupContentView,
+  DetailsContentView,
+  IframeContentView,
+  LinkCardContentView,
+  MermaidContentView,
+  StepsContentView,
+  mdxEditorStyles,
+} from './src/components/keystatic/MdxContentPreviews';
+import { useMemo, useState, type ChangeEvent, type CSSProperties } from 'react';
 
 const defaultIconValue: IconType = 'link';
+
+function PostSelectInput({
+  value,
+  onChange,
+  label,
+}: FormFieldInputProps<string> & { label: string }) {
+  return (
+    <label style={{ display: 'grid', width: '100%', gap: 8 }}>
+      <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        style={{
+          boxSizing: 'border-box',
+          width: '100%',
+          minWidth: 0,
+          minHeight: 44,
+          padding: '8px 36px 8px 12px',
+          border: '1px solid #a1a1aa',
+          borderRadius: 8,
+          background: 'transparent',
+          color: 'inherit',
+          font: 'inherit',
+        }}
+      >
+        {postOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function postSelectField({ label }: { label: string }): BasicFormField<string> {
+  const defaultValue = postOptions[0]?.value || '';
+  const normalizeValue = (value: FormFieldStoredValue) =>
+    typeof value === 'string' ? value : defaultValue;
+
+  return {
+    kind: 'form',
+    label,
+    Input(props) {
+      return <PostSelectInput label={label} {...props} />;
+    },
+    defaultValue() {
+      return defaultValue;
+    },
+    parse: normalizeValue,
+    serialize(value) {
+      return { value };
+    },
+    validate(value) {
+      return value || defaultValue;
+    },
+    reader: { parse: normalizeValue },
+  };
+}
 
 type IconPickerFieldOptions = {
   label: string;
@@ -649,40 +718,20 @@ export default config({
       mark: () => (
         <>
           <img src="/favicon.png" height={24} alt="Logo" />
+          <style>{mdxEditorStyles}</style>
           <style>{`
-                        /* 强制表格样式在编辑器中更易读 */
-                        div[contenteditable] table {
-                            width: 100% !important;
-                            table-layout: auto !important;
-                            border-collapse: collapse !important;
-                            margin: 1em 0 !important;
-                        }
-                        div[contenteditable] td, 
-                        div[contenteditable] th {
-                            border: 1px solid #e2e8f0 !important;
-                            padding: 8px 12px !important;
-                            min-width: 50px;
-                        }
-                        div[contenteditable] th {
-                            background-color: #f8fafc !important;
-                            font-weight: bold !important;
-                        }
-                        /* 编辑器内容区宽度与前台页面保持一致，避免后台预览过窄 */
-                        div[data-keystatic-scroll-area] > div > div {
-                            max-width: 100% !important;
-                        }
-                        /* 放大 GitHub 登录按钮 */
-                        a[href*="/api/keystatic/github/login"] {
-                            transform: scale(3);
-                            transform-origin: center;
-                            margin: 60px !important;
-                        }
-                    `}</style>
+            /* 放大 GitHub 登录按钮 */
+            a[href*='/api/keystatic/github/login'] {
+              margin: 60px !important;
+              transform: scale(3);
+              transform-origin: center;
+            }
+          `}</style>
         </>
       ),
     },
     navigation: {
-      博客管理: ['posts'],
+      博客管理: ['posts', 'series'],
       页面管理: ['about', 'friendsPage', 'projects'],
       音乐管理: ['musicLibrary'],
       友链管理: ['friends'],
@@ -947,6 +996,14 @@ export default config({
               },
               { label: '归档页文案' }
             ),
+            series: fields.object(
+              {
+                eyebrow: fields.text({ label: '眉头标签' }),
+                title: fields.text({ label: '页面标题' }),
+                description: fields.text({ label: '页面描述', multiline: true }),
+              },
+              { label: '专栏列表页文案' }
+            ),
             taxonomy: fields.object(
               {
                 eyebrow: fields.text({ label: '眉头标签' }),
@@ -1013,10 +1070,76 @@ export default config({
         name: fields.slug({ name: { label: '标签名称' } }),
       },
     }),
+    series: collection({
+      label: '📚 专栏管理',
+      slugField: 'name',
+      columns: ['name', 'status', 'priority'],
+      previewUrl: '/series/{slug}/',
+      path: 'src/content/series/*',
+      format: { data: 'json' },
+      schema: {
+        name: fields.slug({
+          name: {
+            label: '专栏名称',
+            description: '用于后台列表、专栏页和文章详情展示。',
+            validation: { isRequired: true, length: { min: 2, max: 40 } },
+          },
+          slug: {
+            label: '专栏链接 (Slug)',
+            description: '仅使用小写英文、数字和连字符；发布后不建议修改，以免旧链接失效。',
+            validation: {
+              length: { min: 2, max: 80 },
+              pattern: {
+                regex: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+                message: '仅允许小写英文、数字和连字符，例如 java-core-basics。',
+              },
+            },
+          },
+        }),
+        description: fields.text({
+          label: '专栏简介',
+          multiline: true,
+          description: '建议用 1～3 句话说明适合谁阅读、能学到什么，会显示在专栏列表和详情页。',
+          validation: { isRequired: true, length: { min: 10, max: 200 } },
+        }),
+        coverImage: fields.image({
+          label: '专栏封面（可选）',
+          directory: 'public/images/series',
+          publicPath: '/images/series/',
+          validation: { isRequired: false },
+          description: '建议使用 16:9 横图，至少 1200×675，优先使用 WebP/JPEG 并控制文件大小。',
+        }),
+        status: fields.select({
+          label: '专栏状态',
+          options: [
+            { label: '连载中', value: 'ongoing' },
+            { label: '已完结', value: 'completed' },
+          ],
+          defaultValue: 'ongoing',
+          description: '连载中表示后续还会增加篇章；全部内容发布完成后再切换为已完结。',
+        }),
+        priority: fields.integer({
+          label: '推荐排序（0～100）',
+          defaultValue: 0,
+          validation: { min: 0, max: 100 },
+          description: '数字越大越靠前。普通专栏保持 0，重点推荐可设为 50～100。',
+        }),
+        posts: fields.array(postSelectField({ label: '选择文章' }), {
+          label: '专栏文章编排',
+          itemLabel: (props) =>
+            postOptions.find((option) => option.value === props.value)?.label ||
+            props.value ||
+            '请选择文章',
+          description:
+            '在这里统一添加、移除并拖拽调整专栏文章；列表顺序就是前台显示的篇章顺序，同一篇文章只能加入一个专栏。',
+        }),
+      },
+    }),
     posts: collection({
       label: '✍️ 博客文章',
       slugField: 'title',
       columns: ['title', 'pubDate', 'draft'],
+      previewUrl: '/blog/{slug}/',
       path: 'src/content/blog/*',
       format: { contentField: 'content' },
       schema: {
@@ -1076,6 +1199,17 @@ export default config({
             }),
           }
         ),
+        series: fields.relationship({
+          label: '旧版专栏归属（兼容字段）',
+          collection: 'series',
+          validation: { isRequired: false },
+          description: '请勿用于新的专栏编排；请前往“专栏管理”统一添加、移除和排序文章。',
+        }),
+        seriesOrder: fields.integer({
+          label: '旧版篇章序号（兼容字段）',
+          validation: { isRequired: false, min: 1, max: 999 },
+          description: '仅为兼容既有文章保留；新顺序以“专栏管理”中的拖拽顺序为准。',
+        }),
         tags: fields.array(
           fields.conditional(
             fields.select({
@@ -1134,8 +1268,8 @@ export default config({
             },
           },
           components: {
-            iframe: block({
-              label: '嵌入视频 (iframe)',
+            Iframe: block({
+              label: '嵌入视频 (Iframe)',
               schema: {
                 src: fields.text({
                   label: '视频地址 (Source URL)',
@@ -1147,182 +1281,7 @@ export default config({
                   description: '视频的简短描述，用于辅助功能',
                 }),
               },
-              ContentView: (props) => {
-                const rawSrc = props.value.src || '';
-                const title = props.value.title;
-
-                // 提取 URL 的逻辑
-                let src = rawSrc;
-                let warning = null;
-                let extractedUrl: string | null = null;
-
-                if (rawSrc.trim().startsWith('<iframe')) {
-                  const match = rawSrc.match(/src=["'](.*?)["']/);
-                  if (match && match[1]) {
-                    src = match[1];
-                    extractedUrl = match[1];
-                    warning = (
-                      <div
-                        style={{
-                          marginTop: '8px',
-                          padding: '12px',
-                          background: '#fffbeb',
-                          border: '1px solid #fcd34d',
-                          borderRadius: '6px',
-                          color: '#92400e',
-                          fontSize: '13px',
-                        }}
-                      >
-                        <strong>⚠️ 检测到完整 iframe 代码</strong>
-                        <p style={{ margin: '4px 0' }}>
-                          请只保留{' '}
-                          <code
-                            style={{
-                              background: '#fef3c7',
-                              padding: '2px 4px',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            src
-                          </code>{' '}
-                          属性中的链接。
-                        </p>
-                        <div
-                          style={{
-                            marginTop: '8px',
-                            padding: '8px',
-                            background: '#ffffff',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '4px',
-                            wordBreak: 'break-all',
-                            display: 'flex',
-                            gap: '8px',
-                            flexDirection: 'column',
-                          }}
-                        >
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>建议修改为：</div>
-                          <div
-                            style={{
-                              fontWeight: '500',
-                              color: '#0f172a',
-                              fontFamily: 'monospace',
-                              fontSize: '12px',
-                            }}
-                          >
-                            {extractedUrl}
-                          </div>
-                          <button
-                            type="button"
-                            style={{
-                              alignSelf: 'flex-start',
-                              padding: '4px 12px',
-                              background: '#2563eb',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              marginTop: '4px',
-                            }}
-                            onClick={() => {
-                              if (extractedUrl) {
-                                navigator.clipboard.writeText(extractedUrl);
-                                alert('已复制链接！建议删除上方内容后粘贴。');
-                              }
-                            }}
-                          >
-                            📋 复制链接
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-                }
-
-                // 处理预览用的 URL (禁用自动播放等)
-                const previewSrc = normalizeIframeUrl(src);
-
-                return (
-                  <div
-                    style={{
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      background: '#f8fafc',
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: '8px 12px',
-                        borderBottom: '1px solid #e2e8f0',
-                        background: '#fff',
-                        fontSize: '12px',
-                        color: '#64748b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <span>🎥 视频嵌入预览</span>
-                      {extractedUrl && <span style={{ color: '#f59e0b' }}>⚠️ 格式需修正</span>}
-                    </div>
-
-                    {/* 预览区域 */}
-                    {src ? (
-                      <div
-                        style={{
-                          position: 'relative',
-                          paddingBottom: '56.25%',
-                          height: 0,
-                          background: '#000',
-                        }}
-                      >
-                        <iframe
-                          src={previewSrc}
-                          title={title}
-                          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; presentation"
-                          allowFullScreen
-                          sandbox="allow-top-navigation allow-same-origin allow-forms allow-scripts allow-popups allow-presentation allow-modals"
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            border: 'none',
-                            zIndex: 0,
-                            opacity: warning ? 0.5 : 1,
-                            pointerEvents: 'none',
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8' }}>
-                        <div style={{ marginBottom: '8px', fontSize: '24px' }}>📺</div>
-                        请在右侧输入视频地址
-                      </div>
-                    )}
-
-                    {/* 警告信息 */}
-                    {warning && <div style={{ padding: '0 12px 12px 12px' }}>{warning}</div>}
-
-                    {title && (
-                      <div
-                        style={{
-                          padding: '8px 12px',
-                          borderTop: '1px solid #e2e8f0',
-                          fontSize: '13px',
-                          textAlign: 'center',
-                          color: '#475569',
-                          background: '#fff',
-                        }}
-                      >
-                        {title}
-                      </div>
-                    )}
-                  </div>
-                );
-              },
+              ContentView: IframeContentView,
             }),
             Callout: block({
               label: '提示框 (Callout)',
@@ -1349,49 +1308,7 @@ export default config({
                   links: 'inherit',
                 }),
               },
-              ContentView: (props: {
-                value: { type?: 'info' | 'tip' | 'warning' | 'danger'; title?: string };
-                children?: ReactNode;
-              }) => {
-                const typeMap: Record<string, { color: string; border: string; icon: string }> = {
-                  info: { color: '#eff6ff', border: '#bfdbfe', icon: 'ℹ️' },
-                  tip: { color: '#ecfdf5', border: '#a7f3d0', icon: '💡' },
-                  warning: { color: '#fffbeb', border: '#fde68a', icon: '⚠️' },
-                  danger: { color: '#fef2f2', border: '#fecaca', icon: '🔥' },
-                };
-                const style = typeMap[props.value.type || 'info'];
-                return (
-                  <div
-                    style={{
-                      padding: '16px',
-                      background: style.color,
-                      border: `1px solid ${style.border}`,
-                      borderRadius: '8px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: '8px',
-                        fontWeight: 'bold',
-                        marginBottom: '4px',
-                      }}
-                    >
-                      <span>{style.icon}</span>
-                      <span>{props.value.title}</span>
-                    </div>
-                    <div style={{ color: '#374151' }}>{props.children}</div>
-                    <style>{`
-                                    /* Fix Keystatic Slash Menu Z-Index */
-                                    div[role="listbox"],
-                                    div[data-reach-menu-popover],
-                                    [id^="headlessui-portal-root"] {
-                                        z-index: 99999 !important;
-                                    }
-                                `}</style>
-                  </div>
-                );
-              },
+              ContentView: CalloutContentView,
             }),
             Mermaid: block({
               label: '📊 Mermaid 图表',
@@ -1405,89 +1322,7 @@ export default config({
                   }),
                 }),
               },
-              ContentView: (props) => {
-                const chart = props.value.code?.value || '';
-
-                // 简单的语法提示
-                const getChartType = (code: string) => {
-                  if (code.startsWith('flowchart') || code.startsWith('graph')) return '流程图';
-                  if (code.startsWith('sequenceDiagram')) return '时序图';
-                  if (code.startsWith('pie')) return '饼图';
-                  if (code.startsWith('gantt')) return '甘特图';
-                  if (code.startsWith('classDiagram')) return '类图';
-                  if (code.startsWith('erDiagram')) return 'ER图';
-                  if (code.startsWith('stateDiagram')) return '状态图';
-                  return '图表';
-                };
-
-                return (
-                  <div
-                    style={{
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      background: '#f8fafc',
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: '8px 12px',
-                        borderBottom: '1px solid #e2e8f0',
-                        background: '#fff',
-                        fontSize: '12px',
-                        color: '#64748b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <span>📊 Mermaid {chart ? getChartType(chart.trim()) : '图表'}</span>
-                      {chart && <span style={{ color: '#22c55e' }}>✓ 已输入</span>}
-                    </div>
-
-                    {chart ? (
-                      <div style={{ padding: '16px', background: '#fff' }}>
-                        <pre
-                          style={{
-                            margin: 0,
-                            padding: '12px',
-                            background: '#f1f5f9',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontFamily: 'ui-monospace, monospace',
-                            overflow: 'auto',
-                            maxHeight: '200px',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                          }}
-                        >
-                          {chart}
-                        </pre>
-                        <div
-                          style={{
-                            marginTop: '8px',
-                            fontSize: '11px',
-                            color: '#94a3b8',
-                            textAlign: 'center',
-                          }}
-                        >
-                          ⓘ 图表将在文章页面渲染显示
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
-                        <div style={{ marginBottom: '8px', fontSize: '24px' }}>📊</div>
-                        <div style={{ marginBottom: '12px' }}>
-                          请在上方“图表代码”中输入 Mermaid 代码
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#cbd5e1' }}>
-                          示例：flowchart TD; A--&gt;B;
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              },
+              ContentView: MermaidContentView,
             }),
             Details: block({
               label: '🔽 折叠详情 (Details)',
@@ -1501,30 +1336,7 @@ export default config({
                   links: 'inherit',
                 }),
               },
-              ContentView: (props: {
-                value: { title: string; open: boolean };
-                children?: ReactNode;
-              }) => (
-                <div
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    margin: '16px 0',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: '12px 16px',
-                      background: '#f8fafc',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {props.value.title}
-                  </div>
-                  <div style={{ padding: '16px' }}>{props.children}</div>
-                </div>
-              ),
+              ContentView: DetailsContentView,
             }),
             LinkCard: block({
               label: '🔗 链接卡片 (LinkCard)',
@@ -1533,27 +1345,7 @@ export default config({
                 url: fields.text({ label: '链接' }),
                 description: fields.text({ label: '描述', multiline: true }),
               },
-              ContentView: (props) => (
-                <div
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    margin: '16px 0',
-                    background: '#fff',
-                  }}
-                >
-                  <div style={{ fontWeight: 500 }}>{props.value.title}</div>
-                  {props.value.description && (
-                    <div style={{ color: '#64748b', marginTop: '4px' }}>
-                      {props.value.description}
-                    </div>
-                  )}
-                  <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '8px' }}>
-                    {props.value.url}
-                  </div>
-                </div>
-              ),
+              ContentView: LinkCardContentView,
             }),
             Steps: block({
               label: '📝 步骤 (Steps)',
@@ -1569,36 +1361,7 @@ export default config({
                   }
                 ),
               },
-              ContentView: (props) => (
-                <div style={{ margin: '16px 0' }}>
-                  {props.value.items.map((item, index) => (
-                    <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                      <div
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          background: '#e2e8f0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {index + 1}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 500 }}>{item.title}</div>
-                        <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>
-                          {item.content}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ),
+              ContentView: StepsContentView,
             }),
             CodeGroup: block({
               label: '💻 代码组 (CodeGroup)',
@@ -1615,52 +1378,7 @@ export default config({
                   }
                 ),
               },
-              ContentView: (props) => (
-                <div
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    margin: '16px 0',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      borderBottom: '1px solid #e2e8f0',
-                      background: '#f8fafc',
-                    }}
-                  >
-                    {props.value.items.map((item, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          padding: '8px 16px',
-                          fontSize: '13px',
-                          fontWeight: 500,
-                          background: index === 0 ? '#fff' : 'transparent',
-                          borderBottom: index === 0 ? '2px solid #3b82f6' : 'none',
-                        }}
-                      >
-                        {item.label}
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ padding: '16px', background: '#fff' }}>
-                    <pre
-                      style={{
-                        margin: 0,
-                        fontFamily: 'ui-monospace, monospace',
-                        fontSize: '13px',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {props.value.items[0]?.code}
-                    </pre>
-                  </div>
-                </div>
-              ),
+              ContentView: CodeGroupContentView,
             }),
           }, // Close components
         }), // Close fields.mdx

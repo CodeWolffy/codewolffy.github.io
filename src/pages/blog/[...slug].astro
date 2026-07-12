@@ -16,15 +16,21 @@ import Iframe from '../../components/mdx/Iframe.astro';
 import Details from '../../components/mdx/Details.astro';
 import LinkCard from '../../components/mdx/LinkCard.astro';
 import Steps from '../../components/mdx/Steps.astro';
-import { CodeGroup } from '../../components/mdx/CodeGroup';
+import CodeGroupIsland from '../../components/mdx/CodeGroupIsland.astro';
 import { calculateReadingTime } from '../../utils/reading-time';
 import {
   getBlogPostPath,
   getBlogPostSlug,
   getCategoryPath,
+  getSeriesPath,
   getTagPath,
 } from '@/utils/content-paths';
-import { getPublicBlogPosts } from '@/utils/posts';
+import {
+  getPostSeries,
+  getSeriesPostNumber,
+  getSeriesPosts,
+  getPublicBlogPosts,
+} from '@/utils/posts';
 import { getSiteSettings } from '@/utils/site-settings';
 
 export const prerender = true;
@@ -66,6 +72,12 @@ const tagMap = new Map(allTags.map((t) => [t.id, t.data.name]));
 const tagIds = post.data.tags || [];
 const tagNames = tagIds.map((tagId) => tagMap.get(tagId) || tagId); // Used for SEO
 
+// Resolve Series
+const allSeries = await getCollection('series');
+const seriesEntry = getPostSeries(allSeries, post);
+const seriesName = seriesEntry?.data.name || null;
+const seriesPostNumber = seriesEntry ? getSeriesPostNumber(seriesEntry, post) : undefined;
+
 // 计算阅读时间（精细化计算：考虑图片、代码、Mermaid等）
 const content = post.body || '';
 const readingTimeResult = calculateReadingTime(content);
@@ -87,6 +99,10 @@ const relatedPosts = allPosts
     // 分类匹配得分：同分类 +1 分 (作为辅助加权)
     if (categoryId && pCategory && categoryId === pCategory) {
       score += 1;
+    }
+
+    if (seriesEntry && getPostSeries(allSeries, p)?.id === seriesEntry.id) {
+      score += 2;
     }
 
     return {
@@ -111,8 +127,15 @@ const sortedPosts = [...allPosts].sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 const currentIndex = sortedPosts.findIndex((p) => p.id === post.id);
-const prevPost = currentIndex < sortedPosts.length - 1 ? sortedPosts[currentIndex + 1] : null;
-const nextPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
+const chronologicalPrevPost =
+  currentIndex < sortedPosts.length - 1 ? sortedPosts[currentIndex + 1] : null;
+const chronologicalNextPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
+
+const seriesPosts = seriesEntry ? getSeriesPosts(allPosts, seriesEntry) : [];
+const seriesIndex = seriesPosts.findIndex((item) => item.id === post.id);
+const prevPost = seriesIndex >= 0 ? seriesPosts[seriesIndex - 1] || null : chronologicalPrevPost;
+const nextPost = seriesIndex >= 0 ? seriesPosts[seriesIndex + 1] || null : chronologicalNextPost;
+const navigationLabel = seriesIndex >= 0 ? '专栏篇章' : '时间归档';
 
 // 当前页面 URL
 const pageUrl = Astro.url.href;
@@ -154,7 +177,7 @@ const pageUrl = Astro.url.href;
       },
       image: post.data.coverImage || post.data.heroImage || '/og-image.jpg',
       keywords: tagNames.join(', '),
-      articleSection: categoryName || '技术文章',
+      articleSection: seriesName || categoryName || '技术文章',
       wordCount: wordCount,
       timeRequired: `PT${readingTime}M`,
     })}
@@ -166,7 +189,11 @@ const pageUrl = Astro.url.href;
       <div class="mb-1">
         <Breadcrumbs
           items={[
-            ...(categoryName ? [{ label: categoryName, href: getCategoryPath(categoryId) }] : []),
+            ...(seriesEntry && seriesName
+              ? [{ label: seriesName, href: getSeriesPath(seriesEntry.id) }]
+              : categoryId && categoryName
+                ? [{ label: categoryName, href: getCategoryPath(categoryId) }]
+                : []),
           ]}
         />
       </div>
@@ -259,6 +286,20 @@ const pageUrl = Astro.url.href;
           </div>
         )
       }
+      {
+        seriesEntry && seriesName && (
+          <a
+            href={getSeriesPath(seriesEntry.id)}
+            class="mb-2 inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+          >
+            <span class="text-muted-foreground">专栏</span>
+            <span>{seriesName}</span>
+            {seriesPostNumber && (
+              <span class="text-xs text-muted-foreground">第 {seriesPostNumber} 篇</span>
+            )}
+          </a>
+        )
+      }
       <div
         class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-11 md:top-14 z-[60] border border-border/50 w-full"
       >
@@ -280,7 +321,18 @@ const pageUrl = Astro.url.href;
       }
 
       <div class="prose dark:prose-invert max-w-none min-w-0" data-pagefind-body>
-        <Content components={{ Callout, Mermaid, Iframe, Details, LinkCard, Steps, CodeGroup }} />
+        <Content
+          components={{
+            Callout,
+            Mermaid,
+            Iframe,
+            iframe: Iframe,
+            Details,
+            LinkCard,
+            Steps,
+            CodeGroup: CodeGroupIsland,
+          }}
+        />
       </div>
 
       <!-- 代码复制按钮初始化 -->
@@ -320,67 +372,70 @@ const pageUrl = Astro.url.href;
       <!-- 上一篇/下一篇导航 -->
       {
         (prevPost || nextPost) && (
-          <div class="mt-2 grid gap-4 sm:grid-cols-2">
-            {prevPost ? (
-              <a
-                href={getBlogPostPath(prevPost)}
-                class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all"
-              >
-                <span class="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="group-hover:-translate-x-1 transition-transform"
-                  >
-                    <path d="m12 19-7-7 7-7" />
-                    <path d="M19 12H5" />
-                  </svg>
-                  上一篇
-                </span>
-                <span class="font-medium group-hover:text-primary transition-colors line-clamp-1">
-                  {prevPost.data.title}
-                </span>
-              </a>
-            ) : (
-              <div />
-            )}
-            {nextPost ? (
-              <a
-                href={getBlogPostPath(nextPost)}
-                class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-right"
-              >
-                <span class="text-xs text-muted-foreground mb-1 flex items-center justify-end gap-1">
-                  下一篇
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="group-hover:translate-x-1 transition-transform"
-                  >
-                    <path d="M5 12h14" />
-                    <path d="m12 5 7 7-7 7" />
-                  </svg>
-                </span>
-                <span class="font-medium group-hover:text-primary transition-colors line-clamp-1">
-                  {nextPost.data.title}
-                </span>
-              </a>
-            ) : (
-              <div />
-            )}
+          <div class="mt-2">
+            <p class="mb-2 text-xs font-medium text-muted-foreground">{navigationLabel}</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              {prevPost ? (
+                <a
+                  href={getBlogPostPath(prevPost)}
+                  class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all"
+                >
+                  <span class="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="group-hover:-translate-x-1 transition-transform"
+                    >
+                      <path d="m12 19-7-7 7-7" />
+                      <path d="M19 12H5" />
+                    </svg>
+                    上一篇
+                  </span>
+                  <span class="font-medium group-hover:text-primary transition-colors line-clamp-1">
+                    {prevPost.data.title}
+                  </span>
+                </a>
+              ) : (
+                <div />
+              )}
+              {nextPost ? (
+                <a
+                  href={getBlogPostPath(nextPost)}
+                  class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-right"
+                >
+                  <span class="text-xs text-muted-foreground mb-1 flex items-center justify-end gap-1">
+                    下一篇
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="group-hover:translate-x-1 transition-transform"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </span>
+                  <span class="font-medium group-hover:text-primary transition-colors line-clamp-1">
+                    {nextPost.data.title}
+                  </span>
+                </a>
+              ) : (
+                <div />
+              )}
+            </div>
           </div>
         )
       }

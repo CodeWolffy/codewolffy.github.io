@@ -17,6 +17,11 @@ const dataLoader = (collection: string) =>
     generateId: ({ entry }) => stripFileExtension(entry),
   });
 
+const conditionalRelationship = z.object({
+  discriminant: z.enum(['existing', 'custom']),
+  value: z.string().nullable(),
+});
+
 const categories = defineCollection({
   loader: dataLoader('categories'),
   schema: z.object({
@@ -31,6 +36,22 @@ const tags = defineCollection({
   }),
 });
 
+const series = defineCollection({
+  loader: dataLoader('series'),
+  schema: z.object({
+    name: z.string(),
+    description: z.string(),
+    coverImage: z
+      .string()
+      .nullable()
+      .optional()
+      .transform((value) => value || undefined),
+    status: z.enum(['ongoing', 'completed']),
+    priority: z.number().default(0),
+    posts: z.array(z.string()).default([]),
+  }),
+});
+
 const blog = defineCollection({
   loader: contentLoader('blog'),
   schema: z.object({
@@ -41,40 +62,31 @@ const blog = defineCollection({
     heroImage: z.string().optional(),
     coverImage: z.string().optional(),
     category: z
-      .union([
-        z.string(),
-        z.object({
-          discriminant: z.string(),
-          value: z.any(),
-        }),
-      ])
+      .union([z.string(), conditionalRelationship])
       .optional()
       .transform((val) => {
         if (!val) return undefined;
         if (typeof val === 'string') return val;
-        if (typeof val === 'object' && 'value' in val) return val.value;
-        return undefined;
+        return val.value || undefined;
       }),
     tags: z
-      .array(
-        z.union([
-          z.string(),
-          z.object({
-            discriminant: z.string(),
-            value: z.any(),
-          }),
-        ])
-      )
+      .array(z.union([z.string(), conditionalRelationship]))
       .default([])
       .transform((tags) => {
         return tags
-          .map((t) => {
-            if (typeof t === 'string') return t;
-            if (t && typeof t === 'object' && 'value' in t) return t.value;
-            return null;
-          })
-          .filter((t): t is string => typeof t === 'string');
+          .map((tag) => (typeof tag === 'string' ? tag : tag.value || ''))
+          .filter((tag) => tag.length > 0);
       }),
+    series: z
+      .string()
+      .nullable()
+      .optional()
+      .transform((value) => value || undefined),
+    seriesOrder: z
+      .number()
+      .nullable()
+      .optional()
+      .transform((value) => value ?? undefined),
     draft: z.boolean().default(false),
   }),
 });
@@ -240,6 +252,11 @@ const site = defineCollection({
         title: z.string(),
         description: z.string(),
       }),
+      series: z.object({
+        eyebrow: z.string(),
+        title: z.string(),
+        description: z.string(),
+      }),
       taxonomy: z.object({
         eyebrow: z.string(),
         title: z.string(),
@@ -279,5 +296,6 @@ export const collections = {
   music,
   categories,
   tags,
+  series,
   site,
 };

@@ -1,0 +1,209 @@
+diff --git a/node_modules/@keystatic/core/dist/index-a8452c26.js b/node_modules/@keystatic/core/dist/index-a8452c26.js
+index 92ea45b..9ec7cd5 100644
+--- a/node_modules/@keystatic/core/dist/index-a8452c26.js
++++ b/node_modules/@keystatic/core/dist/index-a8452c26.js
+@@ -4908,7 +4908,7 @@ function ArrayFieldInput(props) {
+         modalStateIndex: modalState.index,
+         onClose: t15,
+         previewProps: props
+-      });
++      }, modalState.index);
+       $[32] = formId;
+       $[33] = modalState.index;
+       $[34] = props;
+@@ -4919,6 +4919,11 @@ function ArrayFieldInput(props) {
+     let t17;
+     if ($[36] !== formId) {
+       t17 = /*#__PURE__*/jsx(ButtonGroup, {
++        UNSAFE_style: {
++          display: "inline-flex",
++          gridArea: "footer",
++          justifySelf: "end"
++        },
+         children: /*#__PURE__*/jsx(Button, {
+           form: formId,
+           prominence: "high",
+@@ -4934,6 +4939,7 @@ function ArrayFieldInput(props) {
+     let t18;
+     if ($[38] !== t16 || $[39] !== t17) {
+       t18 = /*#__PURE__*/jsxs(Dialog, {
++        isDismissable: true,
+         children: [t14, t16, t17]
+       });
+       $[38] = t16;
+@@ -4947,6 +4953,7 @@ function ArrayFieldInput(props) {
+   let t14;
+   if ($[41] !== t13) {
+     t14 = /*#__PURE__*/jsx(DialogContainer, {
++      isDismissable: modalState.state === "edit",
+       onDismiss: t12,
+       children: t13
+     });
+@@ -5045,127 +5052,49 @@ function ArrayFieldAddItemModalContent(props) {
+   });
+ }
+ function ArrayEditItemModalContent(props) {
+-  const $ = c(25);
+-  let t0;
+-  bb0: {
+-    if (props.previewProps.schema.slugField === undefined || props.previewProps.schema.element.kind !== "object") {
+-      t0 = undefined;
+-      break bb0;
+-    }
+-    const t1 = props.previewProps;
+-    let t2;
+-    let slugField;
+-    if ($[0] !== t1 || $[1] !== props.previewProps.schema.element.fields || $[2] !== props.previewProps.schema.slugField || $[3] !== props.modalStateIndex) {
+-      const val = previewPropsToValue(t1);
+-      const schema = props.previewProps.schema.element.fields;
+-      slugField = props.previewProps.schema.slugField;
+-      let t3;
+-      if ($[6] !== props.modalStateIndex) {
+-        t3 = (x, i) => i !== props.modalStateIndex;
+-        $[6] = props.modalStateIndex;
+-        $[7] = t3;
+-      } else {
+-        t3 = $[7];
+-      }
+-      let t4;
+-      if ($[8] !== schema || $[9] !== slugField) {
+-        t4 = x_0 => getSlugFromState({
+-          schema,
+-          slugField
+-        }, x_0);
+-        $[8] = schema;
+-        $[9] = slugField;
+-        $[10] = t4;
+-      } else {
+-        t4 = $[10];
+-      }
+-      t2 = new Set(val.filter(t3).map(t4));
+-      $[0] = t1;
+-      $[1] = props.previewProps.schema.element.fields;
+-      $[2] = props.previewProps.schema.slugField;
+-      $[3] = props.modalStateIndex;
+-      $[4] = t2;
+-      $[5] = slugField;
+-    } else {
+-      t2 = $[4];
+-      slugField = $[5];
+-    }
+-    const slugs = t2;
+-    let t3;
+-    if ($[11] !== slugs || $[12] !== slugField) {
+-      t3 = {
+-        slugs,
+-        field: slugField,
+-        glob: "*"
+-      };
+-      $[11] = slugs;
+-      $[12] = slugField;
+-      $[13] = t3;
+-    } else {
+-      t3 = $[13];
++  const [forceValidation, setForceValidation] = useState(false);
++  const currentItemProps = props.previewProps.elements[props.modalStateIndex];
++  const [value, setValue] = useState(() => previewPropsToValue(currentItemProps));
++  const slugInfo = useMemo(() => {
++    if (props.previewProps.schema.slugField === undefined || props.previewProps.schema.element.kind !== 'object') {
++      return;
+     }
+-    t0 = t3;
+-  }
+-  const slugInfo = t0;
+-  const t1 = props.previewProps.elements[props.modalStateIndex];
+-  let propsWithoutKey;
+-  if ($[14] !== t1) {
+-    const {
+-      key,
+-      ...t2
+-    } = t1;
+-    propsWithoutKey = t2;
+-    $[14] = t1;
+-    $[15] = propsWithoutKey;
+-  } else {
+-    propsWithoutKey = $[15];
+-  }
+-  let t2;
+-  if ($[16] !== props) {
+-    t2 = event => {
+-      if (event.target !== event.currentTarget) {
+-        return;
+-      }
+-      event.preventDefault();
+-      props.onClose();
++    const schema = props.previewProps.schema.element.fields;
++    const slugField = props.previewProps.schema.slugField;
++    const slugs = new Set(previewPropsToValue(props.previewProps).filter((_, index) => index !== props.modalStateIndex).map(item => getSlugFromState({
++      schema,
++      slugField
++    }, item)));
++    return {
++      slugs,
++      field: slugField,
++      glob: '*'
+     };
+-    $[16] = props;
+-    $[17] = t2;
+-  } else {
+-    t2 = $[17];
+-  }
+-  let t3;
+-  if ($[18] !== slugInfo || $[19] !== propsWithoutKey) {
+-    t3 = /*#__PURE__*/jsx(FormValueContentFromPreviewProps, {
+-      slugField: slugInfo,
+-      autoFocus: true,
+-      ...propsWithoutKey
+-    });
+-    $[18] = slugInfo;
+-    $[19] = propsWithoutKey;
+-    $[20] = t3;
+-  } else {
+-    t3 = $[20];
+-  }
+-  let t4;
+-  if ($[21] !== props.formId || $[22] !== t2 || $[23] !== t3) {
+-    t4 = /*#__PURE__*/jsx(Content, {
+-      children: /*#__PURE__*/jsx(VStack, {
+-        id: props.formId,
+-        elementType: "form",
+-        onSubmit: t2,
+-        gap: "xxlarge",
+-        children: t3
++  }, [props.previewProps, props.modalStateIndex]);
++  const previewProps = useMemo(() => createGetPreviewProps(props.previewProps.schema.element, setValue, () => undefined), [props.previewProps.schema.element])(value);
++  return /*#__PURE__*/jsx(Content, {
++    children: /*#__PURE__*/jsx(VStack, {
++      id: props.formId,
++      elementType: "form",
++      onSubmit: event => {
++        if (event.target !== event.currentTarget) return;
++        event.preventDefault();
++        if (!clientSideValidateProp(props.previewProps.schema.element, value, undefined)) {
++          setForceValidation(true);
++          return;
++        }
++        setValueToPreviewProps(value, currentItemProps);
++        props.onClose();
++      },
++      gap: "xxlarge",
++      children: /*#__PURE__*/jsx(FormValueContentFromPreviewProps, {
++        slugField: slugInfo,
++        autoFocus: true,
++        ...previewProps,
++        forceValidation: forceValidation
+       })
+-    });
+-    $[21] = props.formId;
+-    $[22] = t2;
+-    $[23] = t3;
+-    $[24] = t4;
+-  } else {
+-    t4 = $[24];
+-  }
+-  return t4;
++    })
++  });
+ }
+ 
+ // TODO: l10n

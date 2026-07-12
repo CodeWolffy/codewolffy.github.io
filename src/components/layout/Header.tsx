@@ -31,11 +31,11 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
           {/* Left Side: Desktop Nav + Mobile Menu + Mobile Logo */}
           <div className="flex items-center gap-1 md:mr-4">
             {/* Desktop: Logo + Nav */}
-            <div className="hidden md:flex shrink-0">
-              <a className="mr-6 flex items-center space-x-2 font-bold text-2xl" href="/">
+            <div className="hidden lg:flex shrink-0">
+              <a className="mr-5 flex items-center space-x-2 font-bold text-2xl" href="/">
                 <span className="hidden font-bold sm:inline-block">{name}</span>
               </a>
-              <nav className="flex items-center space-x-6 text-[17px] font-medium">
+              <nav className="flex items-center space-x-4 xl:space-x-5 text-base font-medium">
                 {navigation.map((item) => (
                   <a
                     key={item.href}
@@ -49,7 +49,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
             </div>
 
             {/* Mobile: Menu Button */}
-            <div className="md:hidden shrink-0">
+            <div className="lg:hidden shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
@@ -68,7 +68,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
             </div>
 
             {/* Mobile: Logo */}
-            <div className="md:hidden font-bold text-lg shrink-0">
+            <div className="lg:hidden font-bold text-lg shrink-0">
               <a href="/">{name}</a>
             </div>
           </div>
@@ -116,7 +116,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
       </div>
       {/* Mobile Nav */}
       {isMenuOpen && (
-        <div id="mobile-nav" className="md:hidden border-t p-4 space-y-2 bg-background">
+        <div id="mobile-nav" className="lg:hidden border-t p-4 space-y-2 bg-background">
           <nav className="flex flex-col space-y-1" aria-label="移动端导航">
             {navigation.map((item) => (
               <a

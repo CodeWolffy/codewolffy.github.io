@@ -241,6 +241,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
   let isInitializing = false;
   let mermaidPromise: Promise<(typeof import('mermaid'))['default']> | null = null;
   let mermaidEscapeHandlerInstalled = false;
+  let mermaidVisibilityObserver: IntersectionObserver | null = null;
 
   const loadMermaid = () => {
     mermaidPromise ??= import('mermaid').then((module) => module.default);
@@ -250,15 +251,19 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
   const initMermaid = async () => {
     if (isInitializing) return;
     isInitializing = true;
+    mermaidVisibilityObserver?.disconnect();
+    mermaidVisibilityObserver = null;
 
     try {
+      // 字体和图表都接近可见后才加载 Mermaid，避免抢占首屏网络与主线程。
+      await document.fonts.ready;
       const mermaid = await loadMermaid();
       const isDark = document.documentElement.classList.contains('dark');
 
       mermaid.initialize({
         startOnLoad: false,
         theme: isDark ? 'dark' : 'default',
-        securityLevel: 'loose',
+        securityLevel: 'strict',
         htmlLabels: false,
         fontFamily:
           'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
@@ -279,9 +284,6 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         },
       });
 
-      // 等待字体加载完成，防止计算布局时宽度计算错误
-      await document.fonts.ready;
-
       // 渲染所有图表
       const elements = document.querySelectorAll('.mermaid:not([data-processed])');
       for (const element of elements) {
@@ -293,6 +295,39 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
     } finally {
       isInitializing = false;
     }
+  };
+
+  const scheduleMermaidInit = () => {
+    const elements = Array.from(
+      document.querySelectorAll('.mermaid:not([data-processed])')
+    ) as HTMLElement[];
+    if (elements.length === 0) return;
+
+    if (!('IntersectionObserver' in window)) {
+      initMermaid();
+      return;
+    }
+
+    const preloadDistance = 600;
+    const isNearViewport = elements.some((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.top <= window.innerHeight + preloadDistance && rect.bottom >= -preloadDistance;
+    });
+
+    if (isNearViewport) {
+      initMermaid();
+      return;
+    }
+
+    mermaidVisibilityObserver?.disconnect();
+    mermaidVisibilityObserver = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        initMermaid();
+      },
+      { rootMargin: `${preloadDistance}px 0px` }
+    );
+    elements.forEach((element) => mermaidVisibilityObserver?.observe(element));
   };
 
   const normalizeErDiagram = (chart: string) => {
@@ -681,29 +716,28 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
   };
 
   if (document.readyState === 'complete') {
-    initMermaid();
+    scheduleMermaidInit();
   } else {
-    window.addEventListener('load', initMermaid);
+    window.addEventListener('load', scheduleMermaidInit, { once: true });
   }
 
-  document.addEventListener('astro:page-load', initMermaid);
+  document.addEventListener('astro:page-load', scheduleMermaidInit);
 
   let themeTimeout: ReturnType<typeof setTimeout> | null = null;
   const observer = new MutationObserver((mutations) => {
     if (mutations.some((m) => m.attributeName === 'class')) {
       if (themeTimeout) clearTimeout(themeTimeout);
       themeTimeout = setTimeout(() => {
+        const hadRenderedChart = document.querySelector('.mermaid[data-processed]') !== null;
         document.querySelectorAll('.mermaid[data-processed]').forEach((el) => {
           el.removeAttribute('data-processed');
           el.innerHTML = '';
         });
-        document.querySelectorAll('[data-drag-init]').forEach((el) => {
-          el.removeAttribute('data-drag-init');
-        });
-        document.querySelectorAll('[data-toolbar-init]').forEach((el) => {
-          el.removeAttribute('data-toolbar-init');
-        });
-        initMermaid();
+        if (hadRenderedChart) {
+          initMermaid();
+        } else {
+          scheduleMermaidInit();
+        }
       }, 100);
     }
   });

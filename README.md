@@ -44,16 +44,18 @@
   - **单篇导出**: 支持将文章导出为 **Markdown** (保留 Frontmatter) 或 **HTML** (内联样式) 格式。
   - **批量导出**: 管理员后台提供全量文章数据导出功能。
 - **RSS 订阅**: 自动生成标准 RSS 2.0 Feed，通过 `rss.xml.js` 动态适配访问域名。
+- **音乐播放器**: 悬浮在页面右下角的音乐播放器，支持顺序/单曲循环/随机播放、音量记忆、歌词显示与拖拽定位；音源通过 Keystatic 后台「音乐管理」维护。
 
 ### 📝 CMS 内容管理 (Content Management)
 
 **Keystatic** 是一款基于 Git 的无头 CMS，本项目已配置以下集合：
 
 - **文章 (Posts)**: 撰写博客，支持 Frontmatter、封面图、草稿状态。
-- **页面 (Pages)**: 管理“关于我”、“友链”等单页内容。
+- **页面 (Pages)**: 管理“关于我”、“友链页面设置”等单页内容。
 - **分类 (Categories) / 标签 (Tags)**: 统一管理分类元数据。
 - **项目 (Projects)**: 展示个人作品集。
 - **友链 (Friends)**: 管理友情链接数据。
+- **音乐库 (Music Library)**: 上传并管理 MP3 音源，供前台悬浮播放器使用。
 
 ---
 
@@ -80,26 +82,32 @@
 ```text
 ├── public/                 # 静态资源 (不经过构建处理)
 │   ├── images/             # 图片存放目录
+│   ├── music/              # MP3 音源文件
 │   ├── robots.txt          # SEO 爬虫规则
 │   └── sitemap-*.xml       # 自动生成的站点地图
 ├── scripts/                # 构建/开发辅助脚本
 │   ├── check-mermaid-regression.mjs # Mermaid 回归检查
 │   ├── clean-content.js    # 清理未使用的标签/分类
+│   ├── prepare-cloudflare-pages-output.js # Cloudflare Pages 产物处理
+│   ├── run-pagefind.js     # 构建后生成 Pagefind 搜索索引
 │   └── sync-content.js     # 手动全量内容同步
 ├── src/
 │   ├── components/         # 组件库
 │   │   ├── blog/           # 业务组件: Comments, TOC, ExportButton, Search...
 │   │   ├── layout/         # 布局组件: Header
 │   │   ├── mdx/            # MDX 自定义组件: Callout, Mermaid, Iframe
+│   │   ├── music/          # 音乐播放器组件
 │   │   └── ui/             # 基础组件: Button, BackButton, Breadcrumbs...
 │   ├── config/             # 站点配置文件
-│   │   └── site.js         # 站点 URL、导航、评论、社交链接等
+│   │   └── site.js         # 站点 URL 读取入口
 │   ├── content/            # 内容数据源 (Keystatic 管理)
 │   │   ├── blog/           # .mdx 文章文件
 │   │   ├── categories/     # 分类定义 (.json)
 │   │   ├── friends/        # 友情链接定义 (.json)
-│   │   ├── pages/          # 单页面内容 (about, friends)
+│   │   ├── music/          # 音乐库配置 (.json)
+│   │   ├── pages/          # 单页面内容 (about)
 │   │   ├── projects/       # 项目展示定义 (.json)
+│   │   ├── site/           # 站点设置 (.json)
 │   │   └── tags/           # 标签定义 (.json)
 │   ├── content.config.ts   # Astro Content Collections 定义 (位于 src/ 根)
 │   ├── layouts/            # 页面骨架
@@ -117,7 +125,7 @@
 │   │   └── rss.xml.js              # RSS 生成逻辑
 │   ├── plugins/            # 自定义 rehype 插件
 │   ├── styles/             # 全局样式 (Tailwind v4 CSS-first 配置)
-│   └── utils/              # 内容同步、阅读时间等工具
+│   └── utils/              # 内容同步、阅读时间、音乐曲目等工具
 ├── astro.config.mjs        # Astro 主配置文件 (集成插件配置)
 ├── components.json         # shadcn/ui 风格组件配置
 ├── keystatic.config.tsx    # Keystatic CMS 数据模型配置
@@ -130,19 +138,28 @@
 
 ### 环境准备 (Prerequisites)
 
-- **Node.js**: `v22.12.0` 或更高 (推荐 v22 LTS)
+- **Node.js**: `v22.x` LTS（建议与 [.node-version](.node-version) 保持一致，当前为 `22.16.0`）
 - **Package Manager**: 推荐使用 `pnpm` 或 `npm`
 
 ### 常用命令
 
-| 命令                    | 说明                                                            |
-| :---------------------- | :-------------------------------------------------------------- |
-| `npm run dev`           | 启动本地开发服务器 (`localhost:4321`)，**开启内容自动同步监控** |
-| `npm run build`         | 执行生产构建，并运行 Pagefind 索引生成                          |
-| `npm run preview`       | 预览构建后的生产环境代码                                        |
-| `npm run sync-content`  | 手动强制执行全量内容同步                                        |
-| `npm run clean-content` | 清理未使用（无文章引用）的标签和分类定义                        |
-| `npm run astro`         | 运行 Astro CLI 命令                                             |
+| 命令                            | 说明                                                            |
+| :------------------------------ | :-------------------------------------------------------------- |
+| `npm run dev`                   | 启动本地开发服务器 (`localhost:4321`)，**开启内容自动同步监控** |
+| `npm run build`                 | 执行生产构建，并运行 Pagefind 索引生成                          |
+| `npm run preview`               | 预览构建后的生产环境代码                                        |
+| `npm run astro`                 | 运行 Astro CLI 命令                                             |
+| `npm run sync-content`          | 手动强制执行全量内容同步                                        |
+| `npm run sync-content:check`    | 检查内容同步状态，不写入文件                                    |
+| `npm run clean-content`         | 清理未使用（无文章引用）的标签和分类定义                        |
+| `npm run clean-content:dry-run` | 预览将要清理的标签和分类，不执行删除                            |
+| `npm run check:mermaid`         | 检查 Mermaid 图表是否存在回归问题                               |
+| `npm run lint`                  | 运行 ESLint 代码检查                                            |
+| `npm run lint:fix`              | 运行 ESLint 并尝试自动修复问题                                  |
+| `npm run typecheck`             | 运行 Astro Check 与 TypeScript 类型检查                         |
+| `npm run format`                | 使用 Prettier 格式化代码                                        |
+| `npm run format:check`          | 检查代码格式是否符合 Prettier 规范                              |
+| `npm run check:all`             | 一键运行格式、类型、Lint、内容同步检查与清理预览                |
 
 ### 撰写文章流程
 
@@ -174,12 +191,36 @@
 
 ### 1. 站点基本信息
 
-站点核心信息集中在 `src/content/site/settings.json`（也可在 Keystatic 后台「站点设置」中可视化修改）：
+站点核心信息集中在 `src/content/site/settings.json`（也可在 Keystatic 后台「站点设置」中可视化修改），主要字段如下：
 
 - `name` / `description` / `author`: 站点名称、描述与作者，作为页面标题与 SEO 的默认值。
 - `urls.primary` / `urls.githubPages`: 主域名与备用域名，`astro.config.mjs` 的 `site` 字段会通过 `src/config/site.js` 自动读取此处。
+- `og`: Open Graph 默认图片 (`defaultImage`) 与语言 (`locale`)。
+- `rss`: RSS Feed 的标题、描述、语言和样式表。
 
-### 2. 调整 UI 主题
+### 2. 顶部导航、社交链接与其他链接
+
+`src/content/site/settings.json` 中可配置：
+
+- `navigation`: 顶部导航栏菜单项（标签 + 链接）。
+- `socials`: 页脚社交图标链接（如 GitHub、Bilibili、Juejin 等）。
+- `links`: 其他常用链接，包括 `github`、`rss`、`keystaticPosts`（后台编辑文章前缀）。
+
+### 3. 统计与站点验证
+
+- `analytics.busuanzi`: 不蒜子（Vercount）访问量统计配置，包括 `enabled`、`origin`、`scriptSrc`、`timeoutMs` 等。
+- `verification.google`: Google 站点验证 Token 数组，会输出到首页 `<meta name="google-site-verification">`。
+
+### 4. 界面文案 (UI)
+
+`ui` 字段集中管理各页面文案，便于通过后台统一修改：
+
+- `ui.home`: 首页徽标、主副标题兜底文案、按钮文案等。
+- `ui.archives` / `ui.taxonomy` / `ui.tags` / `ui.projects`: 归档页、分类标签页、标签页、项目页文案。
+- `ui.copyright`: 文章底部版权声明。
+- `ui.footer`: 页脚版权后缀。
+
+### 5. 调整 UI 主题
 
 本项目使用 **Tailwind CSS v4** 的 CSS-first 配置，主题变量定义在 `src/styles/global.css` 中：
 
@@ -188,14 +229,14 @@
 - `@plugin "tailwindcss-animate"` / `@plugin "@tailwindcss/typography"`: 注册动画与排版插件。
 - 自定义排版、代码块、表格、动画等样式直接写在 `@layer base` 或普通 CSS 规则中。
 
-### 3. 修改 CMS 字段
+### 6. 修改 CMS 字段
 
 编辑 `keystatic.config.tsx` 可以增删 CMS 的字段模型：
 
-- `collections`: 修改文章、分类的字段结构。
-- `singletons`: 修改“关于我”等单页面的字段。
+- `collections`: 修改文章、分类、友链、项目等集合的字段结构。
+- `singletons`: 修改“关于我”、“友链页面设置”、“音乐管理”、“站点设置”等单页面/单例的字段。
 
-### 4. 评论系统配置
+### 7. 评论系统配置
 
 评论配置集中在 `src/content/site/settings.json` 的 `comments.giscus` 字段（也可在 Keystatic 后台「站点设置」中可视化修改），`src/components/blog/Comments.tsx` 会自动读取这些值：
 
@@ -213,6 +254,10 @@
   },
 }
 ```
+
+### 8. 音乐库管理
+
+在 Keystatic 后台「音乐管理」中上传 MP3 文件，保存后会写入 `src/content/music/library.json` 并同步存放到 `public/music/`。前台 [BaseLayout.astro](src/layouts/BaseLayout.astro) 检测到存在曲目时会自动渲染悬浮播放器。空曲目时播放器不会显示。
 
 ---
 
@@ -237,7 +282,7 @@
      - `KEYSTATIC_GITHUB_CLIENT_SECRET`
      - `KEYSTATIC_SECRET` (生成方式: `openssl rand -base64 32`)
      - `PUBLIC_KEYSTATIC_GITHUB_APP_SLUG`
-   - 建议额外设置 `NODE_VERSION=22.12.0`，与 `package.json` 的 Node 版本要求保持一致。
+   - 建议额外设置 `NODE_VERSION=22.16.0`，与 `.node-version` 保持一致。
 
 ### GitHub Pages 部署步骤
 
@@ -248,7 +293,7 @@
 
 ### 常见问题
 
-- **构建失败？** 检查 Node.js 版本设置，建议在 Cloudflare 环境变量中添加 `NODE_VERSION: 22.12.0`。
+- **构建失败？** 检查 Node.js 版本设置，建议在 Cloudflare 环境变量中添加 `NODE_VERSION: 22.16.0`。
 - **样式丢失？** 确保 `src/styles/global.css` 中的 `@source` 路径覆盖了所有模板文件。
 
 ---

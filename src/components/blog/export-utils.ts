@@ -217,12 +217,17 @@ export const replaceOutsideCodeBlocks = (
 };
 
 export const fixIframesOutsideCodeBlocks = (content: string): string =>
-  replaceOutsideCodeBlocks(content, /<iframe\s+([^>]*)>/g, (_match, attributes: string) => {
-    const cleaned = attributes
-      .replace(/\s+height=["'][^"']*["']/g, '')
-      .replace(/\s+style=["'][^"']*["']/g, '');
-    return `<iframe${cleaned} height="450" style="width: 100%; min-height: 450px; border: 0;">`;
-  });
+  replaceOutsideCodeBlocks(
+    content,
+    /<iframe\s+([^>]*?)(?:\s*\/)?>(?:\s*<\/iframe>)?/gi,
+    (_match, attributes: string) => {
+      const cleaned = attributes
+        .replace(/\s+height=["'][^"']*["']/gi, '')
+        .replace(/\s+style=["'][^"']*["']/gi, '')
+        .trim();
+      return `<iframe ${cleaned} height="450" style="width: 100%; min-height: 450px; border: 0;"></iframe>`;
+    }
+  );
 
 export const restoreMermaidBlocks = (content: string): string =>
   content.replace(

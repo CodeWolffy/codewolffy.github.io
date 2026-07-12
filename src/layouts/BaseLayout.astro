@@ -228,7 +228,7 @@ const musicTracks = await getMusicTracks();
       />
       <main
         id="main-content"
-        class:list={['flex-1', type !== 'article' ? 'pb-8 md:pb-20' : 'pb-8']}
+        class:list={['page-enter flex-1', type !== 'article' ? 'pb-8 md:pb-20' : 'pb-8']}
       >
         <slot />
       </main>

@@ -1,6 +1,7 @@
 import type { CollectionEntry } from 'astro:content';
 
 type BlogPostEntry = Pick<CollectionEntry<'blog'>, 'id'>;
+type SeriesEntry = Pick<CollectionEntry<'series'>, 'id'>;
 
 export function getContentPathSegment(id: string): string {
   const normalizedId = id.replace(/\/index$/, '');
@@ -25,4 +26,12 @@ export function getCategoryPath(id: string): string {
 
 export function getTagPath(id: string): string {
   return `/tags/${getTaxonomySlug(id)}/`;
+}
+
+export function getSeriesSlug(series: SeriesEntry | string): string {
+  return getContentPathSegment(typeof series === 'string' ? series : series.id);
+}
+
+export function getSeriesPath(series: SeriesEntry | string): string {
+  return `/series/${getSeriesSlug(series)}/`;
 }

@@ -169,7 +169,7 @@ export default defineConfig({
         'astro/virtual-modules/transitions-events.js',
         'astro/virtual-modules/transitions-swap-functions.js',
       ],
-      esbuildOptions: {
+      rolldownOptions: {
         external: ['virtual:keystatic-config', 'astro:toolbar:internal'],
       },
     },

@@ -1,0 +1,7 @@
+---
+import { CodeGroup, type CodeGroupProps } from './CodeGroup';
+
+const props = Astro.props as CodeGroupProps;
+---
+
+<CodeGroup {...props} client:load />

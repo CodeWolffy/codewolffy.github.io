@@ -62,6 +62,7 @@
   "navigation": [
     { "label": "首页", "href": "/" },
     { "label": "归档", "href": "/archives/" },
+    { "label": "专栏", "href": "/series/" },
     { "label": "分类/标签", "href": "/categories/" },
     { "label": "项目", "href": "/projects/" },
     { "label": "友链", "href": "/friends/" },
@@ -86,6 +87,11 @@
       "eyebrow": "Archive Index",
       "title": "写作归档",
       "description": "按时间保留写作痕迹，顺着年份快速回看文章脉络。"
+    },
+    "series": {
+      "eyebrow": "Series",
+      "title": "专栏",
+      "description": "按主题和阅读顺序汇总系列文章，系统地深入一个领域。"
     },
     "taxonomy": {
       "eyebrow": "Taxonomy",

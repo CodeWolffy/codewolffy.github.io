@@ -40,6 +40,25 @@ export function TableOfContents({ headings }: TocProps) {
     };
   }, [headings]);
 
+  useEffect(() => {
+    const syncWithLocation = () => {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (!id || !headings.some((heading) => heading.slug === id)) return;
+
+      setActiveId(id);
+      document.getElementById(id)?.scrollIntoView({ behavior: 'auto' });
+    };
+
+    syncWithLocation();
+    window.addEventListener('popstate', syncWithLocation);
+    window.addEventListener('hashchange', syncWithLocation);
+
+    return () => {
+      window.removeEventListener('popstate', syncWithLocation);
+      window.removeEventListener('hashchange', syncWithLocation);
+    };
+  }, [headings]);
+
   if (headings.length === 0) return null;
 
   const minDepth = headings.length > 0 ? Math.min(...headings.map((h) => h.depth)) : 0;
@@ -80,13 +99,22 @@ export function TableOfContents({ headings }: TocProps) {
               )}
               onClick={(e) => {
                 e.preventDefault();
-                document.getElementById(heading.slug)?.scrollIntoView({
+                const target = document.getElementById(heading.slug);
+                if (!target) return;
+
+                target.scrollIntoView({
                   behavior: 'smooth',
                 });
-                // Manually set active since intersection observer might lag during smooth scroll
                 setActiveId(heading.slug);
-                // Update URL hash without jumping
-                // history.pushState(null, '', `#${heading.slug}`);
+
+                const url = new URL(window.location.href);
+                url.hash = heading.slug;
+                if (window.location.hash === url.hash) {
+                  window.history.replaceState(null, '', url);
+                } else {
+                  window.history.pushState(null, '', url);
+                }
+
                 // Close menu on mobile after selection
                 setIsOpen(false);
               }}

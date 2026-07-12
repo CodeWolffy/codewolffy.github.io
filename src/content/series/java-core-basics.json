@@ -1,0 +1,7 @@
+{
+  "name": "Java 核心基础",
+  "description": "从语法和面向对象的核心概念出发，逐步掌握 Java 开发中最常用的基础知识。",
+  "status": "ongoing",
+  "priority": 100,
+  "posts": ["for-foreach", "java-static-method"]
+}

@@ -24,6 +24,14 @@ const patchKeystaticApiEnvAccess = () => {
 
     const target = join(chunksDir, entry);
     const source = readFileSync(target, 'utf8');
+
+    // Newer Keystatic versions read Cloudflare bindings directly from Astro's runtime locals.
+    // In that case the compatibility rewrite is obsolete and should not emit a false warning.
+    if (/const envVarsForCf = .*?context\.locals.*?runtime.*?env;/s.test(source)) {
+      console.log(`[cloudflare-pages] Keystatic uses native Cloudflare runtime env in ${entry}.`);
+      continue;
+    }
+
     const patched = source.replace(
       /const envVarsForCf = .*?;\n {4}const handler = makeGenericAPIRouteHandler\(/s,
       'const envVarsForCf = globalThis.process?.env;\n    const handler = makeGenericAPIRouteHandler('

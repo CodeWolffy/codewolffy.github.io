@@ -22,9 +22,7 @@ const settings = await getSiteSettings();
 >
   <div class="container mx-auto max-w-4xl py-8 lg:py-12">
     {/* 头部区域 - 左右布局 */}
-    <div
-      class="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-16 animate-slide-up opacity-0"
-    >
+    <div class="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-16 animate-slide-up">
       {/* 左侧列：头像和名字 */}
       <div class="flex flex-col items-center shrink-0 mx-auto md:mx-0">
         {/* 头像 */}
@@ -80,7 +78,7 @@ const settings = await getSiteSettings();
     </div>
 
     {/* 技能标签区域 */}
-    <div class="mb-12 animate-slide-up opacity-0" style="animation-delay: 150ms;">
+    <div class="mb-12 animate-slide-up" style="animation-delay: 150ms;">
       <h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
         <span class="text-2xl">🛠️</span> 技术栈
       </h2>
@@ -98,7 +96,7 @@ const settings = await getSiteSettings();
     {/* 联系方式 */}
     {
       aboutPage.data.socialLinks && aboutPage.data.socialLinks.length > 0 && (
-        <div class="mb-12 animate-slide-up opacity-0" style="animation-delay: 300ms;">
+        <div class="mb-12 animate-slide-up" style="animation-delay: 300ms;">
           <h2 class="font-bold text-2xl text-foreground mb-6 flex items-center gap-2">
             <span class="text-2xl">📬</span> 联系方式
           </h2>
@@ -125,7 +123,7 @@ const settings = await getSiteSettings();
 
     {
       settings.comments.giscus.enabled && (
-        <section class="mt-16 animate-slide-up opacity-0" style="animation-delay: 450ms;">
+        <section class="mt-16 animate-slide-up" style="animation-delay: 450ms;">
           <div class="mb-6">
             <h2 class="font-bold text-2xl text-foreground mb-2">留言</h2>
             <p class="text-muted-foreground">欢迎在这里交流、提问或留下建议。</p>

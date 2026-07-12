@@ -13,7 +13,13 @@ export async function getStaticPaths() {
   const categoryMap = createTaxonomyNameMap(allCategories);
 
   // Get unique categories from posts
-  const uniqueCategories = [...new Set(allPosts.map((post) => post.data.category).filter(Boolean))];
+  const uniqueCategories = [
+    ...new Set(
+      allPosts
+        .map((post) => post.data.category)
+        .filter((category): category is string => Boolean(category))
+    ),
+  ];
 
   return uniqueCategories.map((categoryId) => {
     const filteredPosts = allPosts.filter((post) => post.data.category === categoryId);

@@ -4,6 +4,19 @@
 
 ---
 
+## [Unreleased]
+
+### 文档
+
+- 同步 README 与当前项目结构、脚本、功能（新增音乐播放器说明、补充 `src/content/music/` 与 `src/components/music/`、更新 Node.js 版本说明等）
+- 补充 `settings.json` 配置说明：导航、社交链接、站点验证、不蒜子统计、界面文案、音乐库管理
+
+### 修复
+
+- 修正 1.0.0 中关于 projects Schema 字段合并的描述：当前代码与数据仍保留 `image` 字段作为 `coverImage` 的兼容回退
+
+---
+
 ## [1.0.0] — 2026-05-25
 
 ### 优化

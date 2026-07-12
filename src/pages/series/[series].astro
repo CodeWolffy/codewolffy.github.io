@@ -1,0 +1,226 @@
+---
+export const prerender = true;
+
+import type { CollectionEntry } from 'astro:content';
+import { getCollection } from 'astro:content';
+import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Radio } from 'lucide-react';
+
+import EmptyState from '@/components/ui/EmptyState.astro';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getBlogPostPath } from '@/utils/content-paths';
+import {
+  createSeriesSummaries,
+  getPostActivityDate,
+  getPublicBlogPosts,
+  getSeriesPostNumber,
+  hasManagedSeriesPosts,
+  type BlogPost,
+} from '@/utils/posts';
+import { getSiteSettings } from '@/utils/site-settings';
+
+interface Props {
+  seriesEntry: CollectionEntry<'series'>;
+  posts: BlogPost[];
+  latestUpdate?: Date;
+}
+
+export async function getStaticPaths() {
+  const allPosts = await getPublicBlogPosts();
+  const allSeries = await getCollection('series');
+  const summaries = createSeriesSummaries(allSeries, allPosts);
+
+  return summaries.map((summary) => ({
+    params: { series: summary.series.id },
+    props: {
+      seriesEntry: summary.series,
+      posts: summary.posts,
+      latestUpdate: summary.latestUpdate,
+    },
+  }));
+}
+
+const { seriesEntry, posts, latestUpdate } = Astro.props as Props;
+const settings = await getSiteSettings();
+const isCompleted = seriesEntry.data.status === 'completed';
+const usesManagedPostOrder = hasManagedSeriesPosts(seriesEntry);
+const orderedPostCount = usesManagedPostOrder
+  ? posts.length
+  : posts.filter((post) => typeof post.data.seriesOrder === 'number').length;
+
+const formatDate = (date: Date) =>
+  date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+const statusText = isCompleted ? '已完结' : '连载中';
+const StatusIcon = isCompleted ? CheckCircle2 : Radio;
+---
+
+<BaseLayout
+  title={`${seriesEntry.data.name} | ${settings.name}`}
+  description={seriesEntry.data.description}
+  image={seriesEntry.data.coverImage}
+>
+  <section class="container mx-auto pt-0 pb-8">
+    <div class="space-y-4">
+      <Breadcrumbs
+        items={[
+          { label: settings.ui.series.title, href: '/series/' },
+          { label: seriesEntry.data.name },
+        ]}
+        className="text-sm sm:text-base"
+      />
+
+      <section class="overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-sm">
+        <div
+          class:list={[
+            'grid',
+            seriesEntry.data.coverImage ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : '',
+          ]}
+        >
+          <div class="flex min-w-0 flex-col justify-center p-5 sm:p-7">
+            <div
+              class="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground"
+            >
+              <span
+                class="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-2.5 py-1 text-foreground"
+              >
+                <StatusIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                {statusText}
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
+                <BookOpen aria-hidden="true" className="h-3.5 w-3.5" />
+                共 {posts.length} 篇
+              </span>
+            </div>
+
+            <p class="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Series
+            </p>
+            <h1
+              class="mt-2 break-words text-3xl font-black tracking-tight text-foreground sm:text-4xl lg:text-5xl"
+            >
+              {seriesEntry.data.name}
+            </h1>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
+              {seriesEntry.data.description}
+            </p>
+
+            <div
+              class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground sm:text-sm"
+            >
+              <span>已编排 {orderedPostCount} / {posts.length} 篇</span>
+              {
+                latestUpdate && (
+                  <span class="inline-flex items-center gap-1.5">
+                    <CalendarDays aria-hidden="true" className="h-4 w-4" />
+                    更新于 {formatDate(latestUpdate)}
+                  </span>
+                )
+              }
+            </div>
+
+            {
+              posts[0] && (
+                <a
+                  href={getBlogPostPath(posts[0])}
+                  class="mt-6 inline-flex w-fit items-center gap-2 rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  开始阅读
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </a>
+              )
+            }
+          </div>
+
+          {
+            seriesEntry.data.coverImage && (
+              <div class="min-h-52 border-t border-border/60 bg-muted lg:border-l lg:border-t-0">
+                <img
+                  src={seriesEntry.data.coverImage}
+                  alt={`${seriesEntry.data.name}专栏封面`}
+                  width={880}
+                  height={660}
+                  decoding="async"
+                  class="h-full max-h-80 w-full object-cover lg:max-h-none"
+                />
+              </div>
+            )
+          }
+        </div>
+      </section>
+
+      <section class="rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-6">
+        <div class="mb-4 flex items-end justify-between gap-4 border-b border-border/60 pb-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Reading Order
+            </p>
+            <h2 class="mt-1 text-xl font-black tracking-tight text-foreground sm:text-2xl">
+              专栏目录
+            </h2>
+          </div>
+          <span class="shrink-0 text-xs text-muted-foreground">按篇章顺序阅读</span>
+        </div>
+
+        {
+          posts.length === 0 ? (
+            <EmptyState
+              type="post"
+              title="暂无专栏文章"
+              description="这个专栏已经建立，首篇内容还在整理中。"
+              class="w-full"
+            />
+          ) : (
+            <ol class="divide-y divide-border/60">
+              {posts.map((post) => {
+                const order = getSeriesPostNumber(seriesEntry, post);
+                const orderLabel = typeof order === 'number' ? `第 ${order} 篇` : '未编号';
+                const activityDate = getPostActivityDate(post);
+
+                return (
+                  <li>
+                    <article class="group relative grid min-w-0 grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 py-4 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-5 sm:py-5">
+                      <div class="text-xs font-semibold tabular-nums text-muted-foreground sm:text-sm">
+                        {orderLabel}
+                      </div>
+
+                      <div class="min-w-0">
+                        <h3 class="break-words text-base font-bold leading-6 text-foreground transition-colors group-hover:text-primary sm:text-lg">
+                          {post.data.title}
+                        </h3>
+                        <div class="mt-1.5 flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+                          <time class="shrink-0" datetime={activityDate.toISOString()}>
+                            {formatDate(activityDate)}
+                          </time>
+                          <span class="hidden min-w-0 truncate sm:block">
+                            {post.data.description}
+                          </span>
+                        </div>
+                      </div>
+
+                      <ArrowRight
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+                      />
+
+                      <a
+                        href={getBlogPostPath(post)}
+                        class="absolute inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      >
+                        <span class="sr-only">阅读 {post.data.title}</span>
+                      </a>
+                    </article>
+                  </li>
+                );
+              })}
+            </ol>
+          )
+        }
+      </section>
+    </div>
+  </section>
+</BaseLayout>
