@@ -1,0 +1,214 @@
+---
+title: Spring Boot 应用优雅停机的完整设计：从摘流到资源释放
+description: 深入讲解 Spring Boot Web 容器停机、SmartLifecycle、线程池与消息消费者收尾，并给出 Kubernetes 环境下可验证的关闭时间线。
+pubDate: 2026-06-09
+category:
+  discriminant: custom
+  value: Spring
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Spring Boot
+  - discriminant: custom
+    value: 优雅停机
+series: spring-deep-dive
+seriesOrder: 9
+draft: false
+---
+
+“收到 SIGTERM 后不再接收请求，等正在执行的请求结束再退出”只是优雅停机的一部分。真实服务还包含消息消费者、定时任务、异步线程池、数据库连接、注册中心和长连接。任何一个组件的开始顺序与结束顺序不对，都可能造成请求失败、消息重复或数据只写了一半。
+
+## 一、优雅停机真正要保证什么
+
+一个完整关闭过程应达到四个目标：
+
+1. 新流量不再进入当前实例；
+2. 已接收的工作在明确的时间预算内完成；
+3. 不再创建新的后台工作；
+4. 超时后可强制退出，避免部署永久卡住。
+
+优雅不等于无限等待。若平台 30 秒后发送 `SIGKILL`，应用配置 60 秒等待毫无意义；所有阶段的总预算必须小于平台终止宽限期。
+
+## 二、Spring Boot Web 容器的优雅关闭
+
+Spring Boot 可配置嵌入式 Web 服务器进入 graceful shutdown：
+
+```yaml
+server:
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 25s
+```
+
+Boot 不同 3.x 小版本与不同服务器的默认值可能变化，生产配置应显式写出 `server.shutdown: graceful`，并在升级后用实际镜像验证。`timeout-per-shutdown-phase` 是每个生命周期停止阶段的超时，不是整个 JVM 关闭过程唯一的总超时；多个 phase、`preStop` 和平台宽限期需要合并预算。
+
+收到正常关闭信号后，应用上下文进入关闭流程，Web 容器停止接收新请求，并等待活动请求结束。不同服务器对新连接和 Keep-Alive 的处理细节不同，应在实际使用的 Tomcat、Jetty、Reactor Netty 或 Undertow 版本上验证，而不是假设行为完全一致。
+
+该配置也不能处理 `kill -9`、容器 OOM 或宿主机断电。需要可靠完成的业务工作，必须依赖数据库事务、幂等和消息重投，而不能把 JVM shutdown hook 当作持久化保证。
+
+## 三、先摘流，再关进程
+
+服务发现或负载均衡器从健康状态变化到真正停止转发通常存在传播延迟。若进程先关闭端口，仍在途的新请求就会收到连接拒绝。
+
+推荐时间线：
+
+```text
+T0  实例 readiness 变为失败，停止接收新业务任务
+T1  等待负载均衡/服务发现完成摘流
+T2  Spring 上下文开始关闭，Web 容器等待在途请求
+T3  停止消费者、调度器和线程池
+T4  关闭连接与其他资源
+T5  进程退出
+```
+
+在 Kubernetes 中，Pod 终止时 endpoint 更新和容器信号处理可能并行发生。可使用就绪探针、合适的 `terminationGracePeriodSeconds`，必要时设置短暂 `preStop` 给摘流传播留时间，但不要用一段盲目的长睡眠掩盖流程问题。
+
+```yaml
+spec:
+  terminationGracePeriodSeconds: 40
+  containers:
+    - name: app
+      lifecycle:
+        preStop:
+          exec:
+            command: ["sh", "-c", "sleep 5"]
+```
+
+是否需要 `preStop` 应由负载均衡实测决定，而且它消耗同一个终止时间预算。
+
+## 四、Readiness 与 Liveness 不应混用
+
+Liveness 表示进程是否需要被重启，Readiness 表示是否应该接收流量。停机阶段应先让 readiness 拒绝流量，而不是故意让 liveness 失败，否则平台可能把正常下线误判成故障重启。
+
+使用 Actuator 时可分别暴露探针：
+
+```yaml
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+```
+
+生产环境还要确认探针访问路径、管理端口和安全策略，避免应用已不可服务但探针仍错误返回成功。
+
+## 五、用 SmartLifecycle 管理有顺序的组件
+
+`@PreDestroy` 适合释放单个 Bean 资源，但复杂组件往往需要显式阶段与异步停止回调。`SmartLifecycle` 提供 `phase` 和 `stop(Runnable)`：
+
+```java
+@Component
+public class OrderConsumerLifecycle implements SmartLifecycle {
+    private final OrderConsumer consumer;
+    private volatile boolean running;
+
+    @Override
+    public void start() {
+        consumer.start();
+        running = true;
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        consumer.stopAccepting();
+        consumer.awaitInFlight()
+            .whenComplete((ignored, error) -> {
+                running = false;
+                callback.run();
+            });
+    }
+
+    @Override public boolean isRunning() { return running; }
+    @Override public boolean isAutoStartup() { return true; }
+    @Override public int getPhase() { return 100; }
+}
+```
+
+Spring 启动时按 phase 从小到大，停止时按相反方向。应让入口型组件先停止产生新工作，再停止它们依赖的执行器与连接。`callback` 必须最终调用，否则该阶段会一直等到超时。
+
+## 六、线程池不能只调用 shutdown
+
+异步任务需要同时解决“停止接收”和“等待在途”：
+
+```java
+@Bean
+ThreadPoolTaskExecutor applicationExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setThreadNamePrefix("application-");
+    executor.setCorePoolSize(8);
+    executor.setMaxPoolSize(16);
+    executor.setQueueCapacity(200);
+    executor.setWaitForTasksToCompleteOnShutdown(true);
+    executor.setAwaitTerminationSeconds(20);
+    return executor;
+}
+```
+
+若上游仍在提交，队列会一边排空一边增长，所以必须先停调度器、消费者和请求入口。超时后任务可能被中断，业务逻辑要正确处理中断，不能捕获 `InterruptedException` 后什么都不做。
+
+对于必须完成的任务，不应只放在内存队列。应用退出后可恢复的任务表或消息队列，配合幂等执行，比无限延长关闭时间更可靠。
+
+## 七、消息消费者的提交边界
+
+关闭 Kafka、RabbitMQ 等消费者时，关键不是“有没有调用 close”，而是 offset/ack 与业务提交的顺序：
+
+```text
+停止拉取新消息
+  -> 等待正在处理的消息完成事务
+  -> 提交确认或 offset
+  -> 关闭消费者
+```
+
+如果关闭超时发生在业务已提交、offset 未提交之间，重启后消息会重复，所以消费者必须幂等。若先确认再写业务，崩溃则可能丢消息。停机流程无法消除分布式原子性问题。
+
+## 八、定时任务、长连接与注册中心
+
+定时任务应在关闭开始时停止新的触发，并等待已运行任务到安全点。集群任务还要释放租约，让其他实例接管。
+
+WebSocket、SSE 和流式响应可能长期不结束，必须定义关闭协议：通知客户端重连、给出最大排空时间，超时后主动断开。若等待所有长连接自然关闭，滚动发布可能永远无法完成。
+
+注册中心下线应与 readiness 一致，并考虑客户端缓存和负载均衡刷新周期。仅调用注销接口不能证明不会再有流量。
+
+## 九、停机过程也要可观测
+
+建议记录结构化阶段日志和指标：
+
+```text
+shutdown.started
+traffic.draining
+http.inflight=12
+consumer.inflight=3
+executor.queue=21
+shutdown.completed duration=8.4s
+```
+
+为超时、被强制终止、未确认消息、未完成任务设置告警。关闭阶段日志需要同步刷新，但不要在最后一刻执行耗时的网络日志投递。
+
+## 十、如何验证而不是猜测
+
+在预发布持续发送带唯一 ID 的长短请求，同时触发滚动更新，检查：
+
+- 更新期间客户端错误率是否上升；
+- 每个已接受请求是否得到明确结果；
+- 消息是否丢失，重复是否被幂等处理；
+- 进程是否在时间预算内退出；
+- 长连接能否正确重连；
+- 多次连续发布是否仍稳定。
+
+还应测试关闭期间数据库变慢、任务不响应中断、线程池已满等失败路径。
+
+## 十一、上线检查清单
+
+- 平台终止宽限期大于应用总关闭预算。
+- readiness 先摘流，liveness 不干扰正常下线。
+- Web 容器已启用并实测 graceful shutdown。
+- 入口组件先停，执行器和底层连接后停。
+- 内存任务可丢失或已有持久化恢复机制。
+- 消费者业务幂等，ack/offset 顺序明确。
+- 长连接和定时任务有最大排空时间。
+- 每个关闭阶段都有日志、指标和超时。
+
+优雅停机不是一个配置开关，而是一份反向依赖图：先关闭工作来源，再排空在途工作，最后释放底层资源。只有把它放进真实滚动发布和故障测试中，才能证明“无损下线”成立。

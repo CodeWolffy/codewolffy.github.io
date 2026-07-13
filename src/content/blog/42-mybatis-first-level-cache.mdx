@@ -1,0 +1,178 @@
+---
+title: MyBatis 一级缓存为什么可能读到旧数据？从 SqlSession 到缓存失效
+description: 从 PerpetualCache、CacheKey 与 SqlSession 生命周期出发，复现一级缓存命中和跨会话陈旧读取，说明清理规则与工程治理方案。
+pubDate: 2026-06-16
+category: 数据库
+tags:
+  - MyBatis
+  - 一级缓存
+  - SqlSession
+  - 缓存一致性
+  - Spring
+series: mysql-orm-deep-dive
+seriesOrder: 9
+draft: false
+---
+
+“MyBatis 一级缓存会产生脏数据”是一个流传很广但不够精确的说法。一级缓存本质上是 `SqlSession` 内的本地查询缓存：同一个会话再次执行等价查询时，可能直接返回第一次查询的结果。它不会主动感知其他事务、其他应用实例或数据库外部修改，因此更准确的问题是：**缓存的生命周期是否超过了业务能够接受的数据新鲜度窗口？**
+
+## 1. 一级缓存缓存在哪里
+
+MyBatis 的一级缓存默认开启，作用域是 `SqlSession`。执行器 `BaseExecutor` 内部维护一个 `localCache`，默认实现为 `PerpetualCache`，底层可理解为一个 Map。查询时会根据 `MappedStatement`、分页参数、最终 SQL、参数值和环境等信息生成 `CacheKey`。
+
+```text
+Mapper 方法
+  -> SqlSession
+    -> Executor.query()
+      -> 根据 SQL 与参数创建 CacheKey
+      -> localCache 命中：直接返回
+      -> 未命中：访问数据库并写入 localCache
+```
+
+因此，以下两个调用通常能够命中同一个缓存项：
+
+```java
+try (SqlSession session = sqlSessionFactory.openSession()) {
+    UserMapper mapper = session.getMapper(UserMapper.class);
+    User first = mapper.findById(42L);   // 查询数据库
+    User second = mapper.findById(42L);  // 可能命中一级缓存
+}
+```
+
+一级缓存不是全局缓存。两个独立 `SqlSession` 默认互不共享结果，也不会互相通知失效。
+
+## 2. 复现“旧数据”
+
+假设会话 A 查询用户余额后保持打开，会话 B 修改并提交：
+
+```java
+try (SqlSession a = factory.openSession();
+     SqlSession b = factory.openSession()) {
+    UserMapper mapperA = a.getMapper(UserMapper.class);
+    UserMapper mapperB = b.getMapper(UserMapper.class);
+
+    User before = mapperA.findById(42L); // balance = 100
+
+    mapperB.updateBalance(42L, 200);
+    b.commit();
+
+    User after = mapperA.findById(42L);  // 仍可能从一级缓存得到 100
+}
+```
+
+这段实验还受到数据库事务隔离级别影响。即使关闭 MyBatis 缓存，在 InnoDB 的 `REPEATABLE READ` 下，同一事务内的一致性读也可能继续看到旧版本。为了区分原因，可以分别执行：
+
+1. 打开 MyBatis SQL 日志，确认第二次查询是否真正发送到数据库。
+2. 调用 `a.clearCache()` 后再次查询；若 SQL 已发送但仍是旧值，应继续检查事务快照。
+3. 在 `READ COMMITTED` 或新事务中复测，排除 MVCC 快照影响。
+
+诊断缓存一致性问题时，必须把“应用没有发 SQL”和“数据库按隔离级别返回旧版本”分开。
+
+## 3. 哪些操作会清空一级缓存
+
+MyBatis 通常在以下时机清空本地缓存：
+
+- 执行 `insert`、`update`、`delete`。
+- 提交或回滚事务。
+- 显式调用 `SqlSession.clearCache()`。
+- 查询语句配置了 `flushCache="true"`。
+- 关闭 `SqlSession`。
+- `localCacheScope=STATEMENT` 时，一条顶层语句结束后清理。
+
+更新会清空当前 `SqlSession` 的整个一级缓存，而不是精准删除某个实体。但它无法清理其他会话中的缓存：
+
+```java
+// 会话 B 的更新会清空 B 自己的 localCache，无法触碰会话 A。
+mapperB.updateBalance(42L, 200);
+```
+
+这也是跨线程共享 `SqlSession` 危险的原因之一。`SqlSession` 本身不是线程安全对象，它同时承载连接、事务状态、执行器和本地缓存，不应作为单例或被多个并发任务复用。
+
+## 4. SESSION 与 STATEMENT 应该怎样选择
+
+默认配置通常是：
+
+```xml
+<settings>
+  <setting name="localCacheScope" value="SESSION"/>
+</settings>
+```
+
+`SESSION` 能减少同一会话内重复 SQL，但长会话更容易延长结果存活时间。若业务对实时性敏感，可改为：
+
+```xml
+<setting name="localCacheScope" value="STATEMENT"/>
+```
+
+`STATEMENT` 会把复用范围限制在单条顶层查询执行过程。这里不能简单理解为“完全关闭一级缓存”，因为 MyBatis 在处理嵌套查询和循环引用时仍需要本地缓存参与执行。它减少了跨语句复用，也会牺牲一部分性能。
+
+配置选择应基于测量：如果系统没有同一会话重复查询，`SESSION` 带来的收益可能很小；如果一个复杂对象图依赖大量嵌套查询，贸然切换又可能显著增加 SQL 数量。
+
+## 5. Spring 集成为什么经常让人误判
+
+在 MyBatis-Spring 中，业务通常注入 Mapper，而不是手动管理 `SqlSession`。`SqlSessionTemplate` 本身是线程安全代理，它会把调用委托给当前 Spring 事务绑定的会话。
+
+```java
+@Transactional
+public User loadTwice(long id) {
+    User a = userMapper.findById(id);
+    User b = userMapper.findById(id);
+    return b;
+}
+```
+
+在同一事务中，两次调用通常使用同一个事务会话，有机会命中一级缓存。没有 Spring 事务时，每次 Mapper 调用一般会创建并关闭相应会话，跨调用复用的机会较少。这解释了为什么某些缓存现象只在加上 `@Transactional` 后出现。
+
+还要警惕事务过长：一个事务同时进行远程调用、批量计算和多轮数据库查询，会让连接和一级缓存都存活过久。缩短事务边界通常比到处手动 `clearCache()` 更可靠。
+
+## 6. 返回对象被修改也可能污染后续读取
+
+一级缓存通常保存查询结果对象的引用，而不是每次命中都做深拷贝。业务代码若直接修改已查询对象，再次执行同一查询可能取得同一个已修改对象：
+
+```java
+User first = mapper.findById(42L);
+first.setNickname("尚未写入数据库");
+
+User second = mapper.findById(42L);
+// second 可能观察到内存中的 nickname 变化
+```
+
+这类问题与数据库并发更新无关，是共享可变对象带来的内存状态污染。查询 DTO 尽量设计为不可变对象；不要把持久化查询结果当作任意修改的临时容器。
+
+## 7. 不要把一级缓存与二级缓存混为一谈
+
+二级缓存以 Mapper namespace 为作用域，生命周期可能跨 `SqlSession`，需要显式配置，并涉及事务提交、序列化、淘汰策略和多节点一致性。一级缓存问题往往随会话关闭消失，二级缓存却可能在更大范围传播陈旧结果。
+
+排查时可按下面顺序确认：
+
+```text
+是否发送了 SQL？
+  否 -> 检查一级缓存或二级缓存
+  是 -> 检查事务隔离、读写分离延迟、数据库实际数据
+
+缓存命中发生在哪个范围？
+  同一 SqlSession -> 一级缓存
+  跨 SqlSession -> 二级缓存或外部缓存
+```
+
+## 8. 生产治理建议
+
+1. 保持事务和 `SqlSession` 生命周期短小，禁止跨线程传递会话。
+2. 对强实时查询，结合业务边界选择新事务、显式清理或 `STATEMENT`，不要全局盲改。
+3. 开启可控的 SQL 日志或链路埋点，记录 SQL 指纹、事务 ID 与数据源，确认请求是否访问数据库。
+4. 修改查询对象前先映射为命令对象，或使用不可变 DTO，避免污染缓存对象。
+5. 读写分离场景还要检查副本延迟；清空一级缓存不能保证从库立即追上主库。
+6. 编写双会话集成测试，同时覆盖 MyBatis 缓存与数据库隔离级别。
+
+## 9. 一份排查清单
+
+- 两次查询是否处于同一个 Spring 事务和同一个 `SqlSession`？
+- 第二次调用是否真的打印了 SQL？
+- 中间更新发生在当前会话还是另一个会话？是否已提交？
+- `localCacheScope` 是 `SESSION` 还是 `STATEMENT`？
+- 是否启用了 Mapper 二级缓存或 Redis 等外部缓存？
+- 数据库隔离级别是否让当前事务继续读取旧快照？
+- 是否存在主从延迟？
+- 业务代码是否修改了缓存返回对象本身？
+
+一级缓存不是应该一律关闭的缺陷，也不是可以无条件依赖的一致性机制。合理做法是让会话边界、事务边界与业务一致性边界尽可能重合，并通过日志和实验确定旧数据究竟来自哪一层。

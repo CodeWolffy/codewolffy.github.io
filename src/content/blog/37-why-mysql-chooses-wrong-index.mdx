@@ -1,0 +1,92 @@
+---
+title: MySQL 在什么情况下会选错索引？统计信息、成本模型与数据倾斜
+description: 解释优化器选择错误访问路径的根因，演示基数估算、数据倾斜、直方图与安全诊断方法。
+pubDate: 2026-01-20
+category: 数据库
+tags:
+  - MySQL
+  - 优化器
+  - 统计信息
+  - 数据倾斜
+  - EXPLAIN
+series: mysql-orm-deep-dive
+seriesOrder: 4
+draft: false
+---
+
+MySQL 并不知道查询真正会返回多少行，它只能基于统计信息估算成本。当估算与现实偏离时，“选错索引”其实是优化器在错误输入下作出的合理选择。
+
+## 成本从哪里来
+
+优化器比较全表扫描、索引扫描、回表、排序和连接等成本。低选择性二级索引即使能定位，也可能产生大量随机回表，成本高于顺序扫描聚簇索引。
+
+```sql
+CREATE TABLE tasks(
+ id BIGINT PRIMARY KEY AUTO_INCREMENT,
+ tenant_id BIGINT NOT NULL,
+ status TINYINT NOT NULL,
+ created_at DATETIME NOT NULL,
+ KEY idx_status(status),
+ KEY idx_tenant_created(tenant_id,created_at)
+);
+```
+
+若 99.9% 行 `status=1`，查询该值走全表扫描往往合理；查询稀有的 `status=9` 才可能适合索引。只看“索引存在”判断计划对错是错误的。
+
+## 常见失真来源
+
+- 表经历批量导入、删除后，持久化统计尚未反映新分布。
+- 样本页不足，基数估计偏差。
+- 列高度倾斜，但传统统计只知道不同值数量，不知道频率分布。
+- 多列存在相关性，优化器却按近似独立关系估算。
+- 预编译 SQL 对不同参数值复用相同查询形态，但冷热值成本差异巨大。
+
+## 用实际行数证明，而不是猜
+
+```sql
+EXPLAIN FORMAT=TREE SELECT * FROM tasks
+WHERE tenant_id=100 AND status=9;
+
+EXPLAIN ANALYZE SELECT * FROM tasks
+WHERE tenant_id=100 AND status=9;
+```
+
+重点比较 estimated rows 与 actual rows。若偏差数十倍甚至数千倍，先处理估算问题。使用 optimizer trace 可查看候选路径，但 trace 输出很大，只适合受控会话：
+
+```sql
+SET optimizer_trace='enabled=on';
+SELECT * FROM tasks WHERE tenant_id=100 AND status=9;
+SELECT trace FROM information_schema.optimizer_trace\G
+```
+
+## 修复统计信息
+
+```sql
+ANALYZE TABLE tasks;
+ANALYZE TABLE tasks UPDATE HISTOGRAM ON status WITH 64 BUCKETS;
+```
+
+直方图适合缺少可用索引统计、且分布明显倾斜的列，能帮助优化器描述值频率；它不是索引，不会加速数据读取。MySQL 直方图是单列统计，不能直接表达列间相关性；创建和刷新前应在目标版本验证采样开销与计划变化。多列相关性问题通常更适合设计贴合谓词的联合索引。若直方图导致计划回退，可使用 `ANALYZE TABLE tasks DROP HISTOGRAM ON status` 撤销，而不是长期依赖 Hint 掩盖问题。
+
+## `FORCE INDEX` 为什么是最后手段
+
+```sql
+SELECT * FROM tasks FORCE INDEX(idx_status) WHERE status=9;
+```
+
+Hint 可用于验证“若走该索引是否更快”，也可作为紧急止血，但数据增长后原先正确的强制计划可能变差。更稳妥的做法是修复统计、SQL 或索引结构，并给 Hint 设置复审期限。
+
+## 其他看似选错的情况
+
+`LIMIT`、`ORDER BY` 会改变成本权衡：优化器可能选择有序但过滤能力较弱的索引，以避免排序并尽快取得少量记录。缓存冷热也会让相同计划的实测时间波动，因此应多轮测试，并关注扫描行数而非单次毫秒值。
+
+## 生产检查清单
+
+- 是否用 actual rows 证明估算偏差？
+- 数据是否倾斜，测试参数是否覆盖热点值与冷门值？
+- 表是否刚经历大规模数据变化？
+- 单列索引是否应被符合业务谓词的联合索引替代？
+- Hint 是否有监控、注释和复审日期？
+- 是否在相同缓存状态与并发条件下比较方案？
+
+处理“选错索引”的关键不是命令优化器听话，而是让它获得更准确的信息和更合适的访问路径。

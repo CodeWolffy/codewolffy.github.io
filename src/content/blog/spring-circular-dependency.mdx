@@ -1,0 +1,172 @@
+---
+title: Spring 如何解决循环依赖？三级缓存、代理对象与构造器死结
+description: 从单例 Bean 创建流程解释 Spring 三级缓存如何处理 setter 循环依赖、为什么构造器循环依赖无法解决，以及 Spring Boot 现代项目应如何治理。
+pubDate: 2025-11-21
+category:
+  discriminant: custom
+  value: Spring
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Spring
+  - discriminant: custom
+    value: 依赖注入
+series: spring-deep-dive
+seriesOrder: 2
+draft: false
+---
+
+假设 `OrderService` 依赖 `InventoryService`，而库存服务又反过来依赖订单服务：
+
+```java
+@Service
+public class OrderService {
+    @Autowired InventoryService inventoryService;
+}
+
+@Service
+public class InventoryService {
+    @Autowired OrderService orderService;
+}
+```
+
+Spring 曾经能够处理部分这样的循环，但这不等于循环依赖是合理设计，更不等于任何循环都能自动化解。
+
+## 一、问题本质：对象还没创建完，就被另一个对象需要
+
+创建 A 时需要注入 B；创建 B 时又需要注入 A。若容器坚持等 A 完全初始化后才允许引用 A，就会形成等待环。
+
+setter 或字段注入有一个可利用的时间窗口：A 已经通过构造器实例化，只是还没有完成属性填充。Spring 可以先把这个“半成品引用”的获取方式暴露出去，让 B 先完成注入，再回头完成 A。
+
+## 二、三级缓存分别保存什么
+
+`DefaultSingletonBeanRegistry` 中三个核心结构可以抽象为：
+
+```java
+// 一级：完成生命周期的单例
+Map<String, Object> singletonObjects;
+
+// 二级：已经提前创建出的对象引用
+Map<String, Object> earlySingletonObjects;
+
+// 三级：生成早期引用的工厂
+Map<String, ObjectFactory<?>> singletonFactories;
+```
+
+它们不是简单的“成品、半成品、原材料”三个对象池。三级缓存真正重要的是 `ObjectFactory`：当 Bean 需要 AOP 时，工厂有机会通过 `getEarlyBeanReference` 返回早期代理，避免 B 注入原始 A，而最终容器里却保存代理 A，造成同名 Bean 引用不一致。
+
+## 三、A 与 B 的创建时序
+
+```text
+创建 A：完成实例化
+  -> 将 A 的 ObjectFactory 放入三级缓存
+  -> 给 A 填充属性，发现需要 B
+创建 B：完成实例化
+  -> 给 B 填充属性，发现需要 A
+  -> 一级没有 A，二级没有 A，调用三级工厂取得 A 的早期引用
+  -> 早期 A 放入二级缓存，完成 B 初始化
+回到 A：注入完成后的 B，完成 A 初始化
+  -> A 放入一级缓存，清理二、三级缓存
+```
+
+关键条件是：A 必须先完成实例化，才能暴露引用。
+
+## 四、为什么构造器循环依赖无法解决
+
+```java
+@Service
+class AService {
+    AService(BService bService) {}
+}
+
+@Service
+class BService {
+    BService(AService aService) {}
+}
+```
+
+创建 A 必须先得到 B，创建 B 又必须先得到 A。此时 A 的构造器尚未执行，内存中没有可安全暴露的 A 实例，三级缓存也无能为力，最终会抛出 `BeanCurrentlyInCreationException`。
+
+给一侧加 `@Lazy` 可以打破即时创建链路：
+
+```java
+public AService(@Lazy BService bService) {
+    this.bService = bService;
+}
+```
+
+这里注入的是延迟代理，只有真正调用时才获取 B。但这更适合临时兼容，不应该成为默认架构方案。
+
+## 五、为什么不能只用二级缓存
+
+如果完全不考虑 AOP，二级缓存直接保存原始对象也可以完成普通循环。引入代理后则出现问题：
+
+1. B 在 A 未初始化完成时请求 A。
+2. 若二级缓存直接给出原始 A，B 将永久持有原始对象。
+3. A 初始化后被自动代理创建器包装，其他 Bean 得到代理 A。
+4. 同一个 Bean 在容器内出现两种引用，事务或切面可能只对部分调用生效。
+
+三级缓存把“现在应该暴露原始对象还是代理”推迟到真正有人请求早期引用时决定，因此是一种延迟决策机制。
+
+## 六、Spring Boot 为什么默认禁止循环依赖
+
+Spring Boot 从 2.6 起默认禁止循环引用，Boot 3.x 延续这一默认值。即使通过配置允许，也只覆盖容器能够处理的部分单例场景：
+
+```properties
+spring.main.allow-circular-references=true
+```
+
+不要把这项配置当作修复。循环依赖常常意味着职责边界混乱，还会带来初始化顺序脆弱、单元测试困难、代理行为复杂等问题。
+
+## 七、生产代码如何拆环
+
+### 方案 1：提取第三个领域服务
+
+如果订单和库存相互调用的原因是共享一段协调逻辑，应把它提升到协调者：
+
+```java
+@Service
+public class OrderFulfillmentService {
+    private final OrderService orderService;
+    private final InventoryService inventoryService;
+
+    public void fulfill(Long orderId) {
+        orderService.confirm(orderId);
+        inventoryService.reserve(orderId);
+    }
+}
+```
+
+### 方案 2：使用领域事件反转依赖
+
+订单服务只发布“订单已创建”，库存监听事件完成后续操作。这样能降低直接依赖，但必须明确同步事件的事务和异常语义，不能为了消除引用就盲目事件化。
+
+### 方案 3：依赖更小的接口
+
+若 B 只需要 A 的查询能力，可以提取 `OrderQueryService`，避免两个庞大服务互相注入。
+
+### 方案 4：重新划分聚合边界
+
+频繁双向调用有时说明两个类实际上属于同一业务组件，或者反过来，它们应该通过应用层协调而不是彼此感知。
+
+## 八、容易踩坑的组合
+
+- 构造器循环：没有早期实例可暴露，直接失败。
+- prototype 作用域循环：Spring 不缓存完整创建过程，无法按单例方式处理。
+- `@Async` 等后处理器可能产生与早期引用不一致的代理。
+- 在初始化方法里调用对方，而对方尚未初始化完成，可能出现状态未就绪。
+- 一侧通过 `@Lazy` 解环，但首次调用发生得过早，问题只是被推迟。
+
+## 九、排查清单
+
+- 查看异常中的依赖链，画出 A → B → C → A。
+- 确认注入方式：构造器、字段还是 setter。
+- 确认 Bean 作用域是否为 singleton。
+- 检查是否涉及事务、异步、缓存等代理。
+- 不要首先打开 `allow-circular-references`，先判断能否提取协调层或接口。
+- 修复后增加 `ApplicationContext` 启动测试，防止依赖环回归。
+
+## 总结
+
+Spring 解决的不是所有循环依赖，而是特定条件下的单例 setter/字段循环依赖。三级缓存的核心价值在于延迟生成早期引用，并兼顾 AOP 代理的一致性。构造器循环依赖之所以无解，是因为对象尚未存在。工程上最可靠的处理方式，始终是重新梳理职责与依赖方向。

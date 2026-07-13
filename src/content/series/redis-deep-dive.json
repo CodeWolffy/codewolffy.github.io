@@ -1,0 +1,16 @@
+{
+  "name": "Redis 深度专题",
+  "description": "从性能原理到缓存风险、分布式锁、热 Key、大 Key、延迟队列与数据一致性。",
+  "status": "completed",
+  "priority": 88,
+  "posts": [
+    "01-why-redis-is-fast",
+    "02-cache-penetration-breakdown-avalanche",
+    "03-redis-distributed-lock",
+    "04-hot-key-big-key",
+    "05-eviction-and-expiration",
+    "06-redis-delay-queue",
+    "07-cache-database-consistency",
+    "08-bloom-filter-java"
+  ]
+}

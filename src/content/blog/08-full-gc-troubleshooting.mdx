@@ -1,0 +1,174 @@
+---
+title: 一次 Full GC 排查实战：从告警、GC 日志到堆转储引用链
+description: 以 Java 服务延迟抖动为案例，演示如何建立 Full GC 排查证据链并区分泄漏、容量不足与分配风暴。
+pubDate: 2026-04-14
+category: JVM
+tags:
+  - Java
+  - JVM
+  - Full GC
+  - GC日志
+  - MAT
+  - 性能排查
+series: jvm-java-core
+seriesOrder: 8
+draft: false
+---
+
+线上出现 Full GC 时，最危险的动作是立即调大堆或直接重启。重启会抹掉现场，扩堆可能只是把事故推迟。可靠排查要回答三个问题：为什么触发、回收了多少、回收后基线是否持续上升。只有建立时间线和对象引用证据，才能区分内存泄漏、堆容量不足、元空间问题和瞬时分配风暴。
+
+## 1. 案例现象
+
+某 Java API 服务在流量无明显增长时出现：
+
+- p99 从 200 ms 升到 8 s；
+- 10 分钟内发生多次长暂停；
+- 老年代占用呈阶梯式上涨；
+- Full GC 后占用从 85% 仅降到 78%；
+- 重启后暂时恢复，数小时后复现。
+
+“GC 后基线持续升高”比单次 Full GC 更值得警惕，它说明越来越多对象仍被强引用。若每次 GC 后都降回稳定低位，则更可能是突发分配或堆容量/GC 参数不匹配。
+
+## 2. 先保现场，再做变更
+
+在机器仍可响应且操作风险允许时，记录：
+
+```bash
+jcmd <pid> VM.command_line
+jcmd <pid> VM.flags
+jcmd <pid> GC.heap_info
+jcmd <pid> VM.native_memory summary
+jcmd <pid> Thread.print -l
+jcmd <pid> GC.class_histogram
+```
+
+线程转储建议间隔数秒采集多份，避免单点误判。`VM.native_memory` 需要进程启动时启用 Native Memory Tracking 才有完整数据。
+
+堆转储可使用：
+
+```bash
+jcmd <pid> GC.heap_dump /safe-path/heap.hprof
+```
+
+但 dump 需要安全点，可能造成长暂停，并产生与堆相近的大文件和额外磁盘压力；是否先做完整 GC、是否包含不可达对象取决于目标 JDK 的命令选项。执行前先查看 `jcmd <pid> help GC.heap_dump`，不要凭其他版本的命令经验推断。生产执行还要确认空间、权限和服务容灾；若实例已濒临失效，优先摘流或在副本上操作。不要把 hprof 上传到不可信平台，其中可能含用户和密钥数据。
+
+## 3. 开启可分析的 GC 日志
+
+JDK 17/21 常见统一日志配置：
+
+```bash
+-Xlog:gc*,safepoint:file=/logs/gc-%t.log:time,uptime,level,tags:filecount=10,filesize=100M
+```
+
+不同收集器关注字段不同，但分析框架一致：
+
+- 触发原因：Allocation Failure、Metadata GC Threshold、Humongous Allocation 等；
+- GC 前后各区域占用；
+- 暂停时间与并发阶段耗时；
+- 回收效率；
+- 是否发生 evacuation failure、promotion failure 或 concurrent mode failure 一类异常信号；
+- Safepoint 总耗时与“到达安全点”耗时。
+
+不要只搜索日志中的 `Full GC` 字符串。现代收集器的周期与退化行为表述随版本不同，应结合该 JDK 与收集器文档解读。
+
+## 4. 建立时间线
+
+把以下指标按同一时区对齐：
+
+```text
+请求量/错误率/延迟
+        ↓
+对象分配速率、堆各区域、晋升速率
+        ↓
+GC 事件与暂停
+        ↓
+CPU、磁盘、容器内存、线程数
+        ↓
+发布、配置变更、定时任务和缓存刷新
+```
+
+如果 Full GC 前恰好运行一个全量导出任务，分配率激增但 GC 后恢复低位，重点应查批处理峰值。若流量平稳、GC 后基线逐步上涨，则重点查长期引用。
+
+## 5. 先用 histogram 缩小范围
+
+两份间隔采集的类直方图比单份更有价值，但 `GC.class_histogram` 属于有影响的诊断命令，某些选项或 JDK 版本会为了只统计存活对象触发完整收集或较长安全点。先查看 `jcmd <pid> help GC.class_histogram` 并评估影响；高负载生产实例可先用 JFR 分配事件或低风险采样缩小范围：
+
+```bash
+jcmd <pid> GC.class_histogram > histo-1.txt
+# 在评估影响后，间隔一段时间再次采集
+jcmd <pid> GC.class_histogram > histo-2.txt
+```
+
+关注实例数和字节数持续增长的类型，例如：
+
+- `byte[]`：缓存、网络缓冲、压缩内容、序列化数据；
+- `char[]` / `String`：日志内容、SQL、重复 key；
+- `HashMap$Node`：无界 Map；
+- 业务 DTO：队列积压或会话未释放；
+- 类加载相关对象：动态生成类或类加载器泄漏。
+
+直方图只能说明“谁多”，不能说明“谁在引用”。最终仍要沿 GC Root 分析。
+
+## 6. 用 MAT 找到保留者
+
+在 Eclipse MAT 中可按以下顺序：
+
+1. 查看 Leak Suspects Report；
+2. 按 retained heap 排序 Dominator Tree；
+3. 对异常大对象执行 Path to GC Roots；
+4. 排除弱引用、软引用等不关键路径后观察强引用链；
+5. 对比同类实例的字段，识别共同 owner。
+
+案例中最终看到：
+
+```text
+GC Root: application thread
+  -> ReportScheduler
+  -> completedTasks (ConcurrentHashMap)
+  -> taskId
+  -> ReportResult
+  -> byte[]
+```
+
+业务为了支持结果下载，把每次报表生成结果放入 `completedTasks`，却没有 TTL、容量上限或成功下载后的删除逻辑。Map 本身只占少量内存，但它支配的大量 `ReportResult -> byte[]` 占据数 GB；这正是 retained size 比 shallow size 更重要的原因。
+
+## 7. 修复与验证
+
+修复不能只是“定时 clear”：
+
+- 结果写入对象存储，内存只保留短期元数据；
+- 缓存设置最大容量、TTL 和淘汰指标；
+- 下载完成后按业务语义删除；
+- 为单个结果设置大小限制；
+- 对任务创建速率和未消费结果数告警；
+- 压测覆盖“持续生成但不下载”的最坏场景。
+
+上线后验证：老年代 GC 后基线不再上升，缓存条目数受控，allocation rate 和晋升速率符合预期，p99 暂停回归目标范围。不要只验证“没有 OOM”，还要验证容量边界与降级行为。
+
+## 8. Full GC 不一定是 Java 堆泄漏
+
+常见分支还包括：
+
+- Metaspace：动态代理、脚本、热部署造成类加载器无法卸载；
+- DirectByteBuffer：堆外缓冲使用增长；
+- 本地内存：线程栈、JNI、本地库分配；
+- 显式 GC：代码或库调用 `System.gc()`；
+- 堆太小：存活集合理，但可用余量不足；
+- 巨型对象：大数组或大报文影响特定收集器分区；
+- 分配风暴：短时间产生大量对象，GC 跟不上；
+- 容器限制：JVM 配置与 cgroup 内存边界不匹配。
+
+如果进程 RSS 持续增长而 Java 堆稳定，继续盯着 hprof 很可能找不到答案，应转向 NMT、线程数量、direct buffer 与本地库。
+
+## 9. 生产排障清单
+
+- 记录准确时间线、JDK、GC、堆参数和容器限制。
+- 比较 GC 前后占用及多次 GC 后基线。
+- 保存 GC 日志、JFR、线程转储和类直方图。
+- dump 前评估暂停、磁盘、隐私与副本容灾风险。
+- 在 MAT 中看 retained size 和 Path to GC Roots。
+- 检查无界缓存、队列、监听器、ThreadLocal、类加载器。
+- 区分 Java 堆、Metaspace、Direct Memory 和进程 RSS。
+- 修复后用最坏场景压测，并为业务容器大小设置监控。
+
+Full GC 是症状，不是根因。最有价值的排查产物不是一张“内存最多的类”截图，而是一条可以复现和验证的证据链：触发时间、回收效果、增长对象、GC Root、业务 owner、修复边界和上线后的反证。

@@ -1,0 +1,202 @@
+---
+title: Java SPI、Spring SPI 与自定义插件系统设计：扩展点背后的边界
+description: 从 ServiceLoader、SpringFactoriesLoader 到隔离式插件架构，分析扩展发现、生命周期、类加载、故障隔离和版本兼容问题。
+pubDate: 2026-06-30
+category: Java
+tags:
+  - Java
+  - SPI
+  - Spring
+  - ServiceLoader
+  - 插件系统
+  - 架构设计
+series: jvm-java-core
+seriesOrder: 12
+draft: false
+---
+
+SPI 的目标是让框架定义接口，由外部模块提供实现。但“能发现一个实现类”只是起点。生产级扩展机制还要回答：实现从哪里加载、如何传入配置、多个实现如何排序、失败是否拖垮宿主、如何升级，以及能否真正热卸载。
+
+## 1. Java ServiceLoader 的最小模型
+
+先定义公共接口：
+
+```java
+public interface MessageCodec {
+    String name();
+    byte[] encode(Object value);
+}
+```
+
+实现模块提供类，并在模块化项目的 `module-info.java` 中声明：
+
+```java
+module codec.json {
+    requires codec.api;
+    provides com.acme.codec.MessageCodec
+        with com.acme.codec.json.JsonCodec;
+}
+```
+
+传统 classpath JAR 则使用：
+
+```text
+META-INF/services/com.acme.codec.MessageCodec
+```
+
+文件内容为实现类全名。消费端：
+
+```java
+ServiceLoader<MessageCodec> loader = ServiceLoader.load(MessageCodec.class);
+for (MessageCodec codec : loader) {
+    registry.put(codec.name(), codec);
+}
+```
+
+`ServiceLoader` 简单、JDK 原生、适合低频发现稳定实现，但它不是依赖注入容器，也不自动提供配置绑定、条件装配或复杂生命周期。模块化消费端还应在 `module-info.java` 中声明 `uses com.acme.codec.MessageCodec;`，否则模块描述不完整。
+
+## 2. ServiceLoader 的隐含行为
+
+实现通常在遍历或调用 `Provider.get()` 时实例化，构造失败会以 `ServiceConfigurationError` 暴露。发现顺序不应被当作稳定业务契约；需要优先级时，应由接口显式声明并在宿主排序。
+
+```java
+List<MessageCodec> codecs = ServiceLoader.load(MessageCodec.class)
+    .stream()
+    .map(ServiceLoader.Provider::get)
+    .sorted(Comparator.comparingInt(MessageCodec::order))
+    .toList();
+```
+
+还要注意所用类加载器。默认加载方式与当前线程上下文有关，复杂容器中应显式传入：
+
+```java
+ServiceLoader.load(MessageCodec.class, pluginClassLoader);
+```
+
+## 3. 所谓 Spring SPI 是什么
+
+“Spring SPI”并非 Java 语言规范中的单一机制。工程中通常指 Spring 的工厂加载与自动配置扩展能力，例如 `SpringFactoriesLoader`，以及 Spring Boot 现代版本的自动配置导入文件。
+
+Spring Framework 的工厂加载器能按约定从 classpath 元数据中发现实现；Spring Boot 自动配置则常通过：
+
+```text
+META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+```
+
+列出自动配置类，再结合 `@ConditionalOnClass`、`@ConditionalOnMissingBean`、配置属性等条件决定是否创建 Bean。
+
+```java
+@AutoConfiguration
+@ConditionalOnClass(MessageCodec.class)
+@EnableConfigurationProperties(CodecProperties.class)
+public class CodecAutoConfiguration {
+    @Bean
+    @ConditionalOnMissingBean
+    MessageCodec messageCodec(CodecProperties properties) {
+        return new JsonCodec(properties);
+    }
+}
+```
+
+其优势是能接入 Spring 容器的依赖注入、配置、生命周期和条件装配；代价是扩展与 Spring 强绑定，且通常仍共享应用 classpath，不能解决依赖版本隔离。
+
+## 4. 三种扩展方式的边界
+
+| 方案 | 发现方式 | DI/配置 | 依赖隔离 | 热卸载 | 适合场景 |
+| --- | --- | --- | --- | --- | --- |
+| Java `ServiceLoader` | JDK SPI 元数据 | 需自建 | 默认无 | 默认无 | 通用库、驱动、算法实现 |
+| Spring 扩展 | Spring 元数据与 Bean 条件 | 强 | 默认无 | 很弱 | Starter、应用内可选组件 |
+| 自定义插件系统 | 插件描述符与独立加载器 | 自定义或子容器 | 可实现 | 可实现但复杂 | 平台型产品、第三方扩展 |
+
+如果只是让业务方替换一个 Bean，Spring 条件装配通常已经足够。为此引入独立类加载器、热卸载和插件市场，会显著增加测试与运维成本。
+
+## 5. 自定义插件的最小架构
+
+一个插件包可以包含：
+
+```text
+plugin-a/
+  plugin.json
+  plugin-a.jar
+  lib/
+    dependency-x.jar
+```
+
+描述符明确身份和兼容范围：
+
+```json
+{
+  "id": "payment-acme",
+  "version": "2.1.0",
+  "apiVersion": "1.x",
+  "entrypoint": "com.acme.payment.AcmePlugin",
+  "permissions": ["outbound:https://api.example.com"]
+}
+```
+
+宿主负责扫描、校验签名与版本、创建插件类加载器、实例化入口、执行生命周期并注册扩展。公共 API 必须由父加载器加载，插件私有依赖可 child-first，防止不同插件的依赖冲突。
+
+## 6. 生命周期比发现更重要
+
+建议契约明确状态转换：
+
+```java
+public interface Plugin extends AutoCloseable {
+    void initialize(PluginContext context);
+    void start();
+    void stop();
+    @Override void close();
+}
+```
+
+`initialize` 只完成配置校验和资源准备，`start` 才对外提供能力；失败时按相反顺序释放已创建资源。卸载前应先停止接收新请求、等待在途调用、注销扩展，再关闭线程、连接与加载器。
+
+若插件创建线程、注册 JDBC Driver、写入宿主静态缓存或遗留 ThreadLocal，即使关闭类加载器也无法卸载，最终会造成 Metaspace 泄漏。
+
+## 7. 版本兼容不能只比较字符串
+
+插件 API 应遵循明确的兼容规则：新增抽象方法通常破坏二进制兼容；新增 `default` 方法相对安全；删除类、修改方法描述符或改变异常语义都可能让旧插件失效。
+
+平台启动时应提前校验 `apiVersion`、最低宿主版本、所需能力和冲突依赖，拒绝不兼容插件，而不是等流量到达后才抛 `NoSuchMethodError`。
+
+可设计能力协商：
+
+```java
+Set<String> capabilities();
+```
+
+宿主按能力选择调用路径，避免只靠版本号推断所有行为。
+
+## 8. 故障隔离与可观测性
+
+进程内插件抛出 `Error`、死循环或耗尽堆，可能拖垮整个宿主。至少需要：
+
+- 每个插件独立的调用超时与并发配额；
+- 线程池、队列和指标标签隔离；
+- 熔断与自动禁用策略；
+- 插件 ID、版本贯穿日志与追踪；
+- 初始化失败不影响无关插件；
+- 管理端展示状态、错误和兼容检查结果。
+
+线程中断不能可靠终止任意恶意代码。对不可信插件或强资源隔离场景，应把插件运行在独立进程，通过 RPC 交换有限的数据协议。
+
+## 9. 安全供应链
+
+允许上传插件等于允许引入可执行代码。生产平台应验证来源和签名，限制上传者权限，扫描依赖漏洞，保存不可变制品与审计日志，并提供撤回机制。类加载隔离不是安全沙箱，文件、网络和凭据权限仍要在操作系统或容器层限制。
+
+## 10. 选择建议
+
+当扩展实现由同一团队维护、随应用一起发布时，优先接口加 Spring Bean。构建独立 Java 库且不希望依赖 Spring 时，使用 `ServiceLoader`。只有当插件需要独立交付、版本治理、依赖隔离和启停管理时，才值得设计完整插件平台。
+
+## 11. 上线检查清单
+
+- 扩展接口是否足够小且有稳定语义？
+- 实现发现顺序是否显式定义？
+- 公共 API 是否只由父加载器定义一次？
+- 是否校验插件、宿主与 API 版本兼容性？
+- 初始化失败和调用失败能否隔离？
+- 卸载时是否清理线程、缓存、监听器和 ThreadLocal？
+- 是否有插件级超时、指标、日志和熔断？
+- 不可信代码是否采用进程级隔离？
+
+SPI 解决的是控制反转下的实现发现，Spring 扩展进一步提供容器能力，而插件系统解决独立交付与隔离。三者不是替代关系。选择最轻、边界最清楚的机制，通常比实现一个功能繁多却无法安全卸载的插件框架更可靠。

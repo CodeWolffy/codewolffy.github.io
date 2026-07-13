@@ -1,0 +1,94 @@
+---
+title: MySQL MVCC 是如何实现的？Undo Log、Read View 与隔离级别
+description: 从隐藏字段和版本链出发，推导一致性读规则，并用双会话实验对比 RC 与 RR。
+pubDate: 2026-03-10
+category: 数据库
+tags:
+  - MySQL
+  - InnoDB
+  - MVCC
+  - Undo Log
+  - 事务隔离
+series: mysql-orm-deep-dive
+seriesOrder: 5
+draft: false
+---
+
+MVCC 不是“给每行复制很多份”，而是利用行记录中的事务信息、Undo 版本链和 Read View，让读操作找到对当前事务可见的版本。
+
+## 三个基础部件
+
+InnoDB 聚簇记录包含内部字段，其中 `DB_TRX_ID` 标识最近修改该行的事务，`DB_ROLL_PTR` 指向 Undo 中的旧版本。更新一行时，新值写入数据页，旧值形成 Undo 记录，多次更新串成版本链。
+
+Read View 可理解为创建快照时的事务集合，核心包括：当前活跃事务 ID、最小活跃 ID、下一个待分配 ID，以及创建者事务 ID。简化可见性判断如下：
+
+- 版本由当前事务产生：可见。
+- 版本事务 ID 小于最小活跃 ID：创建快照前已提交，可见。
+- 版本事务 ID 大于等于下一个 ID：创建快照后才出现，不可见。
+- 位于两者之间：若仍在活跃集合中不可见，否则可见。
+
+不可见时沿 `DB_ROLL_PTR` 查找更旧版本。
+
+## RC 与 RR 的关键差异
+
+准备数据：
+
+```sql
+CREATE TABLE account(id INT PRIMARY KEY,balance INT) ENGINE=InnoDB;
+INSERT INTO account VALUES(1,100);
+```
+
+会话 A：
+
+```sql
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+START TRANSACTION;
+SELECT balance FROM account WHERE id=1; -- 100
+```
+
+会话 B 更新并提交：
+
+```sql
+START TRANSACTION;
+UPDATE account SET balance=200 WHERE id=1;
+COMMIT;
+```
+
+会话 A 再执行普通 SELECT，RR 下通常仍为 100，因为事务复用首次一致性读创建的 Read View。若 A 使用 READ COMMITTED，每条一致性读都会生成新 Read View，第二次可读到 200。
+
+## 快照读与当前读
+
+普通 `SELECT` 通常是一致性快照读；`SELECT ... FOR UPDATE`、`FOR SHARE`、`UPDATE`、`DELETE` 使用锁定读/当前读语义，针对最新可用版本执行并加锁。若目标版本正被未提交事务修改，它可能等待、超时或在死锁检测中被回滚，因此不能简单理解为“永远立即读取最新已提交值”。
+
+```sql
+SELECT balance FROM account WHERE id=1 FOR UPDATE;
+```
+
+因此同一 RR 事务中，普通 SELECT 看到快照旧值，随后加锁查询在等待并发事务结束后看到较新值并不矛盾，它们走的是两套读取语义。锁定读还会改变并发行为，不能仅为了“刷新快照”随意添加。
+
+## MVCC 解决不了什么
+
+MVCC 降低读写冲突，但不能让写写操作无锁。两个事务更新同一行仍需争夺排他锁。RR 下为防止当前读出现幻影，InnoDB 还可能使用 next-key lock（记录锁与间隙锁组合）。
+
+长事务会阻止旧版本清理。即使业务“只读不写”，长期持有旧 Read View 也可能导致 Undo 膨胀、purge 延迟和历史版本遍历成本上升。
+
+```sql
+SELECT trx_id,trx_started,trx_state,trx_query
+FROM information_schema.innodb_trx
+ORDER BY trx_started;
+```
+
+## Undo 不是只用于回滚
+
+Undo 同时服务事务回滚和一致性读。提交并不意味着其 Undo 立即删除；只有确认没有 Read View 需要相关版本后，purge 才能逐步清理。大事务一次修改数百万行，会带来庞大 Undo、Redo、锁集合和复制延迟，提交瞬间也不会让压力立刻消失。
+
+## 生产检查清单
+
+- 事务边界是否覆盖了远程调用或用户思考时间？
+- 连接池是否可能把未提交事务归还池中？
+- 是否区分快照读与当前读的结果语义？
+- 是否监控最老事务、history list length 与 Undo 空间？
+- 批处理是否分段提交，并具备幂等和断点续跑能力？
+- 业务确实需要 RR，还是 RC 能降低锁冲突并满足一致性？
+
+理解 MVCC 的最好方式，是从“某个版本对某个 Read View 是否可见”逐步推导，而不是背诵隔离级别现象。

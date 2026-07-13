@@ -1,0 +1,216 @@
+---
+title: Spring MVC 一次请求的完整执行链路：从 Filter 到返回 JSON
+description: 沿着真实请求路径拆解 Servlet 容器、Filter、DispatcherServlet、HandlerMapping、拦截器、参数解析、控制器、异常处理与消息转换全过程。
+pubDate: 2026-03-06
+category:
+  discriminant: custom
+  value: Spring MVC
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Spring MVC
+  - discriminant: custom
+    value: Web开发
+series: spring-deep-dive
+seriesOrder: 6
+draft: false
+---
+
+一个 HTTP 请求进入 Spring Boot 应用后，并不是直接调用 Controller。它先经过 Servlet 容器和过滤器链，再由 `DispatcherServlet` 查找处理器、完成参数绑定、调用业务方法，最后把返回值转换为 JSON。
+
+本文以 Spring Framework 6 / Spring Boot 3 的 Servlet 栈为基线，相关 API 包名是 `jakarta.servlet.*`、`jakarta.validation.*`。WebFlux 使用的是另一套响应式调度链，不能用本文的 Filter、Servlet 和 ThreadLocal 结论直接套用。
+
+弄清这条链路，才能正确回答：鉴权放 Filter 还是 Interceptor？`@RequestBody` 谁解析？全局异常为什么有时捕获不到？响应为什么已经提交后不能改？
+
+## 一、全链路总览
+
+```text
+客户端
+ -> Servlet 容器连接器
+ -> FilterChain
+ -> DispatcherServlet
+ -> HandlerMapping
+ -> HandlerExecutionChain
+ -> HandlerAdapter
+ -> 参数解析器
+ -> Controller
+ -> 返回值处理器 / 异常解析器
+ -> HttpMessageConverter
+ -> FilterChain 返回阶段
+ -> 客户端
+```
+
+## 二、Servlet 容器与 Filter
+
+Tomcat 等容器接收连接、解析 HTTP 报文，找到应用和 Servlet 映射。Spring Boot 通常把 `DispatcherServlet` 映射到 `/`。
+
+Filter 属于 Servlet 规范，位于 Spring MVC 之前：
+
+```java
+@Component
+public class TraceFilter extends OncePerRequestFilter {
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain chain) throws ServletException, IOException {
+        String traceId = Optional.ofNullable(request.getHeader("X-Trace-Id"))
+                .orElse(UUID.randomUUID().toString());
+        MDC.put("traceId", traceId);
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            MDC.remove("traceId");
+        }
+    }
+}
+```
+
+Filter 适合跨框架的请求包装、CORS、安全链、TraceId 和统一字符编码。它看不到最终匹配的 Controller 方法。
+
+## 三、DispatcherServlet：前端控制器
+
+`DispatcherServlet#doDispatch` 是 MVC 核心调度入口，主要完成：
+
+1. 根据请求查找 Handler。
+2. 找到能执行该 Handler 的 HandlerAdapter。
+3. 执行拦截器前置逻辑。
+4. 调用 Controller。
+5. 处理返回值或异常。
+6. 执行拦截器完成回调。
+
+它本身不硬编码 Controller 规则，而是通过策略接口组合整个 MVC 系统。
+
+## 四、HandlerMapping 如何找到方法
+
+`RequestMappingHandlerMapping` 在启动阶段扫描 `@Controller` / `@RestController`，将 `@RequestMapping` 条件注册为映射表。
+
+```java
+@GetMapping("/orders/{id}")
+public OrderView detail(@PathVariable Long id) { ... }
+```
+
+匹配维度不只有 URL，还包括 HTTP 方法、参数、请求头、Consumes 与 Produces。若路径存在但方法不符，可能得到 405；媒体类型不符则可能是 415 或 406。
+
+匹配结果与拦截器一起组成 `HandlerExecutionChain`。
+
+## 五、Interceptor 的三个阶段
+
+```java
+public class AuthInterceptor implements HandlerInterceptor {
+    public boolean preHandle(HttpServletRequest req,
+                             HttpServletResponse resp,
+                             Object handler) {
+        return true;
+    }
+
+    public void postHandle(HttpServletRequest req,
+                           HttpServletResponse resp,
+                           Object handler, ModelAndView mv) {}
+
+    public void afterCompletion(HttpServletRequest req,
+                                HttpServletResponse resp,
+                                Object handler, Exception ex) {}
+}
+```
+
+- `preHandle`：Controller 前执行，可终止链路。
+- `postHandle`：Controller 正常完成后、视图渲染前执行；`@ResponseBody` 场景响应可能已开始写出。
+- `afterCompletion`：请求完成后执行，适合清理资源和记录最终耗时。
+
+Interceptor 能拿到 `HandlerMethod`，适合基于控制器注解的轻量鉴权或审计。但完整认证授权通常应交给 Spring Security Filter Chain。
+
+## 六、HandlerAdapter 与参数解析
+
+`RequestMappingHandlerAdapter` 负责调用注解控制器。它不会用一堆 if/else 解析参数，而是遍历 `HandlerMethodArgumentResolver`：
+
+| 参数形式 | 典型解析器职责 |
+| --- | --- |
+| `@PathVariable` | 从 URI 模板取值并转换类型 |
+| `@RequestParam` | 从查询参数或表单取值 |
+| `@RequestHeader` | 读取请求头 |
+| `@RequestBody` | 调用消息转换器反序列化请求体 |
+| `Principal` | 获取当前认证主体 |
+| `Pageable` | Spring Data 提供的扩展解析器 |
+
+`@RequestBody` 的 JSON 通常由 Jackson 对应的 `HttpMessageConverter` 读取。读取请求体是流操作，默认不能被多次消费；Filter 若要记录请求体，需要使用缓存包装器并注意大请求内存占用。
+
+## 七、校验发生在哪里
+
+```java
+public record CreateOrderRequest(
+    @NotNull Long productId,
+    @Positive int quantity) {}
+
+@PostMapping("/orders")
+public OrderView create(@Valid @RequestBody CreateOrderRequest request) { ... }
+```
+
+消息转换器先把 JSON 转成对象，随后参数解析流程触发 Bean Validation。失败通常抛出 `MethodArgumentNotValidException`，尚未进入 Controller 方法体。
+
+这也是为什么业务方法内的 try/catch 捕获不到参数绑定异常。
+
+## 八、返回值如何变成 JSON
+
+Controller 返回后，`HandlerMethodReturnValueHandler` 决定如何处理：
+
+- `ModelAndView` 进入视图解析。
+- `String` 在普通 `@Controller` 中可能是视图名。
+- `@ResponseBody` / `@RestController` 走消息转换器。
+- `ResponseEntity` 同时控制状态码、响应头和响应体。
+
+消息转换器根据返回类型和客户端 `Accept` 头选择输出格式。若没有可写的转换器，可能出现 `HttpMessageNotWritableException`。
+
+## 九、异常如何流向全局处理器
+
+Controller 或参数处理抛出异常后，`HandlerExceptionResolver` 链接管：
+
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(OrderNotFoundException.class)
+    ResponseEntity<ErrorResponse> handle(OrderNotFoundException e) {
+        return ResponseEntity.status(404)
+            .body(new ErrorResponse("ORDER_NOT_FOUND", e.getMessage()));
+    }
+}
+```
+
+`@ControllerAdvice` 主要处理进入 `DispatcherServlet` 后的 MVC 异常。若异常发生在前置 Filter 中，请求可能根本没到 MVC，全局 Controller 异常处理器自然接不到；安全异常通常由 Spring Security 自己的入口处理。
+
+Spring 6 可使用 `ProblemDetail` / `ErrorResponse` 输出 RFC 9457 风格的问题详情。生产错误响应应使用稳定业务码、可公开描述和 traceId；`detail` 不应直接暴露 SQL、文件路径或内部异常消息。
+
+## 十、Filter、Interceptor、AOP 怎么选
+
+| 位置 | 能看到什么 | 典型用途 |
+| --- | --- | --- |
+| Filter | 原始请求与响应 | CORS、认证链、请求包装、TraceId |
+| Interceptor | 请求 + HandlerMethod | 控制器级审计、注解检查 |
+| ControllerAdvice | MVC 异常与绑定错误 | 统一错误响应 |
+| AOP | Java 方法与参数 | Service 事务、指标、业务审计 |
+
+不要在四个位置重复实现同一套鉴权和日志，否则顺序、异常格式与性能都难以控制。
+
+## 十一、常见陷阱
+
+- 在 Filter 读取请求体后未包装，导致 Controller 得到空 body。
+- `preHandle` 返回 false，却没有设置合理状态码和响应体。
+- 在响应已提交后尝试修改 Header 或错误码。
+- 用 AOP 记录所有请求，却遗漏静态资源、404 和参数绑定失败。
+- 全局异常处理直接返回异常消息，泄露 SQL、路径或内部类名。
+- 将大文件上传完整缓存到内存做日志。
+
+## 十二、排查清单
+
+- 请求是否先被网关、容器或 Filter 拦截？
+- HandlerMapping 最终匹配了哪个 `HandlerMethod`？
+- 参数错误发生在 JSON 解析、类型转换还是 Bean Validation？
+- `Content-Type` 与 `Accept` 是否正确？
+- 异常发生在 MVC 内还是 Filter/Security 中？
+- 响应是否已提交，是否存在重复写出？
+- TraceId 是否在异步和线程池场景正确传播并清理？
+
+## 总结
+
+Spring MVC 的关键不是背诵类名，而是理解请求依次穿过的边界：Servlet Filter 处理通用 Web 关注点，DispatcherServlet 组织 MVC 策略，参数解析器把 HTTP 输入变成 Java 参数，返回值处理器和消息转换器再把结果写回 HTTP。定位问题时，先判断故障属于哪一层，往往比直接在 Controller 打断点更高效。

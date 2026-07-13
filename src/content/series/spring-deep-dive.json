@@ -1,0 +1,19 @@
+{
+  "name": "Spring 深度解析",
+  "description": "系统拆解 Bean 生命周期、事务、AOP、自动配置、MVC、事件机制与生产环境治理。",
+  "status": "completed",
+  "priority": 90,
+  "posts": [
+    "spring-bean-lifecycle",
+    "spring-circular-dependency",
+    "spring-transactional-failure",
+    "spring-aop-self-invocation",
+    "spring-boot-auto-configuration",
+    "spring-mvc-request-lifecycle",
+    "spring-transaction-propagation",
+    "spring-event-mechanism",
+    "spring-boot-graceful-shutdown",
+    "spring-context-propagation",
+    "spring-config-dynamic-refresh-consistency"
+  ]
+}

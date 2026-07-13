@@ -1,0 +1,16 @@
+{
+  "name": "分布式系统与消息队列",
+  "description": "围绕 Kafka、消息可靠性、顺序性、Exactly Once、分布式事务、幂等与分布式 ID 展开。",
+  "status": "completed",
+  "priority": 87,
+  "posts": [
+    "kafka-high-throughput",
+    "kafka-message-loss-duplicate",
+    "message-retry-dead-letter",
+    "message-ordering",
+    "exactly-once-semantics",
+    "distributed-transaction-patterns",
+    "api-idempotency-design",
+    "snowflake-clock-rollback"
+  ]
+}

@@ -1,0 +1,284 @@
+---
+title: 如何设计统一异常处理与错误码体系？从领域错误到 API 契约
+description: 区分业务错误、系统错误与协议错误，设计稳定错误码、异常映射、链路日志和客户端契约，并给出 Spring Boot 实现。
+pubDate: 2025-12-23
+category: 架构设计
+tags:
+  - Spring Boot
+  - 异常处理
+  - 错误码
+  - API设计
+  - 微服务
+series: microservice-engineering
+seriesOrder: 2
+draft: false
+---
+
+统一异常处理的目标不是把所有异常包装成 HTTP 200，也不是创建几十种后缀为 `Exception` 的类。真正目标是：服务内部可以用符合领域语义的方式失败，服务边界能把失败转换为稳定、可观察、不会泄露实现细节的协议响应。
+
+## 1. 先建立错误分类
+
+错误至少可分为四类：
+
+| 类型 | 示例 | 是否通常重试 | HTTP 语义 |
+| --- | --- | --- | --- |
+| 参数/协议错误 | JSON 无法解析、必填字段缺失 | 否 | 400 |
+| 认证与授权错误 | 未登录、无订单访问权限 | 否，先修复凭证 | 401/403 |
+| 业务规则冲突 | 库存不足、订单已取消 | 通常否 | 409/422，按契约选择 |
+| 系统与依赖错误 | 数据库不可用、下游超时 | 可按策略重试 | 500/502/503/504 |
+
+“失败”不等于“异常”。搜索结果为空通常返回空列表；按 ID 查询不存在的资源可返回 404；创建订单时库存不足是明确业务结果。是否使用异常作为内部控制流可以讨论，但边界响应必须稳定。
+
+## 2. 错误响应应该包含什么
+
+HTTP API 优先采用 RFC 9457 `Problem Details for HTTP APIs`，并把领域错误码、traceId 和校验详情作为扩展成员：
+
+```json
+{
+  "type": "https://api.example.com/problems/order-inventory-insufficient",
+  "title": "订单库存不足",
+  "status": 409,
+  "detail": "部分商品库存不足",
+  "instance": "/orders/202607120001",
+  "code": "ORDER_INVENTORY_INSUFFICIENT",
+  "traceId": "4f8c2a...",
+  "details": [
+    {
+      "field": "items[1].quantity",
+      "reason": "exceeds_available_stock"
+    }
+  ]
+}
+```
+
+- `type` 是问题类型的稳定 URI；它可以解析到文档，也可以是稳定但不可访问的标识。
+- `title` 是问题类型的简短摘要，`detail` 只描述本次发生情况，二者都不应作为程序判断条件。
+- `status` 应与真实 HTTP 状态一致，`instance` 标识本次问题所关联的资源或请求，不能包含密钥和敏感查询参数。
+- `code` 是客户端分支判断的稳定领域标识，属于 RFC 9457 允许的扩展字段。
+- `traceId` 用于客服和研发定位日志。
+- `details` 是可选的结构化细节，适合字段校验错误。
+
+响应不应包含 Java 类名、SQL、表名、文件路径、内部 IP 或完整堆栈。生产中的 `NullPointerException at OrderService.java:87` 对客户端没有修复价值，却会泄露实现信息。
+
+## 3. 错误码如何命名
+
+错误码应稳定、可搜索、语义明确。可采用：
+
+```text
+{DOMAIN}_{REASON}
+ORDER_NOT_FOUND
+ORDER_STATUS_CONFLICT
+PAYMENT_CHANNEL_UNAVAILABLE
+AUTH_TOKEN_EXPIRED
+```
+
+不建议只返回 `10001`。纯数字紧凑，但缺乏可读性，容易在多个服务重复。若组织需要数字编码，可同时维护可读 code 与内部编号：
+
+```json
+{
+  "code": "ORDER_STATUS_CONFLICT",
+  "numericCode": 21004
+}
+```
+
+错误码不要包含会变化的实现方式，例如 `MYSQL_DUPLICATE_KEY`。若业务语义是“邮箱已注册”，即使数据库以后换成其他存储，`ACCOUNT_EMAIL_ALREADY_EXISTS` 仍然成立。
+
+也不要为每个自然语言句子创建错误码。错误码表达客户端可区分处理的失败类型；动态对象、限制值等放入结构化参数。
+
+## 4. 错误码与 HTTP 状态不能互相替代
+
+HTTP 状态供网关、浏览器、监控和通用客户端理解，业务错误码供领域客户端理解。两者应同时正确：
+
+```text
+HTTP/1.1 409 Conflict
+Content-Type: application/problem+json
+
+{"type":"https://api.example.com/problems/order-status-conflict",
+ "title":"订单状态冲突","status":409,
+ "code":"ORDER_STATUS_CONFLICT", ...}
+```
+
+所有失败都返回 HTTP 200 会导致：
+
+- 网关和 APM 统计为成功。
+- 缓存、重试和熔断策略误判。
+- 通用 SDK 无法使用标准行为。
+- 调用方必须解析每个响应体才能判断成功。
+
+另一方面，仅返回 400 而没有业务 code，也会迫使客户端解析 message。协议层和领域层不是二选一。
+
+## 5. 内部异常模型
+
+可以定义一个少量、稳定的异常基类，而不是每个错误码一个类：
+
+```java
+public class BusinessException extends RuntimeException {
+    private final ErrorCode errorCode;
+    private final Map<String, Object> arguments;
+
+    public BusinessException(ErrorCode errorCode,
+                             Map<String, Object> arguments) {
+        super(errorCode.name());
+        this.errorCode = errorCode;
+        this.arguments = Map.copyOf(arguments);
+    }
+}
+
+public enum OrderError implements ErrorCode {
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND),
+    ORDER_STATUS_CONFLICT(HttpStatus.CONFLICT),
+    ORDER_INVENTORY_INSUFFICIENT(HttpStatus.UNPROCESSABLE_ENTITY);
+}
+```
+
+领域层不一定应该依赖 Spring 的 `HttpStatus`。更严格的分层是领域错误只表达语义，由 Web Adapter 维护错误码到 HTTP 的映射。这样同一领域逻辑还能用于消息消费和批处理。
+
+对预期业务错误，通常无需填充昂贵堆栈。可以使用结果类型或轻量异常，但不要为了微小性能牺牲可读性；先用压测确认异常确实出现在高频正常路径。
+
+## 6. Spring Boot 统一映射
+
+使用 `@RestControllerAdvice` 在边界转换异常：
+
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(BusinessException.class)
+    ResponseEntity<ApiError> handleBusiness(BusinessException ex) {
+        ErrorDescriptor descriptor = registry.resolve(ex.getErrorCode());
+        ApiError body = ApiError.of(
+            descriptor.code(),
+            messageSource.render(descriptor, ex.getArguments()),
+            currentTraceId()
+        );
+        return ResponseEntity.status(descriptor.httpStatus()).body(body);
+    }
+
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ApiError> handleUnexpected(Exception ex) {
+        String errorId = UUID.randomUUID().toString();
+        log.error("unexpected_api_error errorId={}", errorId, ex);
+        return ResponseEntity.status(500).body(
+            ApiError.of("INTERNAL_ERROR", "服务暂时不可用", currentTraceId())
+        );
+    }
+}
+```
+
+兜底处理器必须保留完整异常日志，但对外只返回通用信息。业务异常通常不应打印 ERROR 堆栈；可记录结构化 INFO/WARN，或由统一访问日志记录响应 code。
+
+## 7. 参数校验错误要结构化
+
+Bean Validation 可能一次产生多个字段错误：
+
+```java
+public record CreateOrderRequest(
+    @NotNull Long userId,
+    @NotEmpty List<@Valid OrderItemRequest> items
+) {}
+```
+
+不要只取第一条拼成字符串。保留字段路径与稳定 reason：
+
+```json
+{
+  "code": "VALIDATION_FAILED",
+  "message": "请求参数不合法",
+  "details": [
+    {"field":"userId","reason":"must_not_be_null"},
+    {"field":"items","reason":"must_not_be_empty"}
+  ]
+}
+```
+
+不要原样返回校验注解消息，尤其当消息含内部规则或由客户端可控字段拼接时。字段名也应是公开 API 字段，而非数据库列名。
+
+## 8. 数据库异常应转换为领域语义
+
+唯一键冲突不能一律映射为 `DATA_INTEGRITY_VIOLATION`。创建账户时邮箱唯一键冲突，应转换为 `ACCOUNT_EMAIL_ALREADY_EXISTS`。实现上最好先通过业务查询提供友好错误，同时仍依赖数据库唯一约束处理并发竞争：
+
+```java
+try {
+    accountRepository.save(account);
+} catch (DataIntegrityViolationException ex) {
+    if (constraintClassifier.isEmailUniqueViolation(ex)) {
+        throw new BusinessException(ACCOUNT_EMAIL_ALREADY_EXISTS, Map.of());
+    }
+    throw ex;
+}
+```
+
+约束识别应基于可控的 constraint name 或数据库错误分类，避免解析易变化的自然语言错误消息。
+
+## 9. 下游错误如何映射
+
+服务 A 调用服务 B 时，不应把 B 的所有错误原样透传给客户端。需要区分：
+
+- B 返回稳定业务错误，且 A 的公开契约允许暴露：映射为 A 的领域错误。
+- B 超时或不可用：映射为依赖不可用，并保留 retryable 属性供内部策略使用。
+- B 返回未知或不兼容响应：记录对端 code 和版本，对外返回通用系统错误。
+
+```text
+inventory: STOCK_NOT_ENOUGH
+        -> order: ORDER_INVENTORY_INSUFFICIENT
+
+inventory: timeout
+        -> order: INVENTORY_SERVICE_UNAVAILABLE
+```
+
+直接透传会让上游 API 与所有下游错误码耦合，下游一次重命名就破坏外部契约。
+
+## 10. 错误码也需要版本治理
+
+错误码一旦公开，就属于 API 契约。治理规则应包括：
+
+- 已发布 code 不改变原有语义。
+- 废弃前统计调用方依赖，并保留兼容窗口。
+- 新增 code 默认视为客户端可能未知，客户端必须有兜底行为。
+- 文档列出状态码、code、可重试性和用户建议。
+- CI 检查错误码重复、缺少文案和未登记映射。
+
+客户端不要穷举所有 code 后在未知值上崩溃。正确策略是识别自己关心的少数错误，其余按 HTTP 状态和通用 message 兜底。
+
+## 11. 可观测性与告警
+
+统一异常层应产生低基数指标：
+
+```text
+api_errors_total{service,route,error_code,http_status}
+```
+
+不要把 traceId、userId 或完整异常消息放进指标标签。对 `INTERNAL_ERROR` 的增长告警，对业务错误则按基线观察；促销期间库存不足增多不一定是系统故障。
+
+日志中记录 code、route、traceId、errorId 和依赖摘要。对同一个异常只在责任边界打印一次完整堆栈，避免告警与日志数量被重复放大。
+
+## 12. 常见反模式
+
+1. 所有异常 catch 后返回 `null` 或空列表，调用方无法区分无数据与故障。
+2. 所有响应 HTTP 200，通过 `success=false` 表示失败。
+3. 直接把 `ex.getMessage()` 返回客户端。
+4. 每层 catch、打印、包装，最终丢失原始 cause。
+5. 一个巨大枚举包含全公司错误码，模块之间互相依赖。
+6. 错误码与中文文案一一绑定，无法国际化或调整表达。
+7. 业务错误触发自动重试，持续放大无效请求。
+
+包装异常时应保留 cause：
+
+```java
+throw new DependencyException(PAYMENT_UNAVAILABLE, ex);
+```
+
+## 13. 上线检查清单
+
+- 是否区分参数、认证、授权、业务冲突和系统故障？
+- HTTP 状态与业务错误码是否同时正确？
+- code 是否稳定、可读且不泄露实现？
+- message 是否只用于展示，客户端是否避免解析它？
+- 参数错误是否提供安全的结构化 details？
+- 未知异常是否记录完整堆栈并返回通用信息？
+- 下游错误是否经过当前服务契约映射？
+- 消费者能否正确处理新增的未知错误码？
+- 错误指标标签是否低基数？
+- 错误码是否有负责人、文档和兼容策略？
+
+统一异常体系是一层翻译边界：内部异常为代码表达失败，错误码为领域契约，HTTP 状态为通用协议，日志和 traceId 为诊断入口。把这些职责分开，才能同时获得清晰代码、稳定客户端和可信监控。

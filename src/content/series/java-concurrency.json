@@ -1,0 +1,16 @@
+{
+  "name": "Java 并发编程",
+  "description": "从 AQS、锁与并发容器出发，深入线程池、异步编排、虚拟线程与并发正确性验证。",
+  "status": "completed",
+  "priority": 91,
+  "posts": [
+    "13-aqs-source-code",
+    "14-reentrantlock-fair-lock-performance",
+    "15-concurrenthashmap-concurrency-internals",
+    "16-longadder-vs-atomiclong",
+    "17-completablefuture-pool-exception-handling",
+    "18-thread-pool-sizing",
+    "19-virtual-threads-vs-thread-pools",
+    "20-jcstress-concurrency-correctness"
+  ]
+}

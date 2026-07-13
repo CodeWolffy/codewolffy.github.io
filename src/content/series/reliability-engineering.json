@@ -1,0 +1,16 @@
+{
+  "name": "分布式稳定性与工程实践",
+  "description": "讨论服务雪崩、重试风暴、CAP/BASE、分布式 ID、线上故障排查与可观测性建设。",
+  "status": "completed",
+  "priority": 86,
+  "posts": [
+    "62-service-avalanche",
+    "63-retry-storm",
+    "64-distributed-id-service",
+    "65-cap-base-in-practice",
+    "66-java-cpu-100-troubleshooting",
+    "67-java-memory-growth",
+    "68-intermittent-timeout",
+    "69-spring-boot-observability"
+  ]
+}

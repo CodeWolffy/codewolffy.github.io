@@ -1,0 +1,99 @@
+---
+title: InnoDB 的索引为什么选择 B+ 树？从磁盘页到范围查询
+description: 从局部性、扇出、树高、聚簇索引与页分裂解释 B+ 树的工程优势，并给出可复现实验。
+pubDate: 2025-11-28
+category: 数据库
+tags:
+  - MySQL
+  - InnoDB
+  - B+树
+  - 索引
+  - 数据结构
+series: mysql-orm-deep-dive
+seriesOrder: 2
+draft: false
+---
+
+“B+ 树查询复杂度是 O(log n)”并不是完整答案。红黑树也是 O(log n)，哈希甚至可达到平均 O(1)。数据库选择 B+ 树，核心约束不是比较次数，而是数据以页为单位读写，随机 I/O 昂贵，并且业务需要范围扫描。
+
+## 1. 树高比单次比较更重要
+
+InnoDB 默认页大小通常是 16KB。B+ 树非叶子节点主要保存键和子页指针，一页可容纳数百到上千个分支。假设每层有效扇出为 1000，三层数量级上可覆盖约十亿个叶子槽位；这只是帮助理解树高的估算，真实容量会受到键宽、页头、记录目录、填充率和变长字段影响。根页和高层索引通常常驻 Buffer Pool，一次查询可能只需少量页访问。
+
+二叉搜索树每个节点只有两个分支，即使逻辑复杂度相同，百万级数据也需要约 20 层。将每个节点映射到页后，随机访问次数不可接受。
+
+哈希适合等值查询，却无法自然支持：
+
+```sql
+WHERE created_at BETWEEN '2026-01-01' AND '2026-01-31'
+ORDER BY created_at
+```
+
+B+ 树的叶子页按键有序，并通过双向链表连接。找到范围起点后即可顺序遍历，兼顾等值、范围、排序和前缀匹配。
+
+## 2. B+ 树与 B 树的差别
+
+B+ 树把完整行记录集中在叶子层，非叶子节点只承担导航。同样大小的页可以容纳更多索引项，扇出更大、树更矮；所有查询最终抵达叶子层，访问路径也更稳定。叶子链表使范围扫描无需不断回到父节点。
+
+## 3. 聚簇索引和二级索引
+
+InnoDB 表本身就是一棵聚簇索引。主键叶子节点保存完整行；二级索引叶子节点保存二级键与主键值。
+
+```sql
+CREATE TABLE users (
+  id BIGINT PRIMARY KEY,
+  email VARCHAR(100) NOT NULL,
+  nickname VARCHAR(50),
+  UNIQUE KEY uk_email(email)
+) ENGINE=InnoDB;
+```
+
+通过 `email` 查询 `nickname` 时，先在 `uk_email` 找到主键，再访问聚簇索引，形成回表。主键越大，所有二级索引叶子项也越大，因此 UUID 字符串主键会显著放大索引。
+
+## 4. 顺序主键与页分裂
+
+递增主键通常向 B+ 树右侧追加，页写满后分配新页。随机主键会在树中间插入；目标页空间不足时发生页分裂，移动记录、修改父节点，并产生更多碎片与 Redo。
+
+可在测试库比较：
+
+```sql
+CREATE TABLE seq_id(id BIGINT PRIMARY KEY, payload CHAR(100));
+CREATE TABLE random_id(id CHAR(36) PRIMARY KEY, payload CHAR(100));
+
+SELECT table_name, data_length, index_length
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND table_name IN ('seq_id', 'random_id');
+```
+
+插入相同数量数据后比较空间、耗时和页分裂指标。实验必须预热、多轮执行，并避免把字符串主键更大的天然存储成本全部归因于“随机”。更公平的实验可使用有序与随机的 `BINARY(16)` UUID。
+
+## 5. 索引不是越多越好
+
+每个二级索引都是一棵需要维护的 B+ 树。一次 INSERT 可能修改聚簇索引和多个二级索引；UPDATE 索引列可能表现为删除旧项再插入新项。索引还消耗 Buffer Pool，挤出热点数据页。
+
+```sql
+SELECT index_name, count_read, count_write
+FROM performance_schema.table_io_waits_summary_by_index_usage
+WHERE object_schema = DATABASE() AND object_name = 'users';
+```
+
+长期未被读取的索引可以成为候选清理对象，但 Performance Schema 计数会因重启或统计重置而归零。删除前要覆盖完整业务周期，并确认它不用于低频报表、外键检查或故障应急；可先将索引设为 `INVISIBLE` 做受控验证，但不可见索引仍会被写入维护，也可能影响依赖该索引的执行计划。
+
+## 6. 设计建议
+
+- 主键应尽量短、稳定；高写入场景优先考虑趋势递增值。
+- 不要因为“查询字段存在”就建单列索引，应从核心查询的过滤、排序和返回列整体设计。
+- 范围查询后续列能否继续缩小扫描，要结合执行计划判断。
+- 避免超长字符串直接作为索引；可评估前缀索引，但它通常无法覆盖原始完整列。
+- 批量导入后检查统计信息和索引空间，不要在线上随意 `OPTIMIZE TABLE`。
+
+## 生产检查清单
+
+- 聚簇主键是否过宽或随机，导致二级索引膨胀？
+- 新增索引的读收益是否覆盖写放大与内存成本？
+- 是否用真实数据分布测试范围扫描，而非只看理论复杂度？
+- 是否区分“索引深度”“扫描叶子数”和“回表次数”？
+- 删除疑似无用索引前，是否覆盖月末、结算等低频周期？
+
+B+ 树不是抽象意义上最快的数据结构，而是在磁盘页、缓存、范围查询和持续更新这些约束下最均衡的选择。

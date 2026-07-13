@@ -1,0 +1,245 @@
+---
+title: Hibernate N+1 问题与抓取策略：从懒加载到实体图
+description: 复现关联查询中的 N+1，比较 JOIN FETCH、EntityGraph、批量抓取和 DTO 投影，并讨论分页、笛卡尔积与多集合抓取边界。
+pubDate: 2026-06-20
+category: 数据库
+tags:
+  - Hibernate
+  - JPA
+  - N+1
+  - 懒加载
+  - 性能优化
+series: mysql-orm-deep-dive
+seriesOrder: 10
+draft: false
+---
+
+N+1 并不是 Hibernate “SQL 写得差”，而是对象导航与关系查询之间存在语义鸿沟：代码看起来只是访问一个属性，ORM 却可能为列表中的每个对象再执行一次查询。真正的解决方案不是把所有关联都改成 `EAGER`，而是为每个用例明确需要的数据图。
+
+## 1. 一个典型 N+1
+
+以订单和客户为例：
+
+```java
+@Entity
+class Order {
+    @Id
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Customer customer;
+}
+```
+
+先查询最近 50 个订单，再输出客户名称：
+
+```java
+List<Order> orders = orderRepository.findTop50ByOrderByCreatedAtDesc();
+for (Order order : orders) {
+    log.info("{} {}", order.getId(), order.getCustomer().getName());
+}
+```
+
+第一条 SQL 查询订单，随后每次首次访问尚未初始化的 `customer` 代理，都可能追加查询：
+
+```sql
+select ... from orders order by created_at desc limit 50;
+select ... from customer where id=?;
+select ... from customer where id=?;
+-- 最坏再执行 50 次
+```
+
+如果多个订单属于同一客户，一级缓存可能减少重复查询，所以实际数量不一定严格等于 N+1；但复杂度和延迟仍会随关联基数增长。
+
+## 2. LAZY 与 EAGER 都不能自动解决问题
+
+`LAZY` 将查询推迟到属性首次访问，容易把数据库访问隐藏在循环、序列化器或模板渲染中。`EAGER` 表示该关联在实体返回前必须可用，却不保证一定通过一条 join SQL 加载。Hibernate 可能仍采用额外 select，因此 EAGER 也能产生 N+1。
+
+更严重的是，EAGER 把抓取决策固化在实体映射上：列表接口并不需要附件和审计记录，也可能被迫加载。一个实体服务于多种查询场景，统一的“全懒”或“全急”通常都不合适。
+
+实体映射应表达合理默认值，而查询用例通过抓取计划覆盖默认值。
+
+## 3. 方案一：JOIN FETCH
+
+对明确需要关联数据的查询，可在 JPQL 中使用 fetch join：
+
+```java
+@Query("""
+    select o
+    from Order o
+    join fetch o.customer
+    where o.status = :status
+    order by o.createdAt desc
+    """)
+List<Order> findWithCustomer(@Param("status") OrderStatus status);
+```
+
+Hibernate 通过一条连接查询返回订单和客户。对于 `ManyToOne`、`OneToOne` 等 to-one 关联，这通常是直接有效的方案。
+
+抓取 to-many 集合时，父记录会按子记录数量在 SQL 结果集中重复：
+
+```java
+select distinct o
+from Order o
+left join fetch o.items
+where o.id in :ids
+```
+
+JPQL 的 `distinct` 主要用于实体结果去重，数据库层仍可能处理大量重复行。若同时抓取两个大集合，结果行数可能接近 `订单数 × 明细数 × 标签数`，网络、内存和对象组装成本迅速膨胀。
+
+Hibernate 对多个 `List`/bag 集合同时 join fetch 还可能抛出 `MultipleBagFetchException`。这不是随意限制，而是在提醒查询结果难以无歧义、高效地还原多个无序可重复集合。
+
+## 4. 方案二：EntityGraph
+
+当查询条件简单，只想声明本次需要哪些关联时，实体图比手写 JPQL 更容易复用：
+
+```java
+@EntityGraph(attributePaths = {"customer", "shippingAddress"})
+Page<Order> findByStatus(OrderStatus status, Pageable pageable);
+```
+
+也可以定义命名图：
+
+```java
+@NamedEntityGraph(
+    name = "Order.summary",
+    attributeNodes = {
+        @NamedAttributeNode("customer"),
+        @NamedAttributeNode("shippingAddress")
+    }
+)
+@Entity
+class Order { }
+```
+
+`fetchgraph` 语义倾向于只把图中属性视为需要立即抓取，`loadgraph` 则在图之外保留映射默认策略。不同 JPA Provider 和具体关联下生成 SQL 可能不同，必须查看实际 SQL，不能把 EntityGraph 等同于固定的一条 join。
+
+## 5. 方案三：批量抓取
+
+如果不能或不适合 join，可让 Hibernate 将多次单条查询合并为 `IN` 查询：
+
+```java
+@BatchSize(size = 32)
+@ManyToOne(fetch = FetchType.LAZY)
+private Customer customer;
+```
+
+或使用全局配置：
+
+```properties
+spring.jpa.properties.hibernate.default_batch_fetch_size=32
+```
+
+加载第一个代理时，Hibernate 会从持久化上下文中选择一批未初始化代理：
+
+```sql
+select ... from customer where id in (?, ?, ..., ?);
+```
+
+原来的 50 条额外查询可能缩减为两条左右。批量大小不是越大越好：超长 `IN` 列表增加 SQL 解析、参数绑定和结果集压力，也受数据库限制。应使用真实基数压测 16、32、64 等候选值。
+
+对集合关联还可考虑 `FetchMode.SUBSELECT`：访问第一个集合时，根据原始父查询涉及的 ID 一次加载多组集合。它对特定批量列表有效，但查询范围和内存量可能变得不直观，同样需要观察 SQL。
+
+## 6. 方案四：DTO 投影
+
+列表、报表和开放 API 往往不需要完整实体图。直接查询需要的列，通常比加载实体再序列化更稳定：
+
+```java
+public record OrderSummary(
+    Long id,
+    String customerName,
+    BigDecimal total,
+    Instant createdAt
+) {}
+
+@Query("""
+    select new com.example.OrderSummary(
+        o.id, c.name, o.total, o.createdAt
+    )
+    from Order o
+    join o.customer c
+    where o.status = :status
+    """)
+Page<OrderSummary> findSummary(OrderStatus status, Pageable pageable);
+```
+
+DTO 投影减少列数量，不进入脏检查，也避免序列化过程意外触发懒加载。代价是查询模型增多，不能直接修改后自动持久化。对于读接口，这通常是值得的显式性。
+
+## 7. 分页与集合抓取的陷阱
+
+`join fetch` 一个 to-many 集合再分页非常危险。数据库分页作用于连接后的结果行，而业务分页对象是去重后的父实体。Hibernate 可能在内存中分页，产生类似警告：
+
+```text
+firstResult/maxResults specified with collection fetch;
+applying in memory
+```
+
+生产环境可开启失败保护：
+
+```properties
+spring.jpa.properties.hibernate.query.fail_on_pagination_over_collection_fetch=true
+```
+
+更可靠的是两阶段查询：
+
+1. 按排序条件分页查询订单 ID。
+2. 使用 `where id in (...)` 抓取当前页实体与关联。
+3. 在内存中按第一页 ID 顺序恢复排序。
+
+```java
+Page<Long> ids = orderRepository.findPageIds(status, pageable);
+List<Order> orders = orderRepository.findAllWithItems(ids.getContent());
+```
+
+需要稳定排序时，应把唯一键作为最后一个排序字段，例如 `(created_at DESC, id DESC)`。
+
+## 8. Open Session in View 只是延迟暴露问题
+
+Spring Boot 某些配置下会在 Web 请求期间保持持久化上下文开放，使 Controller 或 JSON 序列化阶段还能触发懒加载。这样减少了 `LazyInitializationException`，却可能把 SQL 隐藏到事务边界之外：
+
+- 页面渲染期间突然执行几十条 SQL。
+- 数据库连接持有时间变长。
+- 接口字段变化意外改变 SQL 数量。
+- 性能问题难以在 Service 层测试中发现。
+
+关闭 OSIV 后，在事务 Service 内明确装配 DTO，通常更可控：
+
+```properties
+spring.jpa.open-in-view=false
+```
+
+关闭前要先梳理接口，否则原先依赖隐式懒加载的代码会暴露异常。这是架构调整，不应只改一行配置就上线。
+
+## 9. 如何发现 N+1
+
+开发环境可打开带参数的 SQL 日志，但生产环境长期打印完整参数可能泄露隐私并影响性能。更推荐指标化：
+
+- 统计单请求 SQL 次数、总数据库耗时和重复 SQL 指纹。
+- 使用 Hibernate Statistics、数据源代理或 APM 识别同一指纹循环执行。
+- 集成测试断言关键接口的 SQL 数量上限。
+- 对列表数量从 1、10、100 增长时做性能曲线，识别线性放大的查询次数。
+
+测试重点不是断言某条 SQL 文本完全不变，而是防止查询数量随结果集 N 线性增长。
+
+## 10. 抓取策略决策表
+
+| 场景 | 优先方案 | 主要风险 |
+| --- | --- | --- |
+| 少量 to-one 关联且本次必需 | JOIN FETCH / EntityGraph | 列过多、重复 join |
+| 多个代理需要按需加载 | Batch Fetch | IN 列表大小、访问时机隐蔽 |
+| 大型列表或报表 | DTO 投影 | 查询模型需要维护 |
+| to-many 集合且需要分页 | ID 分页后二阶段抓取 | 两次查询与顺序恢复 |
+| 多个大型集合 | 分批查询并组装 | 代码复杂度增加 |
+
+## 11. 上线前检查清单
+
+- 当前接口究竟需要哪些字段和关联？
+- 结果数量增长时，SQL 次数是否保持近似常数？
+- 是否误以为 `EAGER` 一定生成 join？
+- 是否同时 join fetch 多个集合造成笛卡尔积？
+- 集合抓取与分页是否组合使用？
+- JSON 序列化是否触发了隐藏的懒加载？
+- 是否应改为 DTO 投影，而不是返回实体？
+- 是否用实际数据规模验证了批量大小与结果集体积？
+
+治理 N+1 的关键不是寻找一个全局注解，而是把“本次查询需要怎样的数据形状”变成显式设计。SQL 条数、结果集行数、传输列数和对象数量需要一起衡量；一条巨型 SQL 并不天然优于几条边界清晰的批量 SQL。

@@ -1,0 +1,72 @@
+---
+title: Java 应用内存持续上涨，却没有 OOM，如何定位？
+description: 区分堆、直接内存、线程栈与文件映射，使用 GC、NMT、Heap Dump 和 MAT 构建内存增长证据链。
+pubDate: 2026-04-03
+category: 工程实践
+tags:
+  - Java
+  - 内存泄漏
+  - JVM
+  - Heap Dump
+  - MAT
+series: reliability-engineering
+seriesOrder: 6
+draft: false
+---
+
+监控中的“内存”可能是 JVM 堆、Metaspace、直接内存、线程栈、代码缓存、mmap 或操作系统页缓存。RSS 持续上涨而堆稳定时，反复分析 Heap Dump 通常不会找到答案。
+
+## 先确认是哪种内存
+
+同时观察容器 RSS、`jvm_memory_used_bytes` 的 heap/non-heap、GC 后老年代占用、线程数和 direct buffer：
+
+```bash
+jcmd <pid> GC.heap_info
+jcmd <pid> VM.native_memory summary
+jcmd <pid> Thread.print
+```
+
+Native Memory Tracking 需要启动时开启 `-XX:NativeMemoryTracking=summary` 或 detail，存在一定开销。可先建立 baseline，增长后执行 `VM.native_memory summary.diff`。
+
+NMT 主要跟踪 HotSpot/JVM 已归类的本地内存，不保证覆盖所有 JNI/第三方 native 库分配；NMT 总量与 RSS 不一致并不罕见。RSS 还受共享页、文件映射、页是否驻留和本地分配器保留空闲 arena 影响，所以“RSS 未下降”也不自动证明仍有活对象。
+
+## 情况一：GC 后老年代基线增长
+
+这更像 Java 对象被长期引用。受控采集：
+
+```bash
+jcmd <pid> GC.heap_dump /safe/path/heap.hprof
+```
+
+Heap dump 需要安全点，可能造成长停顿和大量磁盘 I/O，文件大小接近堆规模；是否先触发完整 GC、是否包含不可达对象取决于目标 JDK 的命令选项。执行前查看 `jcmd <pid> help GC.heap_dump`，确认磁盘空间、容灾和敏感数据处理，优先在已摘流副本采集。不要在多个副本上同时 dump。
+
+MAT 中不要只看最大对象，应查看 dominator tree、retained heap 和到 GC Root 的引用链。常见根因包括无上限本地缓存、静态 Map、ThreadLocal 未清理、监听器未注销、队列消费速度低于生产速度。
+
+事故案例中，按 tenantId 缓存配置却没有最大容量和过期；租户扫描任务每天产生新键。`ConcurrentHashMap` 支配数百万配置对象。修复为带 maximumSize、expireAfterAccess 和命中率指标的缓存，并避免把缓存当持久化存储。
+
+## 情况二：堆稳定但 RSS 增长
+
+检查 `java.nio` BufferPool、Netty direct memory、线程数、Metaspace 和 JNI。DirectByteBuffer 的 Java 包装对象由 GC 回收后才触发清理；若堆压力小，直接内存释放可能滞后。Netty 泄漏检测可在灰度环境提高级别，生产全量 paranoid 模式开销较高。
+
+线程每个都需要栈空间，数千个线程会显著增加 native memory。动态类生成、错误创建新 ClassLoader 会导致 Metaspace 增长，Heap Dump 中可检查重复类加载器。
+
+## “没有 OOM”不代表安全
+
+容器可能先被内核 OOM Killer 杀死，JVM 来不及抛出 `OutOfMemoryError`。也可能因为限额较大，泄漏尚未触顶。确认 Pod termination reason、宿主机日志和 cgroup v2 的 `memory.current` / `memory.events`（路径由运行时决定），并给 `-Xmx` 之外的 Metaspace、Code Cache、线程栈、direct buffer 和 native 库留余量。百分比堆参数也要结合容器感知和所用 JDK 发行版验证。
+
+可预先配置 `-XX:+HeapDumpOnOutOfMemoryError` 与指向持久、安全、容量受控位置的 `-XX:HeapDumpPath`，但自动 dump 也可能填满磁盘或延长故障恢复时间，必须配套容量和数据保留策略。
+
+## 验证修复
+
+用相同流量运行足够长时间，比较多次 Full GC 后基线，而不是只看锯齿瞬时值。缓存修复应验证容量上限、淘汰率、加载失败和下游压力，避免内存恢复却把数据库打垮。
+
+## 生产检查清单
+
+- 指标中的“内存”究竟是 heap、RSS 还是 working set？
+- 老年代是否在 GC 后仍持续抬升？
+- Dump 是否在摘流实例采集并确认磁盘空间？
+- 是否监控 direct buffer、线程、类加载器和 Metaspace？
+- 缓存与队列是否都有硬上限？
+- 容器限额是否覆盖堆、native、线程栈和安全余量？
+
+内存问题的第一原则不是立刻 Dump，而是先确认增长发生在哪个内存域，再选择能看到该域的工具。

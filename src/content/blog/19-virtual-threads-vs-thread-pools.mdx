@@ -1,0 +1,92 @@
+---
+title: 虚拟线程能否替代传统线程池？
+description: 比较平台线程、虚拟线程与异步模型，解释适用场景、pinning、限流和迁移策略。
+pubDate: 2026-04-17
+category: 并发编程
+tags:
+  - 虚拟线程
+  - Project Loom
+  - Java21
+  - 结构化并发
+  - 性能优化
+series: java-concurrency
+seriesOrder: 7
+draft: false
+---
+
+# 虚拟线程能否替代传统线程池？
+
+Java 21 正式提供虚拟线程。它让“一个请求一个线程”的同步代码在大量阻塞任务下重新具备扩展性，但没有让 CPU、数据库连接和外部接口变成无限资源。它替代的主要是“为了节省平台线程而建立的任务池”，不是所有并发控制。
+
+## 为什么虚拟线程便宜
+
+平台线程通常映射到操作系统线程，栈和调度成本较高。虚拟线程由 JVM 调度到少量载体线程上。执行支持的阻塞操作时，虚拟线程可卸载，载体线程继续运行其他虚拟线程。
+
+```java
+try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+    Future<String> a = executor.submit(() -> httpCallA());
+    Future<String> b = executor.submit(() -> httpCallB());
+    System.out.println(a.get() + b.get());
+}
+```
+
+代码仍是易读的顺序风格，线程转储和异常栈也比层层回调更直观。虚拟线程尤其适合高并发、以等待网络或数据库为主、每个任务相对独立的服务。
+
+## 它不会加速 CPU 密集任务
+
+若任务一直计算，任意时刻真正并行的数量仍受 CPU 核数限制。创建十万个虚拟线程执行哈希计算，只会增加调度和内存压力。CPU 密集型工作仍适合限制为接近可用核心数的执行器，或使用并行框架分块处理。
+
+同样，数据库连接池只有 50 个连接时，一万个虚拟线程会在连接池前等待。虚拟线程降低“等待线程”的成本，却没有提高数据库容量。必须用连接池、`Semaphore`、限流器等保护稀缺资源。
+
+## pinning：必须区分 Java 21 与 Java 24+
+
+当虚拟线程在某些不能卸载的区域阻塞时，会连同载体线程一起被占住，称为 pinning。这里最容易引用过时结论：在 Java 21 中，持有 `synchronized` 监视器时发生阻塞是典型 pinning 来源；JDK 24 交付的 JEP 491 已让虚拟线程在绝大多数 `synchronized` 场景下也能卸载，因此 Java 24/25 不应再为了虚拟线程性能机械地把所有监视器改成 `ReentrantLock`。
+
+```java
+synchronized (lock) {
+    return blockingRemoteCall(); // Java 21 需重点检查；Java 24+ 通常不再因此 pin
+}
+```
+
+无论是否 pinning，缩小临界区、避免持锁 I/O 仍是降低竞争和故障放大的好实践。Java 24+ 仍可能在执行某些 native/foreign 调用时发生 pinning，应基于目标 JDK、依赖库和 JFR/线程转储验证。`jdk.VirtualThreadPinned` 事件在 JEP 491 后不再用于监视监视器阻塞，诊断方法也必须随 JDK 更新。
+
+ThreadLocal 在虚拟线程中可用，但每任务创建线程会放大高成本 ThreadLocal 对象和隐式上下文的代价。优先传显式参数；Java 25 已正式提供 Scoped Values，用于传递不可变、受词法作用域约束的上下文，尤其适合结构化子任务。任务结束后仍要正确释放资源。
+
+## 不要池化虚拟线程
+
+虚拟线程本身用于按任务创建，通常不需要用固定大小池复用。若业务最多允许 100 个下游调用，应限制的是下游并发：
+
+```java
+Semaphore permits = new Semaphore(100);
+
+String guardedCall() throws InterruptedException {
+    permits.acquire();
+    try { return remoteCall(); }
+    finally { permits.release(); }
+}
+```
+
+这里的 100 表示资源容量，而不是为了节省线程。
+
+## 与 CompletableFuture/Reactor 的关系
+
+虚拟线程让普通阻塞式代码扩展得更好，降低异步链的认知成本。但已有 Reactor 系统如果运行稳定、依赖全链路非阻塞且需要流式背压，全面迁移未必划算。`CompletableFuture` 仍适合表达结果组合；虚拟线程解决的是执行载体成本，二者并非互斥。
+
+Java 25 中的 Structured Concurrency 仍是预览 API（需要 `--enable-preview`），不能描述为已经最终定稿。它适合把一组相关子任务的生命周期、失败传播和取消绑定到清晰的词法作用域，但 API 仍可能在后续版本变化；生产采用必须固定 JDK、编译与运行参数，并准备升级调整。
+
+## 迁移与实验
+
+先选一个 I/O 密集、调用链清楚的接口，对比平台线程池与虚拟线程：吞吐、P99、CPU、内存、连接池等待、载体线程 pinning。压测必须包含下游变慢和超时。迁移时删除“只为限制线程数量”的池，但保留真正代表资源容量的信号量、连接池与速率限制。
+
+## 生产检查清单
+
+- 运行时是否为 Java 21+，依赖库是否兼容？
+- 任务主要在等待还是计算？
+- 下游连接数、QPS 等硬容量是否仍被保护？
+- 目标是 Java 21 还是 24/25，是否按对应版本判断 pinning？
+- 即使不 pin，是否仍持锁执行慢阻塞操作并放大竞争？
+- 是否通过 JFR 观察 pinning、线程数量与阻塞？
+- ThreadLocal 是否保存大对象或依赖线程复用？
+- 是否保留取消、截止时间和过载策略？
+
+虚拟线程让线程重新成为可伸缩的编程抽象，但容量治理依然存在。可以放宽线程数量，不能放弃资源边界。

@@ -1,0 +1,396 @@
+---
+title: 多租户 SaaS 如何设计数据隔离？从 tenant_id 到独立数据库
+description: 系统对比共享表、独立 Schema、独立数据库与 Cell 架构，讲解租户身份传播、数据库约束、缓存消息隔离、加密、迁移和单租户恢复。
+pubDate: 2026-06-02
+category: 微服务工程
+tags:
+  - SaaS
+  - 多租户
+  - 数据隔离
+  - 数据安全
+  - 架构设计
+series: microservice-engineering
+seriesOrder: 8
+draft: false
+---
+
+多租户 SaaS 最严重的事故之一，不是服务不可用，而是 A 客户看到了 B 客户的数据。一次漏写 `WHERE tenant_id = ?`、一个没有租户前缀的缓存键、一个复用错误的搜索别名，都可能突破最重要的信任边界。
+
+因此，多租户不能被简化为“每张表加一个 `tenant_id`”。它是一套贯穿身份、数据库、缓存、消息、搜索、对象存储、日志、备份和运维工具的隔离模型。目标不仅是阻止越权，还要控制噪声邻居、支持审计，并在单个租户迁移或恢复时不伤害其他客户。
+
+## 一、先建立威胁模型与隔离目标
+
+需要防范的不只是恶意攻击，还包括普通工程错误：
+
+- API 接受客户端传入的 tenantId，并直接作为查询条件；
+- ORM 的某条自定义 SQL 忘记租户谓词；
+- 后台任务没有用户上下文，默认扫描了全部租户；
+- 缓存键只使用业务 ID，而该 ID 在租户内才唯一；
+- 消息消费重试时丢失租户元数据；
+- 管理员调试脚本使用全局数据库账号；
+- 日志、Trace 或导出文件泄露其他租户标识和内容；
+- 大租户耗尽连接池、线程池或队列，使其他租户不可用。
+
+设计前明确四种目标：
+
+1. **机密性**：一个租户无法读到其他租户数据；
+2. **完整性**：一个租户无法修改或关联到其他租户数据；
+3. **可用性**：单个租户的负载和故障不能无限扩散；
+4. **可运营性**：能做租户级迁移、限流、审计、备份、删除和恢复。
+
+不同客户的合同与监管要求可能不同，隔离模型不必全局只有一种。
+
+## 二、四种主流存储模型
+
+### 1. 共享数据库、共享表
+
+所有租户数据放在同一套表中，通过 `tenant_id` 区分：
+
+```sql
+CREATE TABLE orders (
+    tenant_id   BIGINT       NOT NULL,
+    order_id    BIGINT       NOT NULL,
+    customer_id BIGINT       NOT NULL,
+    status      VARCHAR(32)  NOT NULL,
+    amount      DECIMAL(18,2) NOT NULL,
+    created_at  TIMESTAMP(6) NOT NULL,
+    PRIMARY KEY (tenant_id, order_id),
+    KEY idx_orders_tenant_status_created
+        (tenant_id, status, created_at)
+);
+```
+
+优点是资源利用率高、迁移和统计统一，适合大量中小租户。缺点是应用错误的爆炸半径最大，单租户备份恢复和性能隔离更困难。
+
+### 2. 共享数据库、每租户独立 Schema
+
+租户拥有独立 schema 或独立表集合。命名空间和权限更清楚，可做租户级迁移，但租户数量大时会产生海量数据库对象，连接池、迁移编排和元数据管理变复杂。某些数据库的 schema 隔离强，某些只是逻辑命名空间，需要结合产品能力判断。
+
+### 3. 每租户独立数据库
+
+隔离、备份恢复、客户专属加密和合规边界最好，也便于超大租户独立扩容。代价是成本高、连接和版本管理复杂，跨租户聚合需要专门的数据平台。
+
+### 4. Pool + Silo 的混合或 Cell 架构
+
+中小租户共享一组 cell，大客户或高合规客户进入专属数据库。一个 cell 是相对独立的计算、存储和消息故障域，控制平面维护租户到 cell 的映射：
+
+```text
+Global Control Plane
+  tenant-1 -> cell-a
+  tenant-2 -> cell-a
+  tenant-3 -> dedicated-cell-3
+
+Cell A: gateway + services + cache + database + queue
+Cell 3: dedicated stack
+```
+
+这种方案同时控制成本和爆炸半径，但要求平台具备租户放置、迁移、路由和容量管理能力。
+
+| 模型 | 隔离强度 | 单租户恢复 | 运维成本 | 适合场景 |
+| --- | --- | --- | --- | --- |
+| 共享表 | 逻辑隔离 | 困难 | 低 | 大量中小租户、标准合规 |
+| 独立 Schema | 中等 | 较容易 | 中高 | 租户数量有限、需对象级管理 |
+| 独立数据库 | 强 | 容易 | 高 | 大客户、强合规、独立性能 |
+| Cell/混合 | 可分层 | 取决于 cell | 高但可平台化 | 大规模 SaaS、租户差异明显 |
+
+选择模型时，租户数量不是唯一参数，还要考虑数据量分布、监管、RTO/RPO、迁移频率、跨租户分析和团队自动化能力。
+
+## 三、租户身份必须来自可信边界
+
+外部请求可以携带域名、组织标识或 Token，但后端不能相信任意 Header：
+
+```http
+X-Tenant-Id: 9001
+```
+
+攻击者可以随意修改它。正确流程是由认证层验证凭证，将用户可访问的租户集合写入受信任上下文；当用户切换组织时，再校验成员关系和权限。
+
+```text
+Credential
+  -> Authentication
+  -> subject + allowed_tenants
+  -> selected tenant authorization
+  -> trusted TenantContext
+```
+
+JWT 中的租户声明也不是天然可信，仍需校验签名、签发者、受众和有效期，并处理用户已被移出租户但旧令牌尚未过期的撤销窗口。
+
+Java Web 请求可在入口建立不可变上下文：
+
+```java
+public record TenantContext(long tenantId, String subject, String requestId) {}
+
+public TenantContext resolve(AuthenticatedPrincipal principal, String requestedTenant) {
+    long tenantId = parseTenant(requestedTenant);
+    if (!principal.allowedTenantIds().contains(tenantId)) {
+        throw new AccessDeniedException("tenant not allowed");
+    }
+    return new TenantContext(tenantId, principal.subject(), currentRequestId());
+}
+```
+
+异步线程、消息和定时任务没有天然 HTTP 上下文。租户标识必须作为显式参数或消息元数据传播，并在边界重新校验。ThreadLocal 若未在复用线程上清理，可能把上一个请求的租户带入下一个请求，是高危实现。
+
+## 四、让数据库约束成为第二道防线
+
+应用层自动拼接租户条件很重要，但不能作为唯一防线。共享表应让租户进入主键、唯一键和外键：
+
+```sql
+CREATE TABLE customers (
+    tenant_id   BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    email       VARCHAR(320) NOT NULL,
+    PRIMARY KEY (tenant_id, customer_id),
+    UNIQUE KEY uk_customer_tenant_email (tenant_id, email)
+);
+
+CREATE TABLE orders (
+    tenant_id   BIGINT NOT NULL,
+    order_id    BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    PRIMARY KEY (tenant_id, order_id),
+    CONSTRAINT fk_order_customer
+      FOREIGN KEY (tenant_id, customer_id)
+      REFERENCES customers(tenant_id, customer_id)
+);
+```
+
+如果外键只引用 `customer_id`，一条订单可能错误关联到另一个租户的客户。唯一约束也要先明确业务语义：邮箱是在全平台唯一，还是租户内唯一？多数 B2B SaaS 应使用 `(tenant_id, email)`。
+
+索引通常以 `tenant_id` 作为前导列，因为绝大多数在线查询都限定一个租户：
+
+```sql
+SELECT order_id, status, amount
+FROM orders
+WHERE tenant_id = :tenantId
+  AND status = 'PAID'
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+但不能机械地把 tenantId 放在所有索引第一列。后台跨租户任务、全局唯一约束和分区策略需要单独设计，并严格限制其执行身份。
+
+## 五、数据库行级安全：有价值，但不是魔法
+
+PostgreSQL Row Level Security 可以把租户谓词下沉到数据库：
+
+```sql
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation ON orders
+USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint)
+WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint);
+```
+
+事务开始后设置租户：
+
+```sql
+BEGIN;
+SELECT set_config('app.tenant_id', '9001', true);
+SELECT * FROM orders WHERE status = 'PAID';
+COMMIT;
+```
+
+这里使用 `current_setting(..., true)` 让缺少上下文时返回 NULL，从而默认拒绝访问；应用仍应在事务入口显式设置并验证租户。租户值必须来自已授权的数值 ID，不能把未校验的 Header 拼进 `SET` SQL。RLS 能防住遗漏 `WHERE tenant_id` 的查询和跨租户写入，但要警惕：
+
+- 超级用户或带 `BYPASSRLS` 的角色会绕过策略；表所有者默认可绕过，但 `FORCE ROW LEVEL SECURITY` 可让表所有者也受策略约束（仍应使用非 owner 应用角色）；
+- 连接池复用时，session 变量若未清理会串租户；
+- 迁移、后台管理和数据分析账号需要单独权限模型；
+- 策略变更也要测试执行计划与性能；
+- 应用仍需做资源级授权，RLS 不能替代全部业务权限。
+
+优先使用 `SET LOCAL` 绑定事务，避免长期 session 状态。数据库账户遵循最小权限，线上应用绝不能使用表所有者或超级用户。
+
+MySQL 没有等价的通用 RLS 时，可结合受控 DAO、SQL 审查、代理层和复合约束。ORM 拦截器可以自动注入租户条件，但原生 SQL、批处理、子查询和维护脚本必须纳入测试；不能以“框架会自动加”结束威胁分析。
+
+## 六、仓储接口应让租户参数不可省略
+
+危险接口通常长这样：
+
+```java
+Optional<Order> findById(long orderId);
+```
+
+它允许调用者忘记租户边界。更安全的接口把租户作为类型或聚合标识的一部分：
+
+```java
+record TenantId(long value) {}
+record OrderId(long value) {}
+
+interface OrderRepository {
+    Optional<Order> find(TenantId tenantId, OrderId orderId);
+    void save(TenantId tenantId, Order order);
+}
+```
+
+控制层到数据层都传递明确上下文，测试应包含“相同 orderId、不同 tenantId”的对照用例。任何返回全租户数据的管理接口都应使用独立端点、独立权限和强审计，避免通过一个可选 tenantId 参数切换为全局模式。
+
+## 七、隔离必须覆盖数据库之外的所有状态
+
+### 缓存
+
+错误示例：
+
+```text
+order:12345
+```
+
+正确键至少包含环境、服务和租户：
+
+```text
+prod:order-service:tenant:9001:order:12345
+```
+
+本地缓存同样要带租户维度。批量失效要限制扫描范围，避免一个租户清理掉全平台数据。若不同租户对数据驻留和加密有不同要求，应使用独立 cache cluster 或 cell。
+
+### 消息
+
+消息信封应包含可信 tenantId、事件 ID、来源和 schema version：
+
+```json
+{
+  "eventId": "01J...",
+  "tenantId": "9001",
+  "type": "OrderPaid",
+  "schemaVersion": 2,
+  "occurredAt": "2026-07-12T08:00:00Z",
+  "payload": {"orderId": "12345"}
+}
+```
+
+消费者在幂等表中使用 `(tenant_id, event_id)`，死信队列和重放工具也要保留租户边界。不要让租户随意选择 Topic 名称；Topic、分区和 ACL 由平台控制。
+
+### 搜索
+
+共享索引中的每个文档都要有不可变 tenantId，查询模板强制注入过滤条件。高风险或大客户可使用独立索引。索引别名切换、重建和导出权限同样需要租户校验。
+
+### 对象存储
+
+对象键使用租户前缀，但不能仅靠“路径难猜”：
+
+```text
+s3://saas-prod/tenant/9001/invoices/2026/07/xxx.pdf
+```
+
+下载通过短期签名 URL 或后端鉴权，Bucket Policy 和 KMS Key Policy 限制访问范围。客户端提供的文件名不能直接决定对象路径。
+
+### 日志与分析
+
+日志中的 tenantId 用于审计和定位，但敏感正文应脱敏。客户可见的审计日志与内部运维日志需要不同访问边界。跨租户数仓通过受控 CDC/ETL 建立，不要让 BI 工具直连生产共享库。
+
+## 八、授权模型：租户隔离不等于租户内授权
+
+确认用户属于 tenant 9001，只证明他进入了正确的组织边界，不代表他能查看所有订单。还需要角色、资源归属和操作权限：
+
+```text
+authentication  ->  你是谁
+tenant selection ->  当前代表哪个组织
+authorization   ->  在该组织能对哪个资源做什么
+```
+
+服务到服务调用也必须传播或重新获得授权。不能因为请求来自内网服务就允许查询任意 tenantId。批处理服务可以被授予多租户权限，但要使用专用工作负载身份，限定操作类型，并记录每次跨租户访问。
+
+## 九、控制噪声邻居
+
+逻辑数据不泄露只是隔离的一部分。共享资源还会产生可用性干扰：某租户一次导出扫描全表，可能耗尽连接池和 I/O。
+
+常见控制点包括：
+
+- 网关按 tenantId 限制 QPS、并发和上传大小；
+- 任务队列采用租户级配额与加权公平调度；
+- 数据库设置查询超时、连接预算和资源组；
+- 大查询转离线副本或数仓；
+- 单租户缓存容量、索引体积和对象存储有配额；
+- 监控 tenant 维度时控制基数，仅对大客户或异常 Top N 展开。
+
+若一个租户长期占用显著资源，应将其迁移到独立 shard、database 或 cell，而不是无限调高全局容量。
+
+## 十、租户路由与在线迁移
+
+混合架构需要控制平面保存租户放置记录：
+
+```sql
+CREATE TABLE tenant_placement (
+    tenant_id       BIGINT PRIMARY KEY,
+    cell_id         VARCHAR(64) NOT NULL,
+    placement_epoch BIGINT NOT NULL,
+    state           VARCHAR(32) NOT NULL,
+    updated_at      TIMESTAMP(6) NOT NULL
+);
+```
+
+`placement_epoch` 用于防止迁移期间旧路由继续写入。一次在线迁移可分为：
+
+1. 建立目标库并复制历史数据；
+2. 通过 CDC 追平增量；
+3. 对源和目标做分桶校验；
+4. 短暂停写或启用受控双写；
+5. 增加 epoch，原子切换路由；
+6. 观察目标写入，保留源库只读回退窗口；
+7. 完成审计后删除旧副本。
+
+所有写请求都携带或解析最新 epoch，目标存储拒绝过期 epoch，避免网络延迟中的旧实例写错位置。迁移工具本身拥有跨租户高权限，必须比普通服务更严格地审批和审计。
+
+## 十一、加密、密钥与数据生命周期
+
+磁盘级加密只能防止介质丢失，不能阻止应用越权。高合规租户可能需要每租户数据加密密钥（DEK），再由 KMS 主密钥包装。这样可单独轮换和执行密码学删除，但会增加密钥缓存、可用性和灾备复杂度。
+
+租户删除不能只删主表。需要覆盖缓存、搜索索引、对象、消息副本、数仓、日志保留策略和备份。删除流程应记录数据清单、法务保留例外、执行证据和完成时间。
+
+## 十二、备份与恢复才是隔离模型的压力测试
+
+共享表备份容易，恢复一个租户却困难。不能把整个生产库回滚到昨天来恢复一个客户。可选方案包括：
+
+- 将时间点备份恢复到隔离环境，抽取目标 tenantId 后校验再导入；
+- 维护租户级逻辑导出，但验证其规模和 RPO；
+- 对高价值租户使用独立数据库或 cell；
+- 对不可变审计事件建立可按租户回放的日志。
+
+恢复过程必须防止覆盖恢复点之后的新数据，通常需要按业务主键对比、合并或生成补偿记录。RTO/RPO 只有通过租户级恢复演练才可信。
+
+## 十三、常见失败模式
+
+### tenantId 来自请求参数
+
+请求参数只能表达“用户想访问哪个租户”，最终身份必须由服务端验证并写入可信上下文。
+
+### 所有表都有 tenantId，所以安全了
+
+没有复合唯一键、外键、仓储约束和缓存隔离，tenantId 只是一个容易忘写的普通字段。
+
+### 管理员使用万能入口
+
+全局管理员接口若和普通接口共用代码路径，一个权限判断错误就会暴露所有租户。应使用独立身份、端点、网络边界和审计。
+
+### 依赖 ThreadLocal 自动传播
+
+响应式流、异步线程池和消息消费会打破线程绑定；复用线程未清理还会串租户。上下文应显式传播并在边界验证。
+
+### 按 tenantId 做物理分片后永久不迁移
+
+租户大小高度不均，静态哈希会产生热点。路由必须支持版本化放置和在线迁移。
+
+### 只做全库灾备
+
+真实需求往往是“恢复客户昨天误删的 2000 条记录”。没有单租户恢复路径，隔离运营仍不完整。
+
+## 十四、生产检查清单
+
+- 是否明确机密性、完整性、可用性以及租户级 RTO/RPO 目标？
+- 隔离模型是否结合租户规模、合规、成本和迁移能力选择，而非只看租户数量？
+- tenantId 是否来自认证后的可信上下文，而非直接信任 Header 或参数？
+- 异步、消息和定时任务是否显式携带并校验租户身份？
+- 共享表的主键、唯一键、外键和常用索引是否包含正确的租户维度？
+- 是否用 RLS、受控 DAO 或等价机制提供数据库层第二道防线？
+- 应用数据库账号是否最小权限，且无法绕过隔离策略？
+- 缓存、消息、搜索、对象存储、日志和幂等键是否都纳入租户边界？
+- 租户内是否继续执行角色和资源级授权？
+- 是否有限流、配额、公平调度和大租户独立迁移机制？
+- 租户放置是否版本化，在线迁移能否防止旧路由继续写入？
+- 删除、导出、审计、备份和单租户恢复流程是否经过真实演练？
+- 跨租户管理工具是否使用独立身份、强审批和不可篡改审计？
+
+## 总结
+
+多租户隔离是一条端到端不变量：任何数据访问都必须绑定经过授权的租户身份，任何状态系统都必须保留这条边界。共享表可以安全，独立数据库也可能因错误路由而泄露；真正决定安全性的，是身份来源、数据约束、最小权限、全链路传播和可验证的运营流程。先建立纵深防御，再根据客户等级使用共享、专属或 Cell 化部署，才能同时获得成本效率与可信隔离。

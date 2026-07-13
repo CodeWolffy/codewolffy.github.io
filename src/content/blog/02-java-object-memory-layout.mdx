@@ -1,0 +1,147 @@
+---
+title: Java 对象到底占多少内存？用 JOL 看懂对象头、指针压缩与对齐
+description: 从 HotSpot 对象布局出发，演示如何用 JOL 测量对象、数组与继承结构的真实内存占用。
+pubDate: 2025-11-07
+category: JVM
+tags:
+  - Java
+  - JVM
+  - JOL
+  - 内存优化
+  - 对象布局
+series: jvm-java-core
+seriesOrder: 2
+draft: false
+---
+
+“一个只有两个字段的对象占多少字节？”看似是加法题，实际取决于 JVM 位数、压缩指针、字段布局、继承以及对象对齐。只有先分清浅大小与深大小，再使用 JOL 验证，内存优化才不会停留在猜测。
+
+## 1. 对象由什么组成
+
+普通 HotSpot 对象可以抽象为三部分：
+
+```text
+[ 对象头 ][ 实例数据 ][ 对齐填充 ]
+```
+
+对象头通常包括 Mark Word 和 Klass Pointer。传统 64 位 HotSpot 开启压缩类指针时，常见对象头为 12 字节：8 字节 Mark Word + 4 字节类指针。对象通常按 8 字节对齐，因此一个没有实例字段的对象常占 16 字节，而不是 12 字节。
+
+JDK 25 需要额外注意紧凑对象头（Compact Object Headers）。它已经成为正式产品能力，可通过目标 JDK 支持的 `-XX:+UseCompactObjectHeaders` 启用，将传统的 96 位普通对象头压缩为 64 位；是否默认启用、具体支持参数仍应以所用发行版为准。因此“普通对象头固定 12 字节”在现代 HotSpot 上更不能当作常量。JOL 输出和 JVM 启动参数才是当前进程的证据。
+
+这只是常见配置，不能当作 Java 规范。可用以下参数观察实际环境：
+
+```bash
+java -XX:+PrintFlagsFinal -version | grep -E "UseCompressedOops|UseCompressedClassPointers|ObjectAlignmentInBytes"
+```
+
+Windows 可把 `grep` 换成 `findstr`。
+
+## 2. 浅大小和深大小
+
+```java
+class User {
+    int age;
+    String name;
+}
+```
+
+`User` 的浅大小只计算对象自身以及 `name` 这个引用槽位，不包括 `String` 对象和字符串内部数组。深大小则沿引用图继续统计可达对象。
+
+业务中估算缓存容量，通常关心 retained size（对象被释放后能一并释放多少内存），它也不等同于简单深大小：多个对象可能共享同一字符串、字节数组或缓存节点。
+
+## 3. 使用 JOL 实测
+
+Maven 添加依赖：
+
+```xml
+<dependency>
+  <groupId>org.openjdk.jol</groupId>
+  <artifactId>jol-core</artifactId>
+  <version>0.17</version>
+</dependency>
+```
+
+```java
+import org.openjdk.jol.info.ClassLayout;
+import org.openjdk.jol.info.GraphLayout;
+
+public class LayoutDemo {
+    static class User {
+        boolean active;
+        int age;
+        long id;
+        String name;
+    }
+
+    public static void main(String[] args) {
+        User user = new User();
+        user.name = "Alice";
+
+        System.out.println(ClassLayout.parseInstance(user).toPrintable());
+        System.out.println(GraphLayout.parseInstance(user).toFootprint());
+    }
+}
+```
+
+`ClassLayout` 展示浅布局，`GraphLayout` 遍历对象图。某些环境会提示无法附加 Instrumentation，输出仍可参考，但精确实验应按 JOL 文档配置 Java Agent，并记录 JDK 与启动参数。
+
+## 4. 为什么字段大小不能直接相加
+
+假设使用传统压缩对象头与压缩引用，字段逻辑大小可能为：`boolean` 1 字节、`int` 4 字节、`long` 8 字节、引用 4 字节，总计 17 字节。再加 12 字节对象头是 29 字节，但最终未必是 32 字节，因为 JVM 可能重排字段以减少空洞，并在继承边界和结尾做填充。启用紧凑对象头后应重新实测，不能沿用这组算术。
+
+字段重排属于 JVM 实现细节。不要依赖反射声明顺序推断物理布局，也不要为了省几个字节盲目调整领域模型。只有数百万对象常驻时，字段布局优化才可能产生明显收益。
+
+## 5. 数组为什么更特殊
+
+数组对象除普通对象头外，还要保存数组长度：
+
+```java
+System.out.println(ClassLayout.parseInstance(new byte[0]).toPrintable());
+System.out.println(ClassLayout.parseInstance(new long[10]).toPrintable());
+System.out.println(ClassLayout.parseInstance(new Object[10]).toPrintable());
+```
+
+`Object[10]` 保存的是 10 个引用，不是 10 个对象。开启压缩普通对象指针（CompressedOops）时，每个引用通常为 4 字节；关闭后通常为 8 字节。`byte[10]` 则直接内嵌 10 个字节的数据，末尾再对齐。
+
+二维数组 `int[100][100]` 也不是连续的 10000 个整数：它是一个引用数组，加上 100 个独立的 `int[]`，会产生额外对象头与引用开销。
+
+## 6. 包装类型与集合的放大效应
+
+`int[]` 与 `List<Integer>` 的内存差距远不止 4 字节引用：
+
+- `ArrayList` 对象本身；
+- 内部 `Object[]`；
+- 数组中每个引用；
+- 缓存范围外的每个 `Integer` 对象；
+- 集合扩容留下的未使用槽位。
+
+当存储数千万个数值时，原始类型数组、BitSet 或专用集合往往能显著节省内存。但普通业务代码更应优先考虑可读性和正确性。
+
+## 7. 指针压缩的边界
+
+64 位 JVM 为避免引用全部扩大到 8 字节，通常开启 CompressedOops 和压缩类指针。它通过编码后的较小引用配合对齐寻址更大堆空间。堆非常大或参数配置特殊时，压缩可能关闭，引用和对象头随之膨胀。
+
+这意味着把堆从某个值继续调大，应用可用对象容量未必线性增长：指针变宽会让整个对象图变大。生产调参必须观察启动日志中的压缩指针状态，而不是只看 `-Xmx`。
+
+## 8. 一次可信的容量估算
+
+假设缓存 500 万个条目，可按以下流程估算：
+
+1. 用真实对象样本构造代表性对象图；
+2. 使用 JOL 测浅大小和图大小；
+3. 用堆转储分析共享对象与 retained size；
+4. 加上 HashMap 节点、数组空槽、分片等容器开销；
+5. 加上 GC 所需余量，不能把堆设计成 100% 常驻数据；
+6. 用压力测试验证稳态占用和 GC 暂停。
+
+## 9. 检查清单
+
+- 是否混淆了浅大小、深大小和 retained size？
+- 测量时是否记录了 JDK、GC、压缩指针和对象对齐参数？
+- JDK 25+ 是否记录了紧凑对象头的启用状态？
+- 是否把引用数组误当成内嵌对象？
+- 是否考虑集合节点、负载因子和扩容余量？
+- 是否存在大量包装类型、重复字符串或稀疏对象？
+- 优化前后是否用堆转储和业务压测验证？
+
+对象内存不是靠背诵表格得到的。正确方法是理解布局规则，用 JOL 建立微观证据，再用堆转储和压测验证宏观效果。

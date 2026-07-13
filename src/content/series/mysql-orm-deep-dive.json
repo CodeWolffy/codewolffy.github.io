@@ -1,0 +1,20 @@
+{
+  "name": "MySQL 与 ORM",
+  "description": "覆盖 SQL 执行链路、索引与优化器、MVCC、锁、慢查询、ORM 陷阱和数据一致性。",
+  "status": "completed",
+  "priority": 89,
+  "posts": [
+    "34-sql-execution-pipeline",
+    "35-why-innodb-uses-bplus-tree",
+    "36-composite-index-deep-dive",
+    "37-why-mysql-chooses-wrong-index",
+    "38-innodb-mvcc",
+    "39-gap-lock-and-deadlock",
+    "40-mysql-slow-query-troubleshooting",
+    "41-deep-pagination-optimization",
+    "42-mybatis-first-level-cache",
+    "43-hibernate-n-plus-one",
+    "44-sharding-pagination-sorting-id",
+    "45-database-message-eventual-consistency"
+  ]
+}

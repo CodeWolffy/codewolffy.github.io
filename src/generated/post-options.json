@@ -1,34 +1,338 @@
 [
   {
+    "label": "@Transactional 为什么会失效？从代理边界到回滚规则的系统排查",
+    "value": "spring-transactional-failure"
+  },
+  {
+    "label": "并发 Bug 为什么难以复现？用 jcstress 验证竞态与重排",
+    "value": "20-jcstress-concurrency-correctness"
+  },
+  {
+    "label": "布隆过滤器的原理、误判率计算与 Java 实现",
+    "value": "08-bloom-filter-java"
+  },
+  {
+    "label": "从单体迁移到微服务：什么时候该拆，边界又该怎么划？",
+    "value": "76-monolith-to-microservices-boundaries"
+  },
+  {
+    "label": "从源码理解 AQS：Java 并发工具的基础设施",
+    "value": "13-aqs-source-code"
+  },
+  {
+    "label": "从字节码理解泛型擦除：Java 为什么没有运行时泛型参数？",
+    "value": "03-java-generics-type-erasure"
+  },
+  {
+    "label": "多租户 SaaS 如何设计数据隔离？从 tenant_id 到独立数据库",
+    "value": "77-multi-tenant-saas-data-isolation"
+  },
+  {
+    "label": "分布式事务的本质：2PC、TCC、Saga 与最终一致性如何选择",
+    "value": "distributed-transaction-patterns"
+  },
+  {
+    "label": "分库分表后，分页、排序和唯一 ID 应该如何设计？",
+    "value": "44-sharding-pagination-sorting-id"
+  },
+  {
+    "label": "服务雪崩是如何形成的？超时、重试、熔断与隔离的系统设计",
+    "value": "62-service-avalanche"
+  },
+  {
+    "label": "缓存穿透、击穿、雪崩背后的本质区别与治理方案",
+    "value": "02-cache-penetration-breakdown-avalanche"
+  },
+  {
+    "label": "灰度发布、滚动发布、蓝绿发布应该如何选择？",
+    "value": "73-deployment-strategies"
+  },
+  {
+    "label": "间隙锁为什么会导致线上死锁？从 Next-Key Lock 到排查实战",
+    "value": "39-gap-lock-and-deadlock"
+  },
+  {
+    "label": "接口幂等不是加一个 Redis 锁那么简单：生产级设计指南",
+    "value": "api-idempotency-design"
+  },
+  {
+    "label": "接口偶发超时如何做全链路排查？从时间预算到尾延迟",
+    "value": "68-intermittent-timeout"
+  },
+  {
     "label": "开发者最值得装的8个MCP Server｜把AI变成真正的外挂",
     "value": "best-8-mcp-servers-for-developers"
+  },
+  {
+    "label": "类加载器与双亲委派：为什么应用服务器和插件系统要打破它？",
+    "value": "11-classloader-parent-delegation"
+  },
+  {
+    "label": "联合索引不只是最左前缀：索引下推、回表与覆盖索引",
+    "value": "36-composite-index-deep-dive"
+  },
+  {
+    "label": "配置变更如何做到可评审、可灰度、可回滚？",
+    "value": "75-configuration-change-review-and-rollback"
+  },
+  {
+    "label": "配置中心动态刷新是如何实现的？有哪些一致性风险？",
+    "value": "spring-config-dynamic-refresh-consistency"
+  },
+  {
+    "label": "日志里应该记录什么，不应该记录什么？生产级日志设计指南",
+    "value": "70-logging-practices"
+  },
+  {
+    "label": "如何安全修改生产数据库表结构？从兼容窗口到 Expand-Migrate-Contract",
+    "value": "74-safe-database-schema-changes"
+  },
+  {
+    "label": "如何设计可水平扩展的分布式定时任务系统？",
+    "value": "78-horizontally-scalable-scheduled-job-system"
+  },
+  {
+    "label": "如何设计统一异常处理与错误码体系？从领域错误到 API 契约",
+    "value": "71-unified-exception-error-code"
+  },
+  {
+    "label": "如何设计一个可演进的分布式 ID 服务？从雪花算法到号段模式",
+    "value": "64-distributed-id-service"
+  },
+  {
+    "label": "如何设计一个真正可观测的 Spring Boot 服务？日志、指标与追踪",
+    "value": "69-spring-boot-observability"
+  },
+  {
+    "label": "如何系统排查 MySQL 慢查询？从监控到执行计划的证据链",
+    "value": "40-mysql-slow-query-troubleshooting"
+  },
+  {
+    "label": "深分页为什么慢？从 OFFSET 扫描到游标分页的完整优化",
+    "value": "41-deep-pagination-optimization"
+  },
+  {
+    "label": "数据库与消息队列如何保证最终一致性？本地消息表、事务消息与 Outbox",
+    "value": "45-database-message-eventual-consistency"
   },
   {
     "label": "数据字典的作用是什么？",
     "value": "data-dictionary-uses"
   },
   {
+    "label": "为什么重试会放大线上故障？退避、抖动与重试预算",
+    "value": "63-retry-storm"
+  },
+  {
     "label": "现代 CSS：从 Flexbox 到 Grid 布局",
     "value": "modern-css-layout"
+  },
+  {
+    "label": "线程池参数不是公式题：如何根据业务流量科学配置？",
+    "value": "18-thread-pool-sizing"
+  },
+  {
+    "label": "消息顺序性到底应该如何保证？从 Kafka 分区到业务状态机",
+    "value": "message-ordering"
+  },
+  {
+    "label": "消息消费失败后如何设计重试与死信机制？",
+    "value": "message-retry-dead-letter"
+  },
+  {
+    "label": "虚拟线程能否替代传统线程池？",
+    "value": "19-virtual-threads-vs-thread-pools"
+  },
+  {
+    "label": "雪花算法在时钟回拨时会发生什么？分布式 ID 的边界与治理",
+    "value": "snowflake-clock-rollback"
+  },
+  {
+    "label": "一次 Full GC 排查实战：从告警、GC 日志到堆转储引用链",
+    "value": "08-full-gc-troubleshooting"
+  },
+  {
+    "label": "一次 Java 对象创建到底发生了什么？从 new 字节码到安全发布",
+    "value": "01-java-object-creation"
+  },
+  {
+    "label": "一次 Java 生产环境 CPU 100% 的完整排查过程",
+    "value": "66-java-cpu-100-troubleshooting"
+  },
+  {
+    "label": "一条 SQL 在 MySQL 中经历了什么？从连接到提交的完整链路",
+    "value": "34-sql-execution-pipeline"
+  },
+  {
+    "label": "用 Redis 实现延迟队列可靠吗？从 ZSet 轮询到消息不丢的边界",
+    "value": "06-redis-delay-queue"
   },
   {
     "label": "元数据和Schema有什么区别？",
     "value": "dataschema"
   },
   {
+    "label": "API 版本演进如何避免破坏客户端？兼容性、弃用与迁移实战",
+    "value": "72-api-version-evolution"
+  },
+  {
+    "label": "CAP 和 BASE 如何指导实际架构，而不只是面试概念？",
+    "value": "65-cap-base-in-practice"
+  },
+  {
+    "label": "CompletableFuture 的线程池与异常处理陷阱",
+    "value": "17-completablefuture-pool-exception-handling"
+  },
+  {
+    "label": "ConcurrentHashMap 在高并发下是如何工作的？",
+    "value": "15-concurrenthashmap-concurrency-internals"
+  },
+  {
+    "label": "Exactly Once 是真实能力还是营销概念？先定义处理边界",
+    "value": "exactly-once-semantics"
+  },
+  {
     "label": "for和foreach区别？",
     "value": "for-foreach"
+  },
+  {
+    "label": "G1、ZGC、Shenandoah 应该如何选择？从延迟目标到生产验证",
+    "value": "09-g1-zgc-shenandoah-selection"
+  },
+  {
+    "label": "Hibernate N+1 问题与抓取策略：从懒加载到实体图",
+    "value": "43-hibernate-n-plus-one"
+  },
+  {
+    "label": "InnoDB 的索引为什么选择 B+ 树？从磁盘页到范围查询",
+    "value": "35-why-innodb-uses-bplus-tree"
+  },
+  {
+    "label": "Java 对象到底占多少内存？用 JOL 看懂对象头、指针压缩与对齐",
+    "value": "02-java-object-memory-layout"
+  },
+  {
+    "label": "Java 异常处理的隐藏成本：真正昂贵的是哪一步？",
+    "value": "07-java-exception-cost"
+  },
+  {
+    "label": "Java 应用内存持续上涨，却没有 OOM，如何定位？",
+    "value": "67-java-memory-growth"
+  },
+  {
+    "label": "Java SPI、Spring SPI 与自定义插件系统设计：扩展点背后的边界",
+    "value": "12-java-spi-spring-spi-plugin-design"
   },
   {
     "label": "java静态方法和实例方法有何不同",
     "value": "java-static-method"
   },
   {
+    "label": "JIT 如何优化 Java 代码？从方法内联到逃逸分析与去优化",
+    "value": "10-jit-compiler-optimization"
+  },
+  {
+    "label": "Kafka 为什么能实现高吞吐？顺序写、批处理、页缓存与零拷贝",
+    "value": "kafka-high-throughput"
+  },
+  {
+    "label": "Kafka 消息为什么仍可能重复或丢失？生产、Broker、消费三段治理",
+    "value": "kafka-message-loss-duplicate"
+  },
+  {
+    "label": "LongAdder 为什么比 AtomicLong 更适合高竞争场景？",
+    "value": "16-longadder-vs-atomiclong"
+  },
+  {
+    "label": "MyBatis 一级缓存为什么可能读到旧数据？从 SqlSession 到缓存失效",
+    "value": "42-mybatis-first-level-cache"
+  },
+  {
+    "label": "MySQL 在什么情况下会选错索引？统计信息、成本模型与数据倾斜",
+    "value": "37-why-mysql-chooses-wrong-index"
+  },
+  {
+    "label": "MySQL MVCC 是如何实现的？Undo Log、Read View 与隔离级别",
+    "value": "38-innodb-mvcc"
+  },
+  {
+    "label": "Redis 分布式锁真的安全吗？从误释放到 fencing token",
+    "value": "03-redis-distributed-lock"
+  },
+  {
+    "label": "Redis 内存淘汰与过期删除机制：Key 到期后为什么还占内存？",
+    "value": "05-eviction-and-expiration"
+  },
+  {
+    "label": "Redis 热 Key、大 Key 如何发现和治理？",
+    "value": "04-hot-key-big-key"
+  },
+  {
+    "label": "Redis 为什么快？“单线程”解释远远不够",
+    "value": "01-why-redis-is-fast"
+  },
+  {
+    "label": "Redis 与数据库双写一致性为什么没有银弹？",
+    "value": "07-cache-database-consistency"
+  },
+  {
+    "label": "ReentrantLock 公平锁为什么更慢？",
+    "value": "14-reentrantlock-fair-lock-performance"
+  },
+  {
     "label": "RESTful接口是什么",
     "value": "restful"
   },
   {
+    "label": "Spring 如何解决循环依赖？三级缓存、代理对象与构造器死结",
+    "value": "spring-circular-dependency"
+  },
+  {
+    "label": "Spring 事件机制适合做业务解耦吗？同步、异步与事务事件的边界",
+    "value": "spring-event-mechanism"
+  },
+  {
+    "label": "Spring 事务传播行为不是背枚举：7 种模式的真实应用与踩坑实验",
+    "value": "spring-transaction-propagation"
+  },
+  {
+    "label": "Spring 中如何正确传播用户、租户和链路上下文？",
+    "value": "spring-context-propagation"
+  },
+  {
+    "label": "Spring AOP 代理对象内部调用为什么绕过切面？",
+    "value": "spring-aop-self-invocation"
+  },
+  {
+    "label": "Spring Bean 从定义到可用经历了什么？一文吃透完整生命周期",
+    "value": "spring-bean-lifecycle"
+  },
+  {
+    "label": "Spring Boot 应用优雅停机的完整设计：从摘流到资源释放",
+    "value": "spring-boot-graceful-shutdown"
+  },
+  {
+    "label": "Spring Boot 自动配置到底如何工作？从条件装配到自定义 Starter",
+    "value": "spring-boot-auto-configuration"
+  },
+  {
+    "label": "Spring MVC 一次请求的完整执行链路：从 Filter 到返回 JSON",
+    "value": "spring-mvc-request-lifecycle"
+  },
+  {
     "label": "SQL中where条件后为什么要加上1=1?",
     "value": "sql-where-1-1"
+  },
+  {
+    "label": "synchronized 真的很重吗？从 monitor 到锁优化的完整理解",
+    "value": "05-synchronized-internals"
+  },
+  {
+    "label": "ThreadLocal 为什么容易造成内存泄漏？线程池场景下的完整治理",
+    "value": "06-threadlocal-memory-leak"
+  },
+  {
+    "label": "volatile 为什么保证可见性，却不能保证原子性？",
+    "value": "04-volatile-jmm-memory-barrier"
   }
 ]

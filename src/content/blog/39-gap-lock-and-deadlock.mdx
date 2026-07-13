@@ -1,0 +1,98 @@
+---
+title: 间隙锁为什么会导致线上死锁？从 Next-Key Lock 到排查实战
+description: 解释记录锁、间隙锁和 Next-Key Lock 的加锁范围，复现典型死锁，并给出生产治理方法。
+pubDate: 2026-03-13
+category: 数据库
+tags:
+  - MySQL
+  - InnoDB
+  - 间隙锁
+  - 死锁
+  - 事务
+series: mysql-orm-deep-dive
+seriesOrder: 6
+draft: false
+---
+
+很多死锁不是两个事务更新同一行，而是范围查询锁住“尚不存在的位置”，随后事务以不同顺序插入或更新。理解间隙锁，关键是把 SQL 映射为索引上的扫描区间。
+
+## 三类锁
+
+- Record Lock：锁住索引记录。
+- Gap Lock：锁住两条索引记录之间的间隙，本身主要阻止插入。
+- Next-Key Lock：记录锁与其前方间隙的组合。
+
+在 InnoDB 的 RR 隔离级别下，锁定读和写操作为防止幻影，通常对实际扫描到的索引范围使用 next-key/gap locking。完整唯一索引等值命中既有记录时通常只需记录锁；只匹配联合唯一索引的一部分、条件未命中、非唯一索引或范围扫描时，加锁区间更值得警惕。RC 会显著减少多数 gap locking，但外键检查、重复键检查等场景仍可能使用间隙相关锁。
+
+## 可复现实验
+
+```sql
+CREATE TABLE booking(
+ id BIGINT PRIMARY KEY AUTO_INCREMENT,
+ room_id INT NOT NULL,
+ booking_date DATE NOT NULL,
+ UNIQUE KEY uk_room_date(room_id,booking_date)
+) ENGINE=InnoDB;
+```
+
+两个事务都先检查日期无预约，再插入：
+
+```sql
+-- A
+START TRANSACTION;
+SELECT * FROM booking
+WHERE room_id=1 AND booking_date='2026-08-01' FOR UPDATE;
+
+-- B 执行同样 SELECT
+
+-- A
+INSERT INTO booking(room_id,booking_date) VALUES(1,'2026-08-01');
+
+-- B
+INSERT INTO booking(room_id,booking_date) VALUES(1,'2026-08-01');
+```
+
+在具体数据布局和版本下，两个事务可能都持有兼容的 gap lock，随后插入所需的插入意向锁相互等待，形成死锁；InnoDB 检测后回滚代价较小的一方。实验结果受已有记录影响，应在独立测试库观察实际锁：
+
+```sql
+SELECT * FROM performance_schema.data_locks;
+SELECT * FROM performance_schema.data_lock_waits;
+SHOW ENGINE INNODB STATUS\G
+```
+
+## 没有合适索引为何危险
+
+```sql
+SELECT * FROM booking WHERE booking_date='2026-08-01' FOR UPDATE;
+```
+
+若缺少以 booking_date 开头的索引，InnoDB 可能扫描并锁定大量索引范围。锁永远加在索引上；“只返回一行”不表示只锁一行，扫描路径才决定锁范围。
+
+## 正确处理死锁
+
+死锁是事务系统允许并发后可能出现的正常结果，应用必须能识别错误码 1213，只重试整个事务，并使用指数退避与随机抖动。不能只重试最后一条 SQL，因为原事务已经被回滚。
+
+治理优先级：缩短事务；让不同代码路径以相同顺序访问资源；建立精准索引以缩小扫描；将“先查再插”改为唯一约束配合直接插入；必要时评估 RC，但降低隔离级别不是万能解法。
+
+```sql
+INSERT INTO booking(room_id,booking_date)
+VALUES(1,'2026-08-01')
+ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id);
+```
+
+数据库唯一约束才是并发下防止重复预约的最终防线。上面的 `LAST_INSERT_ID(id)` 写法会修改当前连接的会话状态，连接池环境必须立即读取并保持调用边界清晰；如果并不需要返回既有 ID，更清晰的做法是捕获重复键错误并按幂等语义处理。应用层的“先查询不存在”存在检查与写入之间的竞态窗口。
+
+## 排查证据链
+
+从死锁日志提取每个事务持有与等待的锁、索引名、SQL 和事务持续时间，再还原访问顺序。保存完整日志，不要只截取最后一句 `WE ROLL BACK TRANSACTION`。可通过 `innodb_print_all_deadlocks=ON` 把所有死锁写入错误日志，但这会增加日志量并可能包含 SQL/业务数据，应配套脱敏、采集、保留周期和告警；临时排查后按运维规范恢复配置。
+
+## 生产检查清单
+
+- 所有死锁是否保存双方 SQL、索引与事务上下文？
+- 不同业务路径是否按统一顺序锁定资源？
+- `FOR UPDATE` 的谓词是否有匹配索引？
+- “查后插”是否由唯一约束兜底？
+- 重试是否覆盖完整事务且有次数上限、退避和幂等？
+- 事务中是否包含 HTTP/RPC、文件 I/O 或大批量循环？
+
+减少死锁的本质，是减少锁的数量和持有时间，并让锁的获取顺序可预测。

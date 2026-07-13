@@ -1,0 +1,193 @@
+---
+title: 接口幂等不是加一个 Redis 锁那么简单：生产级设计指南
+description: 从幂等键、请求指纹、数据库唯一约束、状态机、处理中状态、结果复用和过期策略，设计可应对超时重试与并发重复的接口幂等方案。
+pubDate: 2026-05-15
+category:
+  discriminant: custom
+  value: 分布式系统
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: 接口幂等
+  - discriminant: custom
+    value: Redis
+series: distributed-systems
+seriesOrder: 7
+draft: false
+---
+
+用户连点两次提交、网关超时自动重试、MQ 重复投递，都可能让同一个业务动作执行多次。幂等的目标是：相同业务意图重复到达时，系统最终产生与执行一次相同的业务效果，并尽可能返回一致结果。
+
+Redis 锁只能互斥一段时间，不能自动定义“什么算同一次请求”，也不能保证锁过期、进程崩溃和数据库提交之间没有漏洞。
+
+## 一、哪些接口天然幂等
+
+读取通常不改变状态；将资源更新为明确目标值通常比增量操作更接近幂等：
+
+```http
+PUT /users/42/status
+{"status":"DISABLED"}
+```
+
+重复设置 DISABLED 效果相同。而“余额减 100”“库存加 1”“创建一笔支付”不是天然幂等，必须引入业务标识。
+
+HTTP 方法语义只能表达设计意图，不会替应用自动提供幂等保证。
+
+## 二、稳定幂等键
+
+客户端为一次业务操作生成高熵唯一键，并在重试时复用。`Idempotency-Key` 是业界常用约定，但不能仅因看见这个请求头就认为请求安全：
+
+```http
+POST /payments
+Idempotency-Key: 01J2...XYZ
+```
+
+服务端不能每次收到请求都重新生成 key，否则无法识别重试。key 还应与租户、用户和接口范围绑定，防止不同用户碰撞：
+
+```text
+scope = tenantId + userId + apiName + idempotencyKey
+```
+
+服务端还应限制 key 的长度、字符集、单用户未完成 key 数量和保留数量，避免攻击者用无限随机 key 撑爆去重表。不要跨账号复用同一作用域，也不要把可枚举订单号直接当作未经鉴权的查询凭证。
+
+对于订单支付，也可直接使用业务唯一号 `merchantOrderNo`，它往往比随机请求键更有审计价值。
+
+## 三、必须校验请求指纹
+
+客户端错误地复用同一个幂等键，却提交不同金额时，不能直接返回第一次结果。应保存关键参数的规范化摘要：
+
+```text
+fingerprint = HMAC-SHA-256(method + path + contentType + apiVersion + normalizedBody + userId)
+```
+
+同 key、同指纹：视为重试；同 key、不同指纹：返回 409 Conflict 或明确业务错误。
+
+JSON 指纹要由服务端按照业务语义规范化字段顺序、数字和缺省值，并排除 traceId 等不影响业务含义的字段。敏感、低熵参数不宜只保存裸 SHA-256 摘要，否则数据库泄露后可能被离线猜测；使用服务端密钥参与的 HMAC 更稳妥。规范化规则一旦升级，要带版本号，避免同一请求在新旧实例上得到不同摘要。
+
+## 四、数据库唯一约束是最终防线
+
+```sql
+CREATE UNIQUE INDEX uk_payment_merchant_order
+ON payment(merchant_id, merchant_order_no);
+```
+
+无论请求经过多少应用实例，数据库唯一约束都能阻止同一业务键创建两条记录。应用层“先查再插”不能替代唯一索引：两个并发请求都可能查询为空，然后同时插入。
+
+正确方式是尝试写入并处理唯一键冲突，再查询已有业务结果。
+
+## 五、幂等记录表设计
+
+```sql
+CREATE TABLE idempotency_record (
+  scope_key       varchar(200) PRIMARY KEY,
+  request_hash    varchar(64) NOT NULL,
+  status          varchar(20) NOT NULL,
+  resource_id     varchar(100),
+  response_body   text,
+  owner_token     varchar(64),
+  lease_until     timestamp,
+  created_at      timestamp NOT NULL,
+  expires_at      timestamp NOT NULL
+);
+```
+
+常见状态：
+
+```text
+PROCESSING -> SUCCEEDED
+PROCESSING -> FAILED_RETRYABLE
+PROCESSING -> FAILED_FINAL
+```
+
+首次请求原子插入 `PROCESSING`，插入冲突则读取已有记录。业务数据与幂等成功状态应尽量在同一数据库事务中提交。
+
+`PROCESSING` 不能永久悬挂。执行者应持有带截止时间的租约和不可猜测的 `owner_token`；接管过期任务时使用条件更新，并让旧执行者无法再提交成功状态。这个 fencing 思路比“时间到了谁都能继续写”更安全。不过一旦业务包含外部扣款等不可回滚副作用，租约仍不能证明旧调用没有成功，必须先查询下游或依赖下游幂等键。
+
+## 六、并发重复请求如何响应
+
+第二个请求看到 `PROCESSING` 时，可选择：
+
+- 返回 202 并给出状态查询地址，或返回 409/425 与 `Retry-After`；具体语义应形成稳定 API 合同。
+- 在很短时间内等待第一个请求完成。
+- 返回已有任务 ID，让客户端轮询。
+
+不要让大量重复请求一直占用 Web 线程等待。对耗时支付、导出任务，异步任务 ID 模式通常更稳。
+
+第一次成功后，重复请求应尽量复用原 HTTP 状态、资源 ID 和关键业务结果，而不只是笼统返回“重复请求”。这样客户端即使丢失第一次响应，也能恢复状态。缓存响应时要最小化字段、脱敏或加密，不能把支付凭证等秘密长期复制到通用幂等表。
+
+## 七、Redis 应该扮演什么角色
+
+Redis 可以用于快速占位和降低数据库压力：
+
+```text
+SET idem:{scopeKey} PROCESSING NX PX 30000
+```
+
+但锁存在几个窗口：
+
+- 业务未完成锁已过期，第二个请求进入。
+- Redis 写成功后应用崩溃，留下处理中状态。
+- 数据库提交成功但缓存结果写入失败。
+- Redis 故障切换可能影响锁语义。
+
+因此关键资金业务仍应以数据库唯一约束和业务状态为准，Redis 是性能优化层，不是唯一正确性来源。
+
+## 八、外部调用的幂等边界
+
+本地幂等不能阻止下游重复执行。调用支付服务时应透传稳定幂等键：
+
+```java
+paymentClient.charge(new ChargeRequest(
+    payment.getPaymentNo(), amount));
+```
+
+若下游成功但本地超时，重试仍使用同一 paymentNo。若下游不支持幂等，需要查询接口、对账和补偿，不能仅靠本地锁猜测结果。
+
+## 九、失败状态与过期策略
+
+并非所有失败都应永久缓存。参数错误可保存最终失败并在相同请求时复用；瞬时超时可允许重新执行；结果未知则应先查询下游，而不是直接重做。
+
+幂等记录过期时间必须覆盖客户端最大重试窗口、消息最大保留与业务追溯周期。支付类业务可能需要长期保留业务唯一号，而不是 24 小时后允许再次扣款。
+
+清理过期记录时也要确保业务表的唯一约束仍然存在。
+
+## 十、Spring 伪代码示例
+
+```java
+@Transactional
+public PaymentResult create(String key, PaymentCommand cmd) {
+    String scope = currentTenant() + ":payment:" + key;
+    String hash = fingerprint(cmd);
+
+    if (!idempotencyRepository.tryStart(scope, hash)) {
+        var old = idempotencyRepository.find(scope);
+        verifySameRequest(old, hash);
+        return resolveExisting(old);
+    }
+
+    Payment payment = paymentRepository.createUnique(cmd.orderNo(), cmd.amount());
+    PaymentResult result = PaymentResult.of(payment);
+    idempotencyRepository.markSucceeded(scope, payment.id(), serialize(result));
+    return result;
+}
+```
+
+真实系统还要处理事务回滚后 `PROCESSING` 是否残留、响应体大小、敏感信息和状态查询。
+
+## 十一、检查清单
+
+- 幂等键由谁生成，重试时是否稳定复用？
+- key 是否绑定用户、租户和接口作用域？
+- 是否保存请求指纹并拒绝同 key 不同参数？
+- 数据库是否有业务唯一索引？
+- 去重记录与业务写入是否原子提交？
+- 并发请求看到 PROCESSING 时如何响应？
+- 执行者崩溃后，租约接管和旧执行者 fencing 是否安全？
+- 是否复用第一次成功的资源 ID 和结果？
+- 下游是否接受相同幂等键，结果未知时如何查询？
+- 过期时间是否覆盖全部重试和审计周期？
+
+## 总结
+
+生产级幂等是一套协议：客户端提供稳定操作标识，服务端校验请求指纹，数据库唯一约束守住最终正确性，状态机处理并发和失败，成功结果可重复查询，下游调用继续透传同一业务键。Redis 锁可以加速这套协议，却不能单独替代它。

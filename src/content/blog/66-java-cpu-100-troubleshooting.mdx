@@ -1,0 +1,91 @@
+---
+title: 一次 Java 生产环境 CPU 100% 的完整排查过程
+description: 从告警、进程与线程定位到栈、火焰图和根因验证，给出低风险的 Java 高 CPU 排查手册。
+pubDate: 2026-03-31
+category: 工程实践
+tags:
+  - Java
+  - CPU
+  - 故障排查
+  - JVM
+  - Arthas
+series: reliability-engineering
+seriesOrder: 5
+draft: false
+---
+
+CPU 100% 不是根因，它只说明某个时间窗口计算资源被耗尽。可能是业务流量、死循环、正则回溯、序列化、频繁 GC、锁自旋或系统调用。正确流程是先保留现场，再把“主机 CPU”映射到“进程—线程—代码栈”。
+
+## 事故现场
+
+某 API P99 从 120ms 升至 8s，单个 Java 实例 CPU 占满，其他实例约 40%。先摘除异常实例部分流量，避免完全杀进程丢失证据，同时确认整体容量足够。记录告警时间、发布版本、请求量和实例 ID。
+
+Linux 上初筛：
+
+```bash
+pidstat -p <pid> 1
+top -H -p <pid>
+```
+
+找到占用最高的线程十进制 TID，例如 28731，转换为十六进制：
+
+```bash
+printf '%x\n' 28731
+jcmd <pid> Thread.print -l > /tmp/jstack-1.txt
+```
+
+在 dump 中搜索 `nid=0x703b`。`jcmd` 应使用与目标 JVM 相同的用户和兼容 JDK 工具，并在容器 PID namespace 内确认 PID；attach 失败时不要反复高频尝试。间隔 5–10 秒采集三次，持续出现在相同 RUNNABLE 栈帧的线程更有价值。一次快照可能刚好采到偶发任务。
+
+这套 TID → nid 映射只适合平台线程。虚拟线程并不与操作系统线程一一对应，`top -H` 看到的是载体线程；Java 21+ 可在受控路径使用 `jcmd <pid> Thread.dump_to_file -format=json <file>` 获取包含虚拟线程层次的转储，并结合 JFR 与应用级任务标签分析。不能把热点载体线程误认成某一个固定虚拟线程。
+
+## 先排除 GC
+
+```bash
+jcmd <pid> GC.heap_info
+```
+
+优先结合持续采集的 GC 日志、JFR 和 JVM 指标判断；需要时再短时间使用 `jstat -gcutil <pid> 1000 10`。`jstat` 的列含义和可用性会随收集器/JDK 变化，不能只凭某一列下结论。若 Young GC 极其频繁或完整/退化回收连续发生，CPU 可能花在回收而非业务代码。不要看到 GC 线程就立即扩大堆，更大的堆可能延长回收。
+
+## 栈定位到正则回溯
+
+多次栈均落在 `java.util.regex.Pattern`，上层是日志脱敏方法。新版本正则对长且不匹配的输入产生灾难性回溯。用生产脱敏样本在隔离环境复现，并使用 JFR/async-profiler 验证 CPU 火焰图：
+
+```bash
+jcmd <pid> JFR.start name=cpu settings=profile duration=60s filename=/tmp/cpu.jfr
+```
+
+JFR 有开销但通常可控，仍应先评估并限制时长。敏感参数可能进入录制文件，应按生产数据管理。
+
+async-profiler 适合观察 CPU、分配和锁热点，但命令参数随版本与打包方式变化，应使用组织批准的二进制并查看该版本帮助。硬件计数器、内核栈或 wall-clock profile 可能需要额外权限；不要为了临时诊断给生产容器永久增加 `privileged` 权限。
+
+修复使用有边界的字符类或线性扫描替代回溯正则，并增加超长输入限制。压测对比相同输入分布下 CPU、吞吐和 P99，再灰度发布。
+
+## Arthas 快速方法
+
+```text
+thread -n 10
+thread <id>
+profiler start
+profiler stop --format html
+```
+
+动态诊断工具应限制权限，避免在高负载时执行大范围 `trace/watch`，表达式求值和对象展开可能进一步伤害实例。
+
+## 容易误判的情况
+
+- CPU 高但吞吐同步增长，可能只是容量不足，不是代码 Bug。
+- 线程 BLOCKED 多通常不是 CPU 直接来源，但锁竞争可能伴随自旋和吞吐下降。
+- 容器显示 100% 可能只是用满一个核，应核对 CPU quota 和宿主机口径。
+- 在 cgroup 限额内，CPU throttling 会制造延迟尖峰；“使用率不满宿主机”不代表容器还有配额。
+- dump 前重启虽然恢复服务，却失去根因证据。
+
+## 生产检查清单
+
+- 是否保留线程栈、GC、流量、版本和容器限额？
+- 是否多次采样并将 TID 正确转换为十六进制 nid？
+- 是否区分业务计算与 GC CPU？
+- Profile 是否限时、评估开销并保护敏感数据？
+- 修复是否用故障输入和真实并发验证？
+- 是否增加 CPU 饱和、线程池队列和自动摘流机制？
+
+高 CPU 排查的核心是关联：同一时间、同一实例、同一线程、同一代码栈，最终用可复现实验闭环。

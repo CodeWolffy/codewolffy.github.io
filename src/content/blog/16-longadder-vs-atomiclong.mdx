@@ -1,0 +1,99 @@
+---
+title: LongAdder 为什么比 AtomicLong 更适合高竞争场景？
+description: 分析单点 CAS 的扩展瓶颈、分散计数原理，以及 LongAdder 非原子快照的使用边界。
+pubDate: 2026-01-06
+category: 并发编程
+tags:
+  - LongAdder
+  - AtomicLong
+  - CAS
+  - 伪共享
+  - 性能测试
+series: java-concurrency
+seriesOrder: 4
+draft: false
+---
+
+# LongAdder 为什么比 AtomicLong 更适合高竞争场景？
+
+`AtomicLong` 和 `LongAdder` 都能避免计数丢失，却提供不同语义。前者维护一个可线性化的值；后者把写竞争分散到多个槽位，读取时汇总，换取高并发吞吐。
+
+## AtomicLong 的热点 CAS
+
+```java
+for (;;) {
+    long current = value;
+    long next = current + 1;
+    if (compareAndSet(current, next)) return next;
+}
+```
+
+低竞争时 CAS 非常高效。线程增多后，所有核心争抢同一缓存行：一个核心成功写入会使其他核心缓存中的副本失效，失败线程重新读取并重试。CPU 没有进入内核阻塞，但一致性流量和空转仍然昂贵，所以“无锁”不等于“无竞争”。
+
+## LongAdder 如何分散写入
+
+`LongAdder` 基于 `Striped64`，内部包含 `base` 和一组 `Cell`。无竞争时更新 `base`；发生冲突后，根据线程探针选择 Cell，冲突持续时还可能扩容。最终结果为：
+
+```java
+long sum = base;
+for (Cell cell : cells) {
+    if (cell != null) sum += cell.value;
+}
+```
+
+多个线程大概率写不同缓存行，减少 CAS 冲突。Cell 还通过填充降低伪共享风险——逻辑上互不相关的变量若落在同一缓存行，也会因彼此写入反复失效。
+
+## 必须接受的语义代价
+
+`sum()` 在遍历期间其他线程仍可更新，所以它不是某一瞬间的原子快照。`sumThenReset()` 也不适合与并发更新配合实现“绝不遗漏”的财务结算。
+
+因此如下场景应使用 `AtomicLong`：生成严格唯一递增序号、CAS 状态机、读取结果决定后续原子操作。如下场景适合 `LongAdder`：请求次数、命中次数、错误数等高频指标，允许采集瞬间存在轻微偏差。
+
+```java
+class Metrics {
+    private final LongAdder requests = new LongAdder();
+    void record() { requests.increment(); }
+    long requestCount() { return requests.sum(); }
+}
+```
+
+如果需要 `incrementAndGet()` 的返回值参与业务，`LongAdder` 没有等价方法，这不是 API 遗漏，而是其设计无法低成本提供全局线性化结果。
+
+## 一份可复现的 JMH 基准
+
+```java
+@State(Scope.Benchmark)
+public class CounterBench {
+    AtomicLong atomic = new AtomicLong();
+    LongAdder adder = new LongAdder();
+
+    @Benchmark @Threads(16)
+    public long atomic() { return atomic.incrementAndGet(); }
+
+    @Benchmark @Threads(16)
+    public void adder() { adder.increment(); }
+}
+```
+
+两个 benchmark 返回语义不同，若只比较写吞吐要避免频繁调用 `sum()`；另设读写混合组更贴近指标采集。测试 1、2、CPU 核数、2 倍核数等线程档位，并报告 JDK、CPU 和 fork 参数。低竞争时 `LongAdder` 未必更快，还占用更多内存。
+
+## 常见误用
+
+```java
+// 错误：不是原子限流
+adder.increment();
+if (adder.sum() > limit) reject();
+```
+
+多个线程可能同时越过阈值。限流需要定义窗口和原子许可获取，可考虑 `Semaphore`、令牌桶或集中式原子脚本。另一个误用是为每个高基数标签创建 LongAdder，可能让指标系统因 Cell 数组和标签组合消耗大量内存。
+
+## 生产检查清单
+
+- 是否真的存在 CAS 热点？先用压测和性能事件证明。
+- 读取是否要求精确、原子且能驱动业务决策？
+- 是否需要每次递增后的唯一返回值？
+- 指标标签基数是否受控？
+- 是否错误地用 `sumThenReset()` 保证无损分段结算？
+- 是否同时评估内存占用与读操作成本？
+
+选择计数器时先写下语义，再谈性能。可以近似读取的高频统计用 `LongAdder`，必须线性化的状态仍应使用 `AtomicLong` 或更完整的同步方案。

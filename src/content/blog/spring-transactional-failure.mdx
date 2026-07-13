@@ -1,0 +1,225 @@
+---
+title: "@Transactional 为什么会失效？从代理边界到回滚规则的系统排查"
+description: 系统梳理 Spring 事务失效的常见场景，包括自调用、非容器对象、异常被吞、回滚规则、多线程、错误事务管理器与数据库限制，并给出验证和修复方案。
+pubDate: 2026-01-09
+category:
+  discriminant: custom
+  value: Spring
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Spring事务
+  - discriminant: existing
+    value: MySQL
+series: spring-deep-dive
+seriesOrder: 3
+draft: false
+---
+
+“方法上明明有 `@Transactional`，为什么数据还是提交了？”这是 Spring 项目最常见也最容易误判的问题之一。
+
+排查事务不能只盯着注解。一次事务能否生效，至少取决于四件事：调用是否经过代理、事务管理器是否正确开启资源事务、异常是否满足回滚规则、底层数据库操作是否真正支持事务。
+
+## 一、先理解代理边界
+
+Spring 声明式事务通常由 AOP 拦截器实现：
+
+```text
+调用方 -> 事务代理 -> 开启事务 -> 目标方法 -> 提交或回滚
+```
+
+如果调用没有经过代理，`TransactionInterceptor` 就没有执行机会。注解只是元数据，本身不会自动打开数据库事务。
+
+可在运行时确认对象身份：
+
+```java
+System.out.println(AopUtils.isAopProxy(orderService));
+System.out.println(orderService.getClass());
+```
+
+## 二、场景一：同类自调用
+
+```java
+@Service
+public class UserService {
+    public void register() {
+        saveUser(); // this.saveUser()，没有经过代理
+    }
+
+    @Transactional
+    public void saveUser() {
+        userRepository.insert(...);
+        throw new RuntimeException("测试回滚");
+    }
+}
+```
+
+外部调用的是代理的 `register`，但目标对象内部调用 `saveUser` 时，本质是 `this.saveUser()`。调用不会重新回到代理，`saveUser` 上的事务配置不会被拦截。
+
+首选修复是拆分职责：
+
+```java
+@Service
+public class UserWriter {
+    @Transactional
+    public void saveUser() { /* ... */ }
+}
+
+@Service
+public class RegistrationService {
+    private final UserWriter userWriter;
+
+    public void register() {
+        userWriter.saveUser();
+    }
+}
+```
+
+也可以把事务放到外层公开方法。自注入、`AopContext.currentProxy()` 虽能绕过问题，却加重对 Spring AOP 的耦合，只适合遗留代码过渡。
+
+## 三、场景二：对象不是 Spring Bean
+
+```java
+UserService service = new UserService();
+service.saveUser();
+```
+
+手动 `new` 出来的对象没有经过容器，自然不会有事务代理。类似问题还常见于第三方框架回调、反序列化对象、静态工具类和自己创建的线程任务。
+
+修复重点不是“再加一个注解”，而是确保业务入口拿到容器管理的 Bean。
+
+## 四、场景三：异常被捕获后没有继续抛出
+
+```java
+@Transactional
+public void createOrder() {
+    try {
+        orderRepository.insert(...);
+        paymentClient.charge();
+    } catch (Exception e) {
+        log.error("支付失败", e);
+        // 方法正常返回，事务拦截器会提交
+    }
+}
+```
+
+代理只能观察方法最终是正常返回还是抛出异常。若业务吞掉异常，事务拦截器会认为执行成功。
+
+合理做法包括继续抛出业务异常，或者明确标记回滚：
+
+```java
+TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+```
+
+后者会把事务控制侵入业务代码，应当谨慎使用。
+
+## 五、场景四：异常类型不满足默认回滚规则
+
+默认情况下，Spring 对 `RuntimeException` 和 `Error` 回滚，对受检异常不自动回滚：
+
+```java
+@Transactional
+public void importData() throws IOException {
+    repository.insert(...);
+    throw new IOException("文件损坏");
+}
+```
+
+若 `IOException` 应导致回滚，需要明确声明：
+
+```java
+@Transactional(rollbackFor = Exception.class)
+public void importData() throws IOException { ... }
+```
+
+不要不加判断地在所有方法上复制 `rollbackFor = Throwable.class`。Spring Framework 6.2 还支持在事务管理配置中统一采用“所有异常回滚”等策略，但全局策略同样需要兼容性评审。应先定义业务异常层次，区分可重试、需回滚和允许部分成功的情况。
+
+## 六、场景五：错误理解方法可见性与代理方式
+
+声明式事务最稳妥的用法，是把事务边界放在 Spring Bean 的 `public` 业务方法上，并由外部 Bean 调用。Spring Framework 6 的默认类代理可以拦截 `protected` 和包可见方法；接口代理通常仍要求接口上的 `public` 方法。`private`、`final`、`static` 方法不能按普通子类代理语义增强，自调用问题也始终存在。
+
+生产代码不要依赖模糊的“这个版本好像支持 protected”，而应让事务边界可见、清晰且易测试。
+
+## 七、场景六：跨线程执行
+
+事务上下文通常通过 `ThreadLocal` 绑定到当前线程：
+
+```java
+@Transactional
+public void createOrder() {
+    orderRepository.insert(...);
+    CompletableFuture.runAsync(() -> inventoryRepository.deduct(...));
+}
+```
+
+异步线程不会自动加入调用线程的数据库事务。外层回滚时，异步扣库存可能已经单独提交；反过来，异步失败也无法让已提交的外层事务自动回滚。
+
+若确实需要异步一致性，应使用事务消息、Outbox、任务表或补偿机制，而不是尝试跨线程传播本地数据库事务。
+
+## 八、场景七：传播行为改变了预期
+
+```java
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+public void writeAudit() { ... }
+```
+
+`REQUIRES_NEW` 会挂起外层事务并独立提交。外层随后回滚，审计记录仍可能保留，这是设计语义而非事务失效。
+
+相反，内部 `REQUIRED` 参与外层事务并将其标记为 rollback-only 后，外层即使捕获异常，最终提交仍可能收到 `UnexpectedRollbackException`。
+
+## 九、场景八：事务管理器或数据源选错
+
+多数据源系统可能存在多个 `PlatformTransactionManager`。若事务开启在数据源 A，而 Repository 实际连接数据源 B，B 的操作不会自动加入 A 的事务。
+
+```java
+@Transactional(transactionManager = "orderTransactionManager")
+public void createOrder() { ... }
+```
+
+还要检查路由数据源是否在事务开启后才切换。连接一旦绑定到线程，再修改路由键往往已经太晚。
+
+## 十、场景九：数据库或表不支持事务
+
+以 MySQL 为例，使用不支持事务的存储引擎、执行部分 DDL、调用远程 HTTP 接口，都不可能被本地 JDBC 事务完整回滚。
+
+事务只管理它控制范围内的资源。数据库回滚不能撤销已发出的短信、支付请求或 Kafka 普通消息。
+
+## 十一、如何用测试证明事务真的生效
+
+不要只看日志，应在真实数据库集成测试中制造异常，再从新事务或新连接查询结果：
+
+```java
+@SpringBootTest
+class OrderServiceTest {
+    @Autowired OrderService orderService;
+    @Autowired JdbcTemplate jdbcTemplate;
+
+    @Test
+    void shouldRollback() {
+        assertThrows(RuntimeException.class, () -> orderService.createAndFail());
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from orders where biz_no = ?",
+                Integer.class, "TX-001");
+        assertEquals(0, count);
+    }
+}
+```
+
+测试方法本身若带 `@Transactional`，可能掩盖真实提交行为。验证生产事务边界时，要明确测试事务与业务事务的关系。
+
+## 十二、排查清单
+
+- 调用入口拿到的是 Spring 代理对象吗？
+- 是否发生同类自调用？
+- 异常是否被 catch 后吞掉或转换成不回滚的异常？
+- 方法是否在异步线程、定时任务或手动线程中执行？
+- 传播行为是否创建了独立事务？
+- 多数据源下事务管理器是否匹配？
+- SQL 是否使用支持事务的表与连接？
+- 是否把数据库事务错误地当成分布式事务？
+- 是否有集成测试从数据库最终状态验证回滚？
+
+## 总结
+
+判断 `@Transactional` 是否生效，可以沿着一条固定证据链排查：代理有没有拦截、事务有没有开启、操作有没有加入同一事务、异常有没有触发回滚、资源是否受该事务管理。沿这五层逐项验证，比反复修改注解可靠得多。

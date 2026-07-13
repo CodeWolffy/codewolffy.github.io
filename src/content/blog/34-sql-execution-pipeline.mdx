@@ -1,0 +1,99 @@
+---
+title: 一条 SQL 在 MySQL 中经历了什么？从连接到提交的完整链路
+description: 以一条查询和更新语句为线索，拆解连接器、解析器、优化器、执行器、Buffer Pool、Redo Log、Undo Log 与 Binlog。
+pubDate: 2025-11-25
+category: 数据库
+tags:
+  - MySQL
+  - InnoDB
+  - SQL
+  - 事务
+  - 性能优化
+series: mysql-orm-deep-dive
+seriesOrder: 1
+draft: false
+---
+
+`SELECT * FROM orders WHERE user_id = 42` 看似只有一行，实际跨越 MySQL Server 层与 InnoDB 存储引擎。理解这条链路，才能知道慢 SQL 究竟慢在排队、解析、执行、磁盘 I/O，还是提交刷盘。
+
+## 1. 总体路径
+
+```text
+客户端 -> 连接器 -> 解析/预处理 -> 优化器 -> 执行器
+                                      |
+                              InnoDB Handler API
+                                      |
+                    Buffer Pool / 索引 / Undo / Redo
+```
+
+连接器完成 TCP 握手、身份认证和权限读取。连接建立后，部分权限检查会使用连接建立时读取的权限信息；执行 `GRANT`/`REVOKE` 后，不应笼统假定所有既有会话立即获得完全一致的新权限语义，涉及权限收回的安全操作应按官方说明验证并主动回收长期连接。生产环境应使用连接池，但连接池大小不是越大越好：活跃连接超过数据库实际并行处理能力，只会增加锁竞争与上下文切换。
+
+解析器先进行词法、语法分析，预处理阶段解析表和列、展开 `*`、检查语义。MySQL 8.0 已移除旧式 Query Cache，因此相同 SQL 通常仍需优化与执行；应用缓存不能被误认为数据库查询缓存。
+
+## 2. 优化器并不“执行 SQL”
+
+优化器根据统计信息估算不同访问路径成本：全表扫描还是索引、连接顺序、使用哪个联合索引。它选择的是估算成本最低的计划，不保证它在真实数据分布下最快。
+
+```sql
+EXPLAIN ANALYZE
+SELECT o.id, o.amount
+FROM orders o
+JOIN users u ON u.id = o.user_id
+WHERE u.status = 1 AND o.created_at >= '2026-01-01';
+```
+
+`EXPLAIN` 展示估算计划，`EXPLAIN ANALYZE` 会真实执行并给出实际行数和耗时。线上使用后者要谨慎：它不是只读模拟，对昂贵查询仍会产生真实负载；用于 DML 时尤其要先确认目标版本的支持范围和语句副作用，优先在只读副本或脱敏测试环境验证。
+
+## 3. 执行器与 InnoDB
+
+执行器通过存储引擎接口逐行取数。若目标页已在 Buffer Pool，读取是内存访问；否则 InnoDB 将磁盘页载入缓存。二级索引叶子节点保存主键，查询非覆盖列时还要根据主键回聚簇索引，这就是“回表”。
+
+```sql
+CREATE INDEX idx_orders_user_created ON orders(user_id, created_at);
+
+-- amount 不在索引中，通常需要回表
+SELECT amount FROM orders WHERE user_id = 42;
+
+-- 只读取索引内字段，可能成为覆盖索引
+SELECT user_id, created_at FROM orders WHERE user_id = 42;
+```
+
+## 4. 更新为何涉及三类日志
+
+```sql
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+```
+
+InnoDB 修改 Buffer Pool 中的数据页前生成 Undo 记录，为回滚和 MVCC 提供旧版本；随后产生 Redo Log，记录页的物理变更，用于崩溃恢复。Server 层还写 Binlog，用于复制和时间点恢复。
+
+提交时 Redo 与 Binlog 必须保持一致。MySQL 使用内部两阶段提交：Redo 进入 prepare，写 Binlog，再将 Redo 标记 commit。崩溃恢复时可结合事务状态和 Binlog 判断提交还是回滚，避免“主库已提交但复制日志不存在”。
+
+`innodb_flush_log_at_trx_commit=1` 与 `sync_binlog=1` 提供较强持久性，但每次提交可能触发同步刷盘；组提交会合并多个事务的刷盘成本。降低参数可以换吞吐，但意味着操作系统或机器崩溃时可能丢失最近事务，必须作为业务决策，而非随手调优。
+
+## 5. 如何验证瓶颈位置
+
+```sql
+SHOW FULL PROCESSLIST;
+SELECT * FROM performance_schema.events_statements_current;
+SHOW ENGINE INNODB STATUS\G
+```
+
+诊断应区分：获取连接慢、元数据锁等待、行锁等待、扫描行数过多、临时表/排序、Buffer Pool 未命中、日志刷盘慢。仅看到“SQL 用了 3 秒”无法直接推出要加索引。
+
+## 6. 常见误区
+
+- `Using filesort` 不一定使用磁盘，它表示不能直接利用索引顺序。
+- 查询命中索引不代表快；低选择性索引加大量回表可能更慢。
+- Buffer Pool 命中率高不等于没有慢 SQL，大量内存扫描仍消耗 CPU。
+- Binlog 是逻辑复制日志，Redo 是 InnoDB 崩溃恢复日志，两者不能互相替代。
+
+## 生产检查清单
+
+- 连接池是否有上限、获取超时与泄漏检测？
+- 慢查询是否同时记录执行时间、扫描行数、返回行数和调用来源？
+- 是否用 `EXPLAIN ANALYZE` 对比估算行数与实际行数？
+- 写入延迟升高时，是否检查锁等待和日志刷盘，而非只看索引？
+- 持久化参数是否与可接受的数据丢失窗口一致？
+- 大事务是否被拆分，并控制 Undo、Redo 与复制延迟？
+
+一条 SQL 的性能是整条链路共同作用的结果。正确的优化顺序永远是先定位阶段，再验证假设，最后改变系统。

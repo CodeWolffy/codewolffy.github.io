@@ -1,0 +1,159 @@
+---
+title: ThreadLocal 为什么容易造成内存泄漏？线程池场景下的完整治理
+description: 从 ThreadLocalMap 的弱引用结构解释 value 残留、上下文串号，以及在线程池和异步链路中的安全用法。
+pubDate: 2026-02-20
+category: Java并发
+tags:
+  - Java
+  - ThreadLocal
+  - 线程池
+  - 内存泄漏
+  - 上下文传播
+series: jvm-java-core
+seriesOrder: 6
+draft: false
+---
+
+`ThreadLocal` 让每个线程拥有独立变量，常用于用户身份、租户、TraceId 和非线程安全工具。但它并不是一个“用完自动清空”的容器。在线程池中，线程生命周期远长于一次请求，如果没有清理，既可能保留大对象，也可能让下一个请求读到上一个用户的数据。
+
+## 1. 数据到底存在哪里
+
+容易产生的误解是：ThreadLocal 自己维护一个“线程到值”的 Map。实际方向相反——每个 `Thread` 内部关联一个 `ThreadLocalMap`，Map 的 key 是 `ThreadLocal` 实例，value 是当前线程的数据。
+
+```text
+Thread
+  └─ ThreadLocalMap
+       ├─ Entry(ThreadLocal A -> value A)
+       └─ Entry(ThreadLocal B -> value B)
+```
+
+这使得 `local.get()` 可以直接访问当前线程自己的 Map，不需要全局锁。但也意味着：只要线程仍存活，它内部的 Map 和其中未清理的 value 就可能一直存活。
+
+## 2. 为什么 key 是弱引用，value 不是
+
+`ThreadLocalMap.Entry` 对 key 使用弱引用。当业务代码不再强引用某个 ThreadLocal 时，GC 可以回收 key，避免 ThreadLocal 对象本身永久存活。然而 Entry 的 value 仍是强引用：
+
+```text
+Thread -> ThreadLocalMap -> Entry -> value
+                           key -> null
+```
+
+这种 key 已消失、value 仍在的 Entry 常被称为 stale entry。ThreadLocalMap 会在 `get`、`set`、`remove` 等操作过程中启发式清理陈旧槽位，但不能保证某个线程会及时再次执行到足够的清理路径。
+
+在线程池里，核心线程可能活到应用结束，所以 value 可能长期保留。若 value 引用了请求对象、类加载器或大集合，问题会更明显。
+
+## 3. 比内存泄漏更危险的是数据串号
+
+```java
+private static final ThreadLocal<String> CURRENT_USER = new ThreadLocal<>();
+
+void handle(Request request) {
+    CURRENT_USER.set(request.userId());
+    process();
+    // 忘记 remove
+}
+```
+
+线程池复用线程后，下一个未设置用户的任务可能读到旧值。这不仅是内存问题，更可能是权限和审计事故。
+
+正确的基本模式是：
+
+```java
+void handle(Request request) {
+    try {
+        CURRENT_USER.set(request.userId());
+        process();
+    } finally {
+        CURRENT_USER.remove();
+    }
+}
+```
+
+必须放在 `finally`，因为业务异常、超时或提前返回都不应跳过清理。通常优先 `remove()`，而不是 `set(null)`；后者可能仍保留 Entry 结构，并且语义不够明确。
+
+## 4. static final 为什么仍可能泄漏
+
+把 ThreadLocal 声明为 `static final` 能避免 key 因局部引用消失而成为 null，但不能解决 value 跟随线程长期存活的问题，也不能解决上下文串号。
+
+```java
+private static final ThreadLocal<byte[]> BUFFER = new ThreadLocal<>();
+```
+
+若每个工作线程都保存一个 10 MB 数组，100 个线程就可能长期占用约 1 GB。此时 key 并未回收，却仍然形成“逻辑泄漏”：对象技术上可达，但业务已经不需要。
+
+## 5. 在线程池中传播上下文的陷阱
+
+父线程设置 ThreadLocal 后提交任务，普通 ThreadLocal 不会自动复制到工作线程：
+
+```java
+TRACE_ID.set("trace-1");
+executor.submit(() -> log.info(TRACE_ID.get())); // 通常为 null 或旧值
+```
+
+`InheritableThreadLocal` 也不是线程池的通用答案。它只在线程创建时从父线程复制值，而池中线程早已创建，后续请求无法按任务正确更新；若复制可变对象，还可能形成隐蔽共享。
+
+可靠做法包括：
+
+- 显式把上下文作为方法参数传递；
+- 提交任务时捕获快照，在执行前安装，执行后恢复/清理；
+- 使用框架提供的 TaskDecorator、上下文传播或可观测性组件；
+- 对 `CompletableFuture` 明确指定执行器与传播策略。
+- Java 25+ 中，对只读、词法作用域内的上下文评估 `ScopedValue`；它适合“一次绑定、范围内读取”，不是可变 ThreadLocal 的一比一替换。
+
+```java
+Runnable wrap(Runnable task) {
+    String captured = TRACE_ID.get();
+    return () -> {
+        String previous = TRACE_ID.get();
+        try {
+            if (captured == null) TRACE_ID.remove();
+            else TRACE_ID.set(captured);
+            task.run();
+        } finally {
+            if (previous == null) TRACE_ID.remove();
+            else TRACE_ID.set(previous);
+        }
+    };
+}
+```
+
+恢复旧值比无条件 remove 更适合可能嵌套执行的场景。
+
+## 6. Web 应用与类加载器泄漏
+
+应用服务器热部署时，容器工作线程可能由上层类加载器创建并长期存在。如果 ThreadLocal value 引用了应用类或其类加载器，旧应用类加载器将无法回收，最终出现 Metaspace 增长。
+
+排查时可通过堆转储查看引用链：
+
+```text
+GC Root: Thread
+  -> threadLocals
+  -> table
+  -> Entry.value
+  -> application object
+  -> old WebAppClassLoader
+```
+
+修复点仍然是生命周期边界：请求过滤器、拦截器、任务装饰器必须在 `finally` 清理，第三方库也要检查是否提供 clear/reset API。
+
+## 7. ThreadLocal 适合与不适合的场景
+
+适合：线程作用域、访问频繁、生命周期边界清晰的辅助上下文，例如一次同步请求中的 trace 信息。
+
+不适合：跨异步阶段的业务状态、需要在线程之间共享的数据、没有明确清理边界的大对象缓存，以及本可通过参数表达的核心业务依赖。
+
+ThreadLocal 会让依赖变得隐式。若方法行为依赖“当前租户”却参数中完全看不出来，测试和重构成本都会提高。
+
+虚拟线程降低了复用平台线程导致串号的机会，却不免除清理和容量设计。一个任务一个虚拟线程时，如果每个线程都保存大 ThreadLocal，数十万并发任务仍会形成显著内存占用；第三方库的 ThreadLocal 也可能成为扩展性瓶颈。Java 25 已正式提供 `ScopedValue`，新代码可优先用它承载不可变请求上下文，并继续用显式参数表达核心业务依赖。
+
+## 8. 检查清单
+
+- 每次 `set` 是否都有 `finally remove/restore`？
+- 线程是否来自线程池、Servlet 容器或公共 ForkJoinPool？
+- value 是否包含请求、集合、大数组或类加载器相关对象？
+- 是否错误使用 InheritableThreadLocal 传播线程池任务？
+- 异步边界是否显式捕获和恢复上下文？
+- 堆转储中是否存在 `Thread -> ThreadLocalMap -> value` 的长引用链？
+- 能否改用显式参数或不可变上下文对象？
+
+ThreadLocal 本身不是坏工具，问题在于它把数据生命周期绑定到了线程。在线程池时代，“一次任务结束”不等于“线程结束”，所以清理必须由业务代码明确完成。

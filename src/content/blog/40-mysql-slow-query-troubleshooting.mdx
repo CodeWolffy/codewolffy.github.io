@@ -1,0 +1,93 @@
+---
+title: 如何系统排查 MySQL 慢查询？从监控到执行计划的证据链
+description: 给出一套可落地的慢 SQL 排查流程，覆盖采集、归因、EXPLAIN ANALYZE、锁等待、I/O 与上线验证。
+pubDate: 2026-05-01
+category: 数据库
+tags:
+  - MySQL
+  - 慢查询
+  - EXPLAIN
+  - 性能优化
+  - 可观测性
+series: mysql-orm-deep-dive
+seriesOrder: 7
+draft: false
+---
+
+慢查询排查最危险的习惯是看到 SQL 后立刻加索引。响应时间可能消耗在连接池排队、元数据锁、行锁、执行扫描、排序临时表、网络传输或提交刷盘，必须先建立证据链。
+
+## 第一步：定义“慢”
+
+平均值会掩盖长尾。至少按 SQL 指纹观察调用次数、P50/P95/P99、扫描行数、返回行数、错误率和总耗时贡献。执行 10 万次、每次 20ms 的 SQL，可能比偶发 2 秒的报表更值得优化。
+
+慢日志配置示例：
+
+```sql
+SET GLOBAL slow_query_log=ON;
+SET GLOBAL long_query_time=0.5;
+SET GLOBAL log_queries_not_using_indexes=OFF;
+```
+
+这些命令需要相应管理权限，并可能立即增加日志 I/O；应先确认 `slow_query_log_file`、磁盘配额与日志轮转。动态设置重启后可能失效；MySQL 8.0+ 可按治理规范使用 `SET PERSIST` 持久化支持的变量，或纳入配置管理，而不是临时修改后遗忘。`log_queries_not_using_indexes` 在生产可能制造巨大噪声，因为不使用索引不等于慢。
+
+## 第二步：判断慢在哪里
+
+```sql
+SHOW FULL PROCESSLIST;
+SELECT * FROM sys.statement_analysis ORDER BY total_latency DESC LIMIT 20;
+SELECT * FROM sys.innodb_lock_waits;
+```
+
+若状态长期为 Waiting for table metadata lock，应寻找持有元数据锁的长事务；若等待行锁，应还原阻塞链；若 Sending data，并不只是网络发送，它可能仍在读取和处理数据。
+
+同时检查数据库主机 CPU、磁盘延迟、IOPS、Buffer Pool、活跃连接和日志刷盘。全实例同时变慢更像资源或锁问题，单一指纹变慢更像计划或数据分布变化。
+
+## 第三步：读执行计划
+
+```sql
+EXPLAIN ANALYZE
+SELECT customer_id,SUM(amount)
+FROM orders
+WHERE created_at>='2026-01-01'
+GROUP BY customer_id;
+```
+
+关注每个节点的 estimated rows、actual rows、loops 和 actual time。某节点实际行数远高于估算，通常提示统计失真；扫描 500 万行只返回 10 行，提示访问路径低效；loops 很大常见于嵌套循环内表被反复访问。
+
+不要机械迷信 `type=ref` 或恐惧 `Using filesort`。小表全扫可能最优，内存排序也可能很快。优化目标是减少总工作量，而不是消灭某个 Extra 文本。
+
+## 第四步：提出并验证最小改动
+
+候选方案包括改写谓词、建立联合/覆盖索引、减少返回列、调整批量大小、拆分长事务、修复统计信息或缓存高成本结果。每次只验证一个主要变量：
+
+```sql
+-- 上线索引前可用不可见索引评估回退，但需理解版本行为
+ALTER TABLE orders ADD INDEX idx_created_customer(created_at,customer_id) INVISIBLE;
+SET SESSION optimizer_switch='use_invisible_indexes=on';
+EXPLAIN ANALYZE SELECT ...;
+```
+
+不可见索引在创建期间仍承担完整 DDL 成本，建成后也仍占空间并维护写入；它适合验证优化器是否采用该索引，不是低成本的“试建”。索引 DDL 仍可能消耗 I/O、空间并等待元数据锁；“在线 DDL”不等于零影响。大表变更需要容量评估、低峰执行、进度和复制延迟监控。
+
+## 第五步：上线后验证
+
+比较同一 SQL 指纹的 P95/P99、扫描行数、CPU、Buffer Pool 和写入成本。新增索引可能优化读，却增加写延迟和存储。保留回滚方案，并观察完整业务周期。
+
+## 常见反优化
+
+- 为每条慢 SQL 各建一个相似索引，造成索引泛滥。
+- 只在空闲测试库测毫秒值，不构造真实数据分布与并发。
+- 用 `SELECT *` 导致无法覆盖索引并增加网络传输。
+- 大 OFFSET 分页越翻越慢。
+- 把数据库慢归咎于 ORM，却不获取 ORM 最终生成的 SQL 和参数类型。
+
+## 生产检查清单
+
+- 是否有 SQL 指纹级的次数、分位数和扫描行数？
+- 是否先排除连接、锁和主机资源瓶颈？
+- 是否用 actual rows 验证执行计划？
+- 测试数据量、倾斜程度和参数分布是否接近生产？
+- DDL 是否评估磁盘空间、MDL 与复制延迟？
+- 优化后是否同时验证读收益与写成本？
+
+可靠的慢查询优化不是一条“神奇索引”，而是一条可复现、可比较、可回滚的证据链。

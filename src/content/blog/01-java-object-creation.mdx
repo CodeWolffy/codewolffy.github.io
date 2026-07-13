@@ -1,0 +1,157 @@
+---
+title: 一次 Java 对象创建到底发生了什么？从 new 字节码到安全发布
+description: 沿着 HotSpot 的执行路径，拆解类初始化、内存分配、对象头、零值初始化、构造器执行与安全发布。
+pubDate: 2025-11-04
+category: JVM
+tags:
+  - Java
+  - JVM
+  - 字节码
+  - 对象模型
+  - JMM
+series: jvm-java-core
+seriesOrder: 1
+draft: false
+---
+
+我们每天都在写 `new User()`，但这行代码并不等于“调用一次构造方法”。在对象真正可用之前，JVM 还要完成类解析、内存分配、对象初始化和引用发布等工作。理解这条链路，能解释构造器里为什么能看到字段零值、对象为什么可能“逸出”，也能帮助我们看懂逃逸分析和标量替换。
+
+## 1. 从一段代码开始
+
+```java
+public class User {
+    private int age = 18;
+    private String name;
+
+    public User(String name) {
+        this.name = name;
+    }
+
+    public static User create() {
+        return new User("Alice");
+    }
+}
+```
+
+使用 `javap -c -v User.class` 查看 `create`，核心指令通常类似：
+
+```text
+0: new           #7   // class User
+3: dup
+4: ldc           #9   // String Alice
+6: invokespecial #11  // Method "<init>":(String)V
+9: areturn
+```
+
+- `new`：申请对象内存，并把引用压入操作数栈。
+- `dup`：复制引用；一个交给构造器，一个留给返回值。
+- `invokespecial`：调用实例初始化方法 `<init>`。
+- `areturn`：返回引用。
+
+Java 源码中的构造器并不是负责“创造内存”的函数。执行 `<init>` 时，对象内存已经存在。
+
+## 2. 第一步：确认类已经可用
+
+JVM 遇到 `new` 指令后，先检查常量池中的类符号引用能否解析，并确认目标类已经完成加载、验证和准备。`new` 属于“主动使用”：若目标类尚未初始化，JVM 会先初始化其父类，再执行目标类的类初始化方法 `<clinit>`。`<clinit>` 来自需要在运行期执行的静态字段初始化和 `static` 代码块；编译期常量可能已经被使用方内联，并不一定触发声明类初始化。
+
+```java
+class User {
+    static final Map<String, Integer> ROLES = loadRoles();
+    static { System.out.println("User initialized"); }
+}
+```
+
+类初始化由 JVM 保证同步。准确地说，一个 `Class`（类型身份包含定义它的类加载器）最多成功初始化一次；若初始化抛异常，该类会进入错误状态，后续主动使用通常得到 `NoClassDefFoundError`，而不是重新尝试。这也是“初始化按需持有者”单例能够安全工作的基础。
+
+## 3. 第二步：为对象分配内存
+
+对象需要的空间在类加载后基本确定。HotSpot 常见的分配方式有两种。
+
+### 指针碰撞
+
+若堆内存规整，已使用和空闲区域之间存在清晰边界，分配只需把边界指针向空闲方向移动对象大小。复制、整理型收集器通常能维持这种布局。
+
+### 空闲列表
+
+若空闲空间散落，JVM 需要从记录可用内存块的列表中找到合适区域。具体策略取决于垃圾收集器实现。
+
+并发分配还必须避免多个线程拿到同一段地址。HotSpot 常通过 TLAB（Thread Local Allocation Buffer）解决：每个线程先在 Eden 中获得一小块私有区域，大多数小对象只移动线程私有指针；TLAB 不够时再走共享分配路径和 CAS。
+
+TLAB 是分配优化，不是线程私有堆。对象仍位于堆中，GC 也会统一管理。
+
+## 4. 第三步：零值初始化与对象头
+
+分配后，JVM 会把对象的实例字段初始化为类型零值：数值为 `0`，布尔值为 `false`，引用为 `null`。因此即使 Java 构造器还没运行，字段也不会包含随机内存数据。
+
+随后 JVM 设置对象头。典型 HotSpot 对象头包含：
+
+- Mark Word：哈希码、GC 年龄、锁状态等运行时信息。
+- Klass Pointer：指向类元数据，用来判断对象类型和定位方法、字段布局。
+- 数组长度：仅数组对象额外拥有。
+
+对象体保存实例字段，最后还可能添加对齐填充，使总大小满足 JVM 的对象对齐要求。
+
+## 5. 第四步：执行 `<init>`
+
+编译器会把实例字段赋值、实例初始化块和源代码构造器组织进 `<init>`。顺序可以概括为：
+
+1. 调用父类构造器；
+2. 按源码顺序执行当前类字段初始化和实例初始化块；
+3. 执行当前构造器正文。
+
+```java
+class Parent { Parent() { System.out.println("parent"); } }
+class Child extends Parent {
+    int value = init();
+    { System.out.println("block"); }
+    Child() { System.out.println("constructor"); }
+    int init() { System.out.println("field"); return 1; }
+}
+```
+
+输出依次为 `parent`、`field`、`block`、`constructor`。字段声明处的赋值并不是分配内存时直接完成的。
+
+## 6. 危险点：构造期间让 this 逸出
+
+```java
+class Listener {
+    private final int threshold;
+
+    Listener(EventBus bus) {
+        bus.register(this); // this 已被其他线程看见
+        threshold = 100;
+    }
+}
+```
+
+若事件总线并发回调，新线程可能在 `threshold` 完成赋值前使用对象。常见逸出方式还包括：在构造器中启动线程、写入静态集合、调用可被子类重写的方法。
+
+更稳妥的方式是先完整构造，再注册：
+
+```java
+Listener listener = new Listener();
+eventBus.register(listener);
+```
+
+`final` 字段具有额外的初始化安全语义，但前提仍是构造期间没有泄漏 `this`。
+
+## 7. new 出来的对象一定在堆上吗？
+
+从 Java 语义看，对象由 JVM 管理；从优化后的机器执行看，却未必真的出现一次堆分配。若 JIT 的逃逸分析证明对象不会逃出方法或线程，可能进行：
+
+- 标量替换：把对象拆成若干局部变量；
+- 锁消除：移除只被当前线程使用的对象锁；
+- 分配消除：完全省掉实际对象分配。
+
+因此不要用“源码里有几个 `new`”推断堆分配次数，应结合 JFR、GC 分配速率和基准测试判断。
+
+## 8. 工程检查清单
+
+- 构造器中不要发布 `this`，不要随意启动线程。
+- 不在构造器中调用可重写方法。
+- 不把“TLAB”误解成线程私有堆。
+- 分析分配压力时看 allocation rate，而不仅看存活对象。
+- 做对象池前先测量；现代 JVM 分配短命小对象通常非常快。
+- 涉及并发共享时，通过 `final`、`volatile`、锁或并发容器完成安全发布。
+
+一行 `new` 的完整含义是：确保类可用、申请并清零内存、设置对象头、执行初始化方法，最后以满足 Java 内存模型的方式发布引用。把这几步区分开，很多 JVM 与并发问题就不再神秘。

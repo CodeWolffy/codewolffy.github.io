@@ -1,0 +1,170 @@
+---
+title: Exactly Once 是真实能力还是营销概念？先定义处理边界
+description: 区分投递一次、处理一次与业务效果一次，分析 Kafka 幂等生产者、事务、read-process-write 链路及外部数据库边界，说明 Exactly Once 的真实适用范围。
+pubDate: 2026-03-24
+category:
+  discriminant: custom
+  value: 分布式系统
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Kafka
+  - discriminant: custom
+    value: Exactly Once
+series: distributed-systems
+seriesOrder: 5
+draft: false
+---
+
+“我们的消息绝不重复，Exactly Once。”这句话如果没有说明边界，几乎没有工程意义。网络可能丢确认，进程可能在业务成功后崩溃，消费者可能重新平衡。分布式系统无法仅凭一次 RPC 判断远端到底有没有执行。
+
+真正需要定义的是：哪个系统边界内、哪个状态变化，对观察者只产生一次效果。
+
+## 一、三种常见语义
+
+### At-most-once
+
+最多处理一次，可能丢失但不重试。典型做法是先确认进度再处理。
+
+### At-least-once
+
+至少处理一次，优先避免丢失，故障恢复时允许重复。业务必须幂等。
+
+### Exactly-once effect
+
+消息即使被传输或执行多次，最终可观察业务效果与执行一次相同。工程上更现实的目标是“效果一次”，而不是物理上某段代码只运行一次。
+
+## 二、确认丢失带来的不可能三角
+
+客户端发送扣款请求，服务端成功扣款后响应在网络中丢失。客户端只能选择：
+
+- 不重试：可能其实没扣款，造成丢失。
+- 重试：可能已经扣款，造成重复。
+
+解决办法不是更准确地猜，而是给请求稳定的幂等键，让服务端识别两次请求属于同一业务操作。
+
+## 三、Kafka 幂等生产者解决什么
+
+开启幂等生产后，Kafka 使用 Producer ID、分区序列号识别重试批次，避免网络重试在同一分区追加重复记录：
+
+```properties
+enable.idempotence=true
+acks=all
+```
+
+Kafka 3.x/4.x 客户端通常默认启用幂等生产，并把 `acks`、`retries` 等默认值调整到了兼容组合，但生产配置仍建议显式声明并在启动测试中断言最终生效值。Kafka 4.0 起，若 `max.in.flight.requests.per.connection > 5` 等配置与显式幂等冲突，不应再期待客户端静默降级；应让启动失败暴露错误配置。
+
+它解决的是生产者到 Kafka 日志的特定重复，不保证：
+
+- 应用重启后主动再次构造同一业务事件不会重复。
+- 消费者业务不会执行两次。
+- 外部数据库、邮件和支付接口只产生一次效果。
+
+## 四、Kafka 事务解决什么
+
+Kafka 事务可以把多分区写入以及消费位点提交放在同一个 Kafka 事务中：
+
+```text
+读取 input offset 10
+ -> 处理
+ -> 写 output topic A
+ -> 写 output topic B
+ -> 提交 output + input offset
+```
+
+若进程中途失败，事务写入对 `read_committed` 消费者不可见，输入 offset 也不会推进，恢复后重新处理。
+
+Spring Kafka 中可配置事务生产者并由容器管理 consume-transform-produce 链路。核心前提是输入和输出状态都在 Kafka 事务协调范围内。
+
+每个并行生产实例需要稳定且唯一的 `transactional.id`。新实例调用 `initTransactions()` 后会 fence 掉使用同一 ID 的旧生产者，避免僵尸实例继续提交；若多个活跃实例误用同一 ID，则会互相 fencing，而不是获得高可用。Kafka 4.0 的事务协议进一步加强了服务端防御，但没有扩大到数据库等外部资源。
+
+## 五、read_committed 的意义
+
+消费者默认可能读到尚未最终提交的事务记录。设置：
+
+```properties
+isolation.level=read_committed
+```
+
+消费者只返回已提交事务的数据，并跳过已中止记录。代价是可见延迟可能增加，长事务还会阻挡后续记录的稳定可见位置。
+
+Kafka Streams 默认仍是 `at_least_once`。确实需要 Kafka 内部 EOS 时应显式设置：
+
+```properties
+processing.guarantee=exactly_once_v2
+```
+
+该模式要求 Broker 2.5+；生产通常还要保证事务状态主题具备足够副本。不要因为用了 Kafka Streams 就默认认为 EOS 已开启。
+
+## 六、一旦写外部数据库，边界就破了
+
+```text
+消费 Kafka
+ -> UPDATE MySQL
+ -> 提交 Kafka offset
+```
+
+数据库提交后、offset 提交前崩溃，消息会重放，数据库更新再次执行。Kafka 事务无法原子提交 MySQL 本地事务。
+
+这时应使用数据库唯一键、状态机或 Inbox 实现业务幂等：
+
+```sql
+BEGIN;
+INSERT INTO inbox(event_id, consumer) VALUES (?, ?);
+UPDATE account SET balance = balance - ? WHERE id = ?;
+COMMIT;
+```
+
+`inbox` 的唯一约束让重复事件无法再次产生业务效果。
+
+## 七、双写为何不能靠提交顺序解决
+
+先提交数据库再提交消息，数据库成功后进程崩溃会漏消息；先提交消息再提交数据库，消息可能被消费但业务数据最终回滚。调换顺序只是在两个故障窗口中选择一个。
+
+常见可靠方案是 Outbox：业务数据与待发事件在同一本地事务提交，发布器至少一次发送，消费者幂等处理。
+
+## 八、端到端 Exactly Once 的组成
+
+```text
+稳定 eventId
+ + 可靠保存/至少一次传输
+ + 消费者原子去重与业务更新
+ + 下游幂等键
+ + 可重放和对账
+= 业务效果一次
+```
+
+如果链路中任一外部副作用不支持幂等，例如某旧系统每次调用都直接扣费且没有查询/幂等接口，就无法仅靠 Kafka 承诺端到端效果一次。
+
+## 九、Exactly Once 的成本
+
+- 事务协调和额外请求降低吞吐、增加延迟。
+- 每个生产实例需要稳定且唯一的 transactional.id 策略。
+- 长事务影响可见性并占用资源。
+- 事务超时、僵尸生产者与故障恢复增加运维复杂度。
+- 外部系统仍需单独的幂等与补偿。
+
+不要为了一个营销术语给所有 Topic 开事务。指标日志等允许少量重复的场景，at-least-once 加聚合去重往往更简单。
+
+## 十、评审检查清单
+
+- “一次”指投递、代码执行还是最终业务效果？
+- 承诺边界只在 Kafka 内，还是包含数据库和外部 API？
+- 消费者是否使用 `read_committed`？
+- 事务是否同时提交输出记录和输入 offset？
+- 外部数据库是否有唯一事件键和原子业务更新？
+- 下游 HTTP 接口是否接受稳定幂等键？
+- 失败后能否重放、核对并补偿？
+- 事务成本是否值得，是否有更简单的 at-least-once 方案？
+- transactional.id 是否稳定、唯一，并验证过实例替换时的 fencing？
+
+## 参考基线
+
+- [Apache Kafka：Message Delivery Semantics](https://kafka.apache.org/documentation/#semantics)
+- [Apache Kafka 4.0 Upgrade Notes](https://kafka.apache.org/40/getting-started/upgrade/)
+- [Kafka Streams `processing.guarantee`](https://kafka.apache.org/43/configuration/kafka-streams-configs/)
+
+## 总结
+
+Exactly Once 不是完全虚构，但它只在明确协调边界内成立。Kafka 可以为 Kafka 内部的消费—处理—生产链路提供事务语义，却不能自动覆盖 MySQL、支付和邮件等外部副作用。端到端可靠性的本质，是至少一次传输配合稳定标识、原子去重、幂等状态转换和对账补偿，最终实现业务效果一次。

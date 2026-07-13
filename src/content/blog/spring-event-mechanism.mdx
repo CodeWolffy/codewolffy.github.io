@@ -1,0 +1,200 @@
+---
+title: Spring 事件机制适合做业务解耦吗？同步、异步与事务事件的边界
+description: 深入讲解 ApplicationEvent 发布与监听机制、同步异常传播、异步线程、TransactionalEventListener 阶段语义，并与消息队列和 Outbox 模式比较。
+pubDate: 2026-04-28
+category:
+  discriminant: custom
+  value: Spring
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Spring事件
+  - discriminant: custom
+    value: 最终一致性
+series: spring-deep-dive
+seriesOrder: 8
+draft: false
+---
+
+Spring 事件经常被描述为“观察者模式实现，可以解耦业务”。这句话只说对了一半：它确实能降低发布者对具体监听器的编译期依赖，但默认事件仍在同一进程、同一线程中同步执行。监听器慢、抛异常或进程崩溃，都会直接影响结果。
+
+## 一、最小事件示例
+
+```java
+public record OrderCreatedEvent(Long orderId, Long userId) {}
+
+@Service
+public class OrderService {
+    private final ApplicationEventPublisher publisher;
+
+    @Transactional
+    public Long create(CreateOrderCommand command) {
+        Order order = orderRepository.save(...);
+        publisher.publishEvent(new OrderCreatedEvent(order.getId(), order.getUserId()));
+        return order.getId();
+    }
+}
+
+@Component
+public class CouponListener {
+    @EventListener
+    public void onOrderCreated(OrderCreatedEvent event) {
+        couponService.issue(event.userId());
+    }
+}
+```
+
+发布者只知道“订单已创建”这一事实，不知道优惠券、积分或通知等监听者。
+
+## 二、默认事件是同步调用
+
+默认 `ApplicationEventMulticaster` 会在发布线程中依次调用监听器：
+
+```text
+orderService.create()
+ -> publishEvent()
+   -> listener A
+   -> listener B
+ -> create() 继续执行
+```
+
+因此：
+
+- 监听器耗时会增加主调用耗时。
+- 监听器抛出运行时异常，会向发布者传播。
+- 若发布发生在事务中，监听器数据库操作可能加入当前事务。
+- 所有逻辑仍在一个 JVM，不能跨服务消费。
+
+同步不是缺点。对于必须同成同败、执行很快的进程内扩展，它反而简单且一致。
+
+## 三、事件对象应该表达“事实”
+
+好的事件通常使用已经发生的过去式：`OrderCreated`、`PaymentSucceeded`。它应包含监听器完成工作所需的稳定标识，但不要直接携带可变 JPA 实体。
+
+```java
+public record PaymentSucceededEvent(
+    String eventId,
+    Long orderId,
+    BigDecimal amount,
+    Instant occurredAt) {}
+```
+
+携带实体容易遇到懒加载、事务关闭、监听器修改共享对象和序列化边界不清等问题。
+
+## 四、异步事件改变了什么
+
+最直接的方式是在监听器上使用 `@Async`：
+
+```java
+@Async("eventExecutor")
+@EventListener
+public void sendNotification(OrderCreatedEvent event) {
+    notificationService.send(event.orderId());
+}
+```
+
+异步降低主线程等待，但代价必须明确：
+
+- 原事务上下文不会自动传播到新线程。
+- 异步异常不能直接让发布者回滚。
+- 进程在任务执行前崩溃，事件会丢失。
+- 线程池满时可能拒绝任务或拖垮应用。
+- MDC、用户和租户上下文需显式传播与清理。
+
+因此，`@Async + @EventListener` 是进程内并发工具，不是可靠消息系统。
+
+## 五、事务事件监听器
+
+`@TransactionalEventListener` 可以把监听时机绑定到事务阶段：
+
+```java
+@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+public void afterOrderCommitted(OrderCreatedEvent event) {
+    searchIndexer.index(event.orderId());
+}
+```
+
+可选阶段包括：
+
+| 阶段 | 含义 |
+| --- | --- |
+| `BEFORE_COMMIT` | 提交前执行 |
+| `AFTER_COMMIT` | 成功提交后执行，默认 |
+| `AFTER_ROLLBACK` | 回滚后执行 |
+| `AFTER_COMPLETION` | 提交或回滚结束后执行 |
+
+`AFTER_COMMIT` 很适合避免“数据库最终回滚，但通知已经发出”。不过它仍然不可靠：数据库提交后、监听器执行前若进程崩溃，后续动作仍会丢。
+
+Spring Framework 6.1+ 也支持响应式事务绑定的事务事件，但 Reactor 事务上下文不存在线程 ThreadLocal 中。发布事件时需要按框架约定把事务上下文放入事件 source（可使用 `TransactionalEventPublisher`），不能把 JDBC 事务示例直接照搬到 WebFlux/R2DBC。
+
+## 六、AFTER_COMMIT 中再写数据库的陷阱
+
+事务提交后，原事务已经完成。同步 `AFTER_COMMIT` 回调执行时，原事务资源有时仍绑定在线程上，但不会再替这些新写入完成一次正常提交；这正是最隐蔽的陷阱。若需要独立落库，应调用另一个 Bean 上显式的新事务边界：
+
+```java
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+public void writeNotificationTask(Long orderId) { ... }
+```
+
+更稳妥的方案通常是在原事务内直接写 Outbox 表，而不是提交后再冒险创建任务。
+
+## 七、Spring 事件与消息队列的边界
+
+| 能力 | Spring 事件 | 消息队列 |
+| --- | --- | --- |
+| 范围 | 单 JVM | 跨进程、跨服务 |
+| 默认持久化 | 无 | 通常有 |
+| 重试/死信 | 需自建 | 通常提供 |
+| 吞吐削峰 | 能力有限 | 核心能力 |
+| 运维成本 | 低 | 较高 |
+| 事务一致性 | 同线程可加入本地事务 | 需事务消息或 Outbox |
+
+适合 Spring 事件的场景：模块内扩展、缓存失效、应用启动通知、轻量审计钩子，以及允许丢失的进程内异步任务。
+
+应优先消息队列的场景：跨服务通信、事件必须可靠到达、需要消费重试与死信、流量削峰、消费者独立扩缩容。
+
+## 八、可靠事件：Outbox 模式
+
+当“订单落库”和“发布消息”必须保持一致，可在同一个本地事务中写业务表与 Outbox 表：
+
+```text
+本地事务：
+  INSERT orders ...
+  INSERT event_outbox(event_id, type, payload, status) ...
+COMMIT
+
+后台发布器：
+  扫描未发送事件 -> 投递 MQ -> 标记已发送
+```
+
+即使应用在提交后立刻崩溃，Outbox 记录仍在，恢复后可继续发布。由于投递和标记之间仍可能崩溃，消费者必须按 `eventId` 实现幂等。
+
+## 九、多个监听器的顺序与耦合
+
+可以用 `@Order` 控制同步监听器顺序，但一旦业务正确性依赖复杂顺序，所谓“解耦”已经开始退化。此时应考虑显式编排服务，或者把后续步骤建模为状态机/工作流。
+
+监听器还要避免发布同类事件造成递归风暴，并防止 A 事件触发 B、B 又触发 A 的隐式环路。
+
+## 十、错误处理策略
+
+同步监听器：明确异常是否应回滚发布者事务。若不应影响主流程，应在监听器内捕获、记录，并转成可靠任务。
+
+异步监听器：为线程池设置有界队列、线程数、拒绝策略和异常处理器，建立失败指标和告警，不能只打一条日志。
+
+可靠消息消费者：使用有限次数重试、指数退避、死信队列、人工补偿和业务幂等，避免无限重试阻塞分区。
+
+## 十一、设计检查清单
+
+- 事件是“已经发生的事实”还是伪装成事件的命令？
+- 默认同步执行是否符合延迟和回滚预期？
+- 监听器失败应该阻止主事务吗？
+- `AFTER_COMMIT` 后进程崩溃导致丢失能否接受？
+- 是否需要跨服务、持久化、重试、死信和削峰？
+- 异步线程池是否隔离、限流并监控？
+- 事件是否有唯一 ID，消费者是否幂等？
+- 多监听器是否形成隐藏顺序或循环？
+
+## 总结
+
+Spring 事件最适合做单进程内的模块通知和扩展点。默认同步事件仍处于原调用链，可以共享事务，也会共享失败；异步事件脱离调用线程，却不具备持久化和可靠投递。只要业务要求“不能丢、可重试、跨服务”，就应考虑消息队列，并通过事务 Outbox 等模式解决数据库与消息的一致性问题。

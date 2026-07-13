@@ -1,0 +1,224 @@
+---
+title: Spring Boot 自动配置到底如何工作？从条件装配到自定义 Starter
+description: 深入分析 Spring Boot 自动配置的发现、导入、条件判断和属性绑定过程，并实现一个符合 Boot 3 规范的自定义 Starter。
+pubDate: 2026-03-03
+category:
+  discriminant: custom
+  value: Spring Boot
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Spring Boot
+  - discriminant: custom
+    value: 自动配置
+series: spring-deep-dive
+seriesOrder: 5
+draft: false
+---
+
+Spring Boot 最令人省心的地方，是引入依赖并写少量配置后，DataSource、MVC、Jackson 等组件就能工作。它不是扫描到某个 jar 就无条件创建所有对象，而是“发现候选配置 + 按条件筛选 + 用户配置优先”的组合机制。
+
+本文以 Spring Boot 3.x 为基线。Starter 应使用与目标 Boot 小版本兼容的 BOM/依赖管理，不要在库中随意固定一组 Spring Framework 版本；Boot 3 使用 Jakarta EE 命名空间，依赖仍使用 `javax.*` API 的旧 Starter 通常需要迁移后才能兼容。
+
+## 一、`@SpringBootApplication` 展开后是什么
+
+```java
+@SpringBootConfiguration
+@EnableAutoConfiguration
+@ComponentScan
+public @interface SpringBootApplication {}
+```
+
+`@ComponentScan` 扫描业务 Bean，`@EnableAutoConfiguration` 则负责导入第三方自动配置。二者来源不同：自动配置类不需要位于应用启动类的扫描包下。
+
+## 二、自动配置类从哪里被发现
+
+在 Spring Boot 3 中，自动配置候选通常登记在：
+
+```text
+META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+```
+
+文件每行一个全限定类名：
+
+```text
+com.example.sms.autoconfigure.SmsAutoConfiguration
+```
+
+启动时，自动配置导入选择器收集候选类，再结合排除项与条件注解决定哪些配置生效。旧教程常见的 `spring.factories` 自动配置注册方式，不应直接照搬到新的 Boot 3 Starter。
+
+## 三、条件注解如何控制装配
+
+```java
+@AutoConfiguration
+@ConditionalOnClass(SmsClient.class)
+@EnableConfigurationProperties(SmsProperties.class)
+public class SmsAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SmsClient smsClient(SmsProperties properties) {
+        return new SmsClient(properties.endpoint(), properties.apiKey());
+    }
+}
+```
+
+常用条件包括：
+
+| 注解 | 含义 |
+| --- | --- |
+| `@ConditionalOnClass` | classpath 存在指定类 |
+| `@ConditionalOnMissingClass` | classpath 不存在指定类 |
+| `@ConditionalOnBean` | 容器已有指定 Bean |
+| `@ConditionalOnMissingBean` | 用户尚未提供同类 Bean |
+| `@ConditionalOnProperty` | 配置属性满足条件 |
+| `@ConditionalOnWebApplication` | 当前为 Web 应用 |
+
+`@ConditionalOnMissingBean` 是“用户配置优先”的关键：业务方自定义 `SmsClient` 后，默认 Bean 自动退让。
+
+条件应尽量写在自动配置类上。把可选依赖类型直接放进会被 JVM 过早解析的方法签名，可能在条件来得及退让前触发 `NoClassDefFoundError`；官方自动配置常用嵌套 `@Configuration` 隔离可选类，并用集成测试验证“依赖缺失”路径。
+
+## 四、条件判断发生得早，顺序很重要
+
+条件不是运行期每次调用时判断，而是在配置类解析和 BeanDefinition 注册阶段评估。若一个条件依赖另一个自动配置已经注册 Bean，需要声明顺序：
+
+```java
+@AutoConfiguration(after = DataSourceAutoConfiguration.class)
+public class AuditAutoConfiguration { }
+```
+
+`before/after` 控制定义处理顺序，不等于 Bean 初始化顺序。Bean 初始化仍应通过构造器依赖表达。
+
+## 五、配置属性绑定
+
+```java
+@ConfigurationProperties(prefix = "demo.sms")
+public record SmsProperties(
+        String endpoint,
+        String apiKey,
+        Duration timeout) {
+    public SmsProperties {
+        if (timeout == null) timeout = Duration.ofSeconds(3);
+    }
+}
+```
+
+业务配置：
+
+```yaml
+demo:
+  sms:
+    endpoint: https://sms.example.com
+    api-key: ${SMS_API_KEY}
+    timeout: 5s
+```
+
+相比在多个位置散落 `@Value`，类型安全的配置对象更适合校验、IDE 提示、测试和演进。敏感密钥不要写入仓库，应通过环境变量或密钥管理系统注入。
+
+## 六、实现一个完整 Starter
+
+推荐拆成两个模块：
+
+```text
+sms-spring-boot-autoconfigure  # 自动配置实现
+sms-spring-boot-starter        # 聚合依赖，使用方只引入它
+```
+
+自动配置模块包含：
+
+```text
+src/main/java/.../SmsProperties.java
+src/main/java/.../SmsAutoConfiguration.java
+src/main/resources/META-INF/spring/
+  org.springframework.boot.autoconfigure.AutoConfiguration.imports
+```
+
+按属性启用：
+
+```java
+@AutoConfiguration
+@ConditionalOnClass(SmsClient.class)
+@ConditionalOnProperty(
+    prefix = "demo.sms", name = "enabled",
+    havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties(SmsProperties.class)
+public class SmsAutoConfiguration {
+    @Bean
+    @ConditionalOnMissingBean
+    SmsClient smsClient(SmsProperties p) {
+        return new SmsClient(p.endpoint(), p.apiKey());
+    }
+}
+```
+
+## 七、如何测试自动配置
+
+`ApplicationContextRunner` 能以很低成本测试不同 classpath 和配置组合：
+
+```java
+class SmsAutoConfigurationTest {
+    private final ApplicationContextRunner runner =
+        new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(SmsAutoConfiguration.class));
+
+    @Test
+    void createsDefaultClient() {
+        runner.withPropertyValues(
+                "demo.sms.endpoint=http://localhost",
+                "demo.sms.api-key=test")
+            .run(context -> assertThat(context).hasSingleBean(SmsClient.class));
+    }
+
+    @Test
+    void backsOffForUserBean() {
+        runner.withBean(SmsClient.class, () -> new SmsClient("custom", "key"))
+            .run(context -> assertThat(context).hasSingleBean(SmsClient.class));
+    }
+}
+```
+
+至少测试默认创建、属性关闭、用户 Bean 覆盖、必要类缺失和配置绑定五类场景。
+
+## 八、自动配置为什么没有生效
+
+启动时加 `--debug`，或配置：
+
+```properties
+debug=true
+```
+
+条件评估报告会展示 positive matches、negative matches 与 exclusions。也可以通过 Actuator 的 `/actuator/conditions` 查看。
+
+常见原因包括：
+
+- imports 文件路径或类名写错。
+- `@ConditionalOnClass` 检查的类没有进入运行时 classpath。
+- 属性名称、值或 `matchIfMissing` 不符合预期。
+- 用户已经声明同类型 Bean，触发退让。
+- 自动配置类被 `exclude` 排除。
+- 条件依赖的 Bean 注册顺序不正确。
+
+## 九、设计自动配置的工程原则
+
+- 自动配置类不要放到业务组件扫描路径中，避免被导入两次。
+- 默认值应安全、保守，外部服务不要在启动时做不可控重操作。
+- 所有默认 Bean 尽量允许用户覆盖。
+- 对必要属性做清晰校验，错误信息要直接指出配置键。
+- 不要仅因类存在就开启高风险功能，可增加显式 enabled 开关。
+- 配置项变更要考虑兼容性和弃用周期。
+
+## 十、发布检查清单
+
+- 使用与目标 Spring Boot 大版本一致的依赖管理。
+- imports 文件已打包进最终 jar。
+- 条件注解覆盖依赖、配置和用户覆盖逻辑。
+- 属性元数据能让 IDE 自动提示。
+- 自动配置模块已配置 `spring-boot-configuration-processor` 生成属性元数据，且未把处理器错误地带到运行时。
+- `ApplicationContextRunner` 覆盖正反条件。
+- Starter 不携带不必要的重量级传递依赖。
+- 日志不输出密钥、令牌等敏感配置。
+
+## 总结
+
+Spring Boot 自动配置并非神秘的全局扫描，而是一组明确登记的配置候选。Boot 根据 classpath、现有 Bean、配置属性和应用类型逐层筛选，再通过“缺失时创建”让用户配置拥有更高优先级。掌握候选发现、条件评估和配置绑定三条主线，就能读懂官方自动配置，也能写出可靠的 Starter。

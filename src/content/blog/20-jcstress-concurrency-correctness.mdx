@@ -1,0 +1,119 @@
+---
+title: 并发 Bug 为什么难以复现？用 jcstress 验证竞态与重排
+description: 介绍 jcstress 的 Actor/Arbiter 模型，并用丢失更新、消息发布和安全发布实验验证并发结论。
+pubDate: 2026-04-21
+category: 并发编程
+tags:
+  - jcstress
+  - Java内存模型
+  - 数据竞争
+  - 指令重排
+  - 并发测试
+series: java-concurrency
+seriesOrder: 8
+draft: false
+---
+
+# 并发 Bug 为什么难以复现？用 jcstress 验证竞态与重排
+
+给并发代码加循环、睡眠后跑几次，并不能证明正确。Bug 是否出现取决于 JIT 编译、CPU 缓存、指令交错和运行时机。`jcstress` 是 OpenJDK 提供的并发压力测试工具，它通过大量调度组合收集结果，并允许我们声明哪些结果可接受、哪些意味着错误。
+
+## 为什么普通单元测试不够
+
+单元测试擅长验证确定的输入输出，而数据竞争可能一亿次才出现一次。`Thread.sleep()` 只能改变时间，不能精确制造内存模型允许的交错；在本机 x86 没出现，也不代表 ARM 或未来 JIT 下安全。
+
+jcstress 测试通常包含：共享状态、并发执行的 Actor、可选的 Arbiter，以及结果分类。它不是模型证明，但比手写循环更系统、更可复现。
+
+## 实验一：`i++` 丢失更新
+
+```java
+@JCStressTest
+@Outcome(id = "2", expect = Expect.ACCEPTABLE, desc = "两次更新均保留")
+@Outcome(id = "1", expect = Expect.ACCEPTABLE_INTERESTING, desc = "发生丢失更新")
+@State
+public class LostUpdateTest {
+    int value;
+
+    @Actor public void actor1() { value++; }
+    @Actor public void actor2() { value++; }
+    @Arbiter public void arbiter(I_Result r) { r.r1 = value; }
+}
+```
+
+`volatile int value` 也不能修复，因为自增包含读、加、写三个动作。正确做法是 `AtomicInteger.incrementAndGet()`、锁，或按业务重新设计为分段计数。
+
+## 实验二：消息发布与可见性
+
+```java
+@JCStressTest
+@Outcome(id = "0", expect = Expect.ACCEPTABLE, desc = "尚未看到信号")
+@Outcome(id = "42", expect = Expect.ACCEPTABLE, desc = "看到完整消息")
+@Outcome(id = "-1", expect = Expect.FORBIDDEN, desc = "看到信号却没看到数据")
+@State
+public class MessagePassingTest {
+    int data;
+    volatile boolean ready;
+
+    @Actor public void writer() {
+        data = 42;
+        ready = true;
+    }
+
+    @Actor public void reader(I_Result r) {
+        boolean seenReady = ready;
+        int seenData = data;
+        r.r1 = !seenReady ? 0 : (seenData == 42 ? 42 : -1);
+    }
+}
+```
+
+对 `ready` 的 volatile 写与后续读建立 happens-before，写线程此前的 `data=42` 对读线程可见。去掉 volatile 后，不应再假设该发布安全。注意结果定义要覆盖所有可能值，不能把未列出的结果草率忽略。
+
+## 实验三：对象是否安全发布
+
+```java
+@State
+public class PublicationTest {
+    static final class Holder { int x = 1; }
+    Holder holder;
+
+    @Actor public void publish() { holder = new Holder(); }
+
+    @Actor public void consume(II_Result r) {
+        Holder h = holder;
+        r.r1 = (h == null ? 0 : 1);
+        r.r2 = (h == null ? 0 : h.x);
+    }
+}
+```
+
+这个实验用于讨论错误发布，但具体可观察结果受内存模型与对象 final 字段语义影响。修复方式应建立清晰的 happens-before：volatile 引用、锁保护、静态初始化或并发容器，而不是依赖“构造函数已经执行完”。
+
+## Maven 运行方式
+
+建议使用 jcstress 官方 archetype 生成独立项目，测试代码放在 `src/main/java`，避免普通测试框架干预。构建后运行生成的可执行 JAR：
+
+```text
+mvn clean verify
+java -jar target/jcstress.jar -t '.*LostUpdateTest' -v
+```
+
+在目标生产 JDK、不同 CPU 架构和多次 fork 下运行。结果表中的样本数表示观察频率，未观察到禁止结果只能增加信心，不能成为形式化证明。
+
+## 如何写出有价值的测试
+
+测试应尽量小，只验证一个并发属性；Actor 中避免日志、睡眠和无关分配，因为它们会扰动调度。先从 Java 内存模型推导允许结果，再编写 `@Outcome`，不要运行后才把所有已出现结果标为 acceptable。
+
+对锁、容器等高层组件，要测试业务不变量而非实现细节。例如库存扣减应验证“成功次数不超过库存、库存不为负、总量守恒”。
+
+## 生产检查清单
+
+- 是否把“跑了很多次没失败”误当成正确性证明？
+- 测试是否隔离到最小共享状态？
+- 所有结果分类是否先由规范推导？
+- 是否覆盖目标 JDK、架构和编译模式？
+- 是否区分原子性、可见性与有序性？
+- 修复是否建立明确 happens-before，而非增加 sleep？
+- 是否同时通过代码审查和业务级压力测试验证？
+
+jcstress 最有价值的地方，是迫使我们把“我觉得线程安全”变成可陈述、可枚举、可实验的并发契约。

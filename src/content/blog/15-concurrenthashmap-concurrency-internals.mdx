@@ -1,0 +1,99 @@
+---
+title: ConcurrentHashMap 在高并发下是如何工作的？
+description: 解析 JDK 8+ ConcurrentHashMap 的 CAS 插入、桶级同步、协作扩容和分散计数。
+pubDate: 2026-01-02
+category: 并发编程
+tags:
+  - ConcurrentHashMap
+  - CAS
+  - 红黑树
+  - 扩容
+  - 源码分析
+series: java-concurrency
+seriesOrder: 3
+draft: false
+---
+
+# ConcurrentHashMap 在高并发下是如何工作的？
+
+本文描述的是 OpenJDK 8～25 这一代实现的主干设计，而不是 Java API 永久承诺。`ConcurrentHashMap` 的重点不是“完全无锁”，而是把竞争限制到尽可能小的范围：空桶用 CAS，冲突桶通常采用桶级协调，读取尽量不加锁，扩容则允许多个线程协作。
+
+## 结构：数组加链表/红黑树
+
+哈希经过扰动后定位桶：
+
+```java
+static final int spread(int h) {
+    return (h ^ (h >>> 16)) & HASH_BITS;
+}
+```
+
+高位参与低位索引，减少差的 `hashCode()` 带来的碰撞。桶为空时，线程 CAS 写入新节点；桶非空时进入相应桶的协调路径，遍历链表或红黑树更新。普通链表桶更新通常在当前桶首节点上同步；树桶还涉及 `TreeBin` 自己的协调状态。这些属于实现而非 API 规范，未来 JDK 可以替换；工程代码只能依赖 `ConcurrentMap` 的原子方法契约，不能依赖具体锁对象。
+
+## put 的关键路径
+
+可以把 `putVal` 简化为：
+
+```java
+for (;;) {
+    if (table == null) initTable();
+    else if (bucket == null) {
+        if (casTabAt(table, index, null, new Node<>(...))) break;
+    } else if (bucket.hash == MOVED) {
+        table = helpTransfer(table, bucket);
+    } else {
+        synchronized (bucket) {
+            // 确认桶首未变化，再更新链表或树
+        }
+        break;
+    }
+}
+addCount(1L, binCount);
+```
+
+进入 `synchronized` 后仍要确认数组当前位置就是此前看到的桶首，否则扩容或其他更新可能已改变结构。
+
+## 为什么 get 通常不加锁
+
+数组槽和节点关键字段具有可见性保障，节点发布后，读取线程可沿链表或树查找。读取到的是某个并发时刻的有效结果，但遍历不是全局快照。`size()`、迭代器和批量操作同样提供弱一致性：允许与并发修改共存，不抛 `ConcurrentModificationException`，也不保证反映单一瞬间。
+
+因此不要写出“先 `containsKey` 再 `put`”的检查后执行竞态：
+
+```java
+// 错误：两个线程都可能通过检查
+if (!map.containsKey(key)) map.put(key, load(key));
+
+// 原子表达意图
+map.computeIfAbsent(key, this::load);
+```
+
+映射函数应短小、无递归更新。规范保证整个调用原子完成，但不要把“函数只执行一次”扩展成跨失败、跨进程的业务承诺；函数抛异常时不会建立映射。不能把慢 RPC 塞进去，否则热点桶和同 Key 请求会被拖住；函数也不应修改本 Map 中会造成递归检测或锁依赖的其他映射。对于昂贵加载，可存储 `CompletableFuture<V>` 合并请求并单独控制超时，同时在加载失败时移除失败 Future，避免永久缓存异常结果。
+
+## 多线程如何协作扩容
+
+容量不足时不会简单地由一个线程搬完整张表。线程领取一段桶区间迁移到 `nextTable`；已迁移桶放置 `ForwardingNode`。其他线程遇到它时能定位新表，写线程还可加入搬迁。
+
+容量翻倍后，一个旧桶的节点只会留在原索引或移动到 `oldIndex + oldCapacity`，依据哈希的新增一位判断，不必重新取模。协作扩容缩短单线程停顿，但扩容期间仍消耗 CPU 和内存带宽，所以合理初始化容量依然有价值。
+
+## size 为什么不是一个简单计数器
+
+单一原子计数在高并发写入下会成为热点。实现采用类似 `LongAdder` 的基础计数与分散计数单元，读取大小时求和。因此 `mappingCount()` 更适合表达可能超过 `int` 的估计数量；无论 `size()` 还是 `mappingCount()`，都不应作为并发控制条件。
+
+## 树化并非碰撞就立即发生
+
+链表达到阈值后，如果表容量还小，优先扩容；容量足够时才树化。红黑树改善恶意或极端碰撞下的查询复杂度，但不能弥补业务键错误地让大量对象拥有相同哈希。
+
+## 实验设计
+
+构造三组 key：均匀哈希、固定哈希、少量热点桶。用 JMH `@Group` 同时执行读写，分别测试初始容量、并发度和读写比例。记录吞吐外，还应使用 JFR 观察锁竞争与分配，比较扩容前后的尾延迟。
+
+## 生产检查清单
+
+- Key 是否不可变，`equals/hashCode` 是否一致且分布良好？
+- 是否使用 `compute`、`merge` 等原子复合操作替代检查后执行？
+- 映射函数是否可能阻塞、抛异常或递归修改同一 Map？
+- 是否把 `size()` 当成精确并发条件？
+- 已知数据量时是否设置合理初始容量？
+- 缓存是否有上限和淘汰策略？`ConcurrentHashMap` 本身不会淘汰。
+
+它解决的是并发容器的数据结构安全，不会自动解决缓存击穿、无限增长或跨多个键的事务一致性。

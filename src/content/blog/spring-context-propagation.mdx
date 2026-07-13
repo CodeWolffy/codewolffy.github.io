@@ -1,0 +1,219 @@
+---
+title: Spring 中如何正确传播用户、租户和链路上下文？
+description: 系统分析 ThreadLocal、MDC、SecurityContext 在异步线程、CompletableFuture、Reactor 和虚拟线程中的传播与清理方案。
+pubDate: 2026-06-12
+category:
+  discriminant: custom
+  value: Spring
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: 上下文传播
+  - discriminant: custom
+    value: 链路追踪
+series: spring-deep-dive
+seriesOrder: 10
+draft: false
+---
+
+在同步 Spring MVC 请求中，把租户 ID、用户信息或 traceId 放进 `ThreadLocal` 看起来很自然。但一旦代码进入 `@Async`、`CompletableFuture`、并行流、消息消费或 Reactor，执行线程发生变化，原上下文就会丢失；若线程池复用了残留值，更危险的结果是把 A 用户的上下文带给 B 用户。
+
+## 一、先区分要传播的内容
+
+常见上下文包括：
+
+- 认证：用户 ID、角色、`SecurityContext`；
+- 租户：数据隔离所需 tenantId；
+- 可观测性：trace/span、MDC 日志字段；
+- 请求元数据：语言、请求 ID、灰度标签；
+- 截止时间：剩余超时预算。
+
+上下文应尽量小、不可变，不要塞入 `HttpServletRequest`、JPA Entity、连接或大对象。业务正确性依赖的参数，优先显式传参；隐式上下文更适合横切信息。
+
+## 二、ThreadLocal 为什么在线程池中失效
+
+```java
+tenantHolder.set("tenant-a");
+executor.execute(() -> repository.query());
+```
+
+提交线程与执行线程不同，普通 `ThreadLocal` 不会自动复制。即使使用 `InheritableThreadLocal`，它也只在线程创建时继承；线程池工作线程早已存在，之后每次任务提交不会重新继承。更糟的是，可变对象可能被父子线程共享。
+
+所有设置都必须成对清理：
+
+```java
+try {
+    TenantContext.set(tenantId);
+    chain.doFilter(request, response);
+} finally {
+    TenantContext.clear();
+}
+```
+
+没有 `finally` 的 ThreadLocal 是线程池数据串扰和内存泄漏的高发源。
+
+## 三、在 Web 入口建立和验证上下文
+
+可以在 `OncePerRequestFilter` 中解析请求头，但不能直接信任客户端传入的租户：
+
+```java
+protected void doFilterInternal(HttpServletRequest request,
+                                HttpServletResponse response,
+                                FilterChain chain) throws Exception {
+    String requestId = requestIdResolver.resolve(request);
+    Authentication authentication = SecurityContextHolder
+        .getContext().getAuthentication();
+    String tenantId = tenantResolver.resolveAndAuthorize(request, authentication);
+
+    try (MDC.MDCCloseable ignored1 = MDC.putCloseable("requestId", requestId);
+         MDC.MDCCloseable ignored2 = MDC.putCloseable("tenantId", tenantId)) {
+        TenantContext.set(tenantId);
+        chain.doFilter(request, response);
+    } finally {
+        TenantContext.clear();
+    }
+}
+```
+
+租户必须与认证主体的授权关系校验。仅把请求头写进 ThreadLocal，会形成水平越权漏洞。
+
+## 四、TaskDecorator：在线程池边界捕获与恢复
+
+Spring 的 `TaskDecorator` 可在任务提交时捕获上下文，在工作线程执行时安装，并在结束后恢复原状态：
+
+如果项目已经使用 Micrometer Observation/Tracing，Spring Framework 6.1+ 可优先评估 `ContextPropagatingTaskDecorator` 与 Micrometer Context Propagation，通过统一注册的 accessors 传播观测上下文。它会增加快照捕获成本，更适合边界任务而非极细粒度的海量小任务；租户等业务上下文仍要显式注册、审计信任来源，不能假设框架自动识别。
+
+```java
+public class ContextTaskDecorator implements TaskDecorator {
+    @Override
+    public Runnable decorate(Runnable task) {
+        Map<String, String> callerMdc = MDC.getCopyOfContextMap();
+        String callerTenant = TenantContext.getNullable();
+        SecurityContext callerSecurity = SecurityContextHolder.getContext();
+
+        return () -> {
+            Map<String, String> workerMdc = MDC.getCopyOfContextMap();
+            String workerTenant = TenantContext.getNullable();
+            SecurityContext workerSecurity = SecurityContextHolder.getContext();
+            try {
+                setMdc(callerMdc);
+                TenantContext.setNullable(callerTenant);
+                SecurityContextHolder.setContext(callerSecurity);
+                task.run();
+            } finally {
+                setMdc(workerMdc);
+                TenantContext.setNullable(workerTenant);
+                SecurityContextHolder.setContext(workerSecurity);
+            }
+        };
+    }
+}
+```
+
+配置给明确的执行器：
+
+```java
+@Bean("applicationExecutor")
+ThreadPoolTaskExecutor applicationExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setTaskDecorator(new ContextTaskDecorator());
+    executor.setCorePoolSize(8);
+    executor.setQueueCapacity(200);
+    return executor;
+}
+```
+
+这里强调“恢复”而不只是 `clear`，因为装饰器可能嵌套运行在本来已有上下文的线程中。`SecurityContext` 是否需要深拷贝取决于其中对象是否可变，不能盲目共享可变认证状态。
+
+## 五、@Async 与 CompletableFuture 的陷阱
+
+`@Async` 应显式指定已经配置传播策略的线程池：
+
+```java
+@Async("applicationExecutor")
+public CompletableFuture<Result> calculate(Command command) { ... }
+```
+
+`CompletableFuture.supplyAsync()` 不指定 executor 时通常使用公共 ForkJoinPool，它不知道应用的 TaskDecorator：
+
+```java
+CompletableFuture.supplyAsync(task, applicationExecutor);
+```
+
+后续 `thenApplyAsync`、`whenCompleteAsync` 也要检查执行器。非 `Async` 的阶段可能在完成上游任务的任意线程执行，不应假设它一定回到请求线程。
+
+并行流同样使用公共池且执行位置不直观。涉及租户、事务或安全上下文的业务代码，通常不应依赖并行流隐式传播。
+
+## 六、Spring Security 上下文
+
+Spring Security 提供 `DelegatingSecurityContextRunnable`、`DelegatingSecurityContextExecutor` 等包装器，专门捕获并恢复 `SecurityContext`。如果只需传播认证，优先使用框架能力，而不是复制一套容易漏清理的实现。
+
+但认证传播不等于授权完成。异步任务执行时用户权限可能已变化；高风险操作应根据业务要求重新查询授权状态，而不是永远信任提交任务时的快照。
+
+## 七、Reactor 中不要依赖 ThreadLocal
+
+WebFlux 链路会在线程间切换，同一个线程也会交错执行多个请求。Reactor 提供与订阅链绑定的 `Context`：
+
+```java
+return Mono.deferContextual(context -> {
+    String tenantId = context.get("tenantId");
+    return repository.findForTenant(tenantId);
+}).contextWrite(context -> context.put("tenantId", tenantId));
+```
+
+`Context` 的方向与普通参数不同：通常由下游订阅时写入，上游通过 `deferContextual` 读取。把 ThreadLocal 直接带进响应式链，会在调度切换时丢失或串扰。
+
+若要把 Micrometer Tracing、MDC 或自定义 ThreadLocal 与 Reactor 对接，可评估 Micrometer Context Propagation 提供的快照与注册机制，但要统一入口，避免框架自动传播和手工包装重复安装。
+
+## 八、虚拟线程并不会自动解决上下文语义
+
+虚拟线程让“一任务一线程”成本更低，降低了平台线程池复用引起的部分串扰风险，但普通 ThreadLocal 仍不会凭空跨到另一个新虚拟线程。创建任务时是否继承、传播哪些内容，仍需显式设计。
+
+而且把大对象放入每个虚拟线程的 ThreadLocal 会放大内存消耗。Java 25 已正式提供 `ScopedValue`，它适合不可变、词法作用域内的请求上下文，并能与结构化任务的继承语义配合；它不是可变 ThreadLocal 的直接替代，也不会自动跨进程。虚拟线程解决的是线程资源模型，不是认证、租户和追踪的业务边界。
+
+## 九、跨进程传播必须显式编码
+
+调用下游 HTTP/RPC 或发送消息时，上下文需要进入协议头或消息元数据：
+
+```text
+traceparent: W3C Trace Context
+x-request-id: 诊断请求 ID
+x-tenant-id: 服务间约定的租户声明
+```
+
+下游不能因为请求来自内网就无条件信任这些字段。应通过服务身份认证、签名或网关策略建立信任边界，并限制可传播字段，防止把令牌、Cookie 和个人数据写入日志或消息。
+
+异步消息中的用户身份可能在消费时已过期。应区分“操作发起者审计信息”和“消费端实时授权凭据”。
+
+## 十、失败与超时也属于上下文
+
+只传播 traceId，却不传播截止时间，会让上游超时后下游继续浪费资源。跨服务调用可传递剩余预算，在每一跳扣除网络和处理时间，并确保下游超时小于上游剩余时间。
+
+取消信号同样重要：客户端断开或请求取消后，后台任务是否继续应由业务语义决定。不能把 `Future.cancel` 当作数据库操作一定终止的保证。
+
+## 十一、测试上下文传播
+
+至少覆盖以下并发测试：
+
+- A、B 两个租户高并发交错，请求结果绝不串租户；
+- 异步任务正常、抛异常和被拒绝时都完成清理；
+- 嵌套异步调用后恢复调用线程原上下文；
+- Reactor 多次 `publishOn` 后上下文仍正确；
+- 线程池复用同一工作线程时没有残留；
+- 跨服务只传播白名单字段。
+
+可在线程池大小设为 1 的测试中连续提交不同上下文任务，更容易暴露残留值。
+
+## 十二、设计检查清单
+
+- 业务必需信息能否改为显式参数？
+- 每个 ThreadLocal 是否在 `finally` 中恢复或清理？
+- 所有异步入口是否使用受控 executor？
+- 是否误用公共 ForkJoinPool 或并行流？
+- Reactor 是否使用自己的 Context 模型？
+- 租户声明是否经过认证与授权校验？
+- 跨进程传播字段是否最小化并避免敏感信息？
+- 是否传播超时预算并测试异常路径？
+
+上下文传播不是“复制几个 ThreadLocal”，而是跨越线程、调度模型和进程边界的一份契约。可靠方案必须同时定义捕获时机、安装范围、清理方式、信任边界和失败语义。

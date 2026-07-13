@@ -1,0 +1,93 @@
+---
+title: 如何设计一个真正可观测的 Spring Boot 服务？日志、指标与追踪
+description: 基于 Micrometer、Actuator 与 OpenTelemetry，设计围绕 SLO 的日志、指标、Trace 和告警体系。
+pubDate: 2026-05-26
+category: 工程实践
+tags:
+  - Spring Boot
+  - 可观测性
+  - Micrometer
+  - OpenTelemetry
+  - SLO
+series: reliability-engineering
+seriesOrder: 8
+draft: false
+---
+
+“接入日志、Prometheus 和链路追踪”只是拥有工具。真正的可观测性要求在未知故障发生时，能从外部信号推断系统内部状态，并快速回答：谁受影响、从何时开始、瓶颈在哪、与哪个版本相关。
+
+本文以 Spring Boot 3.x 的 Micrometer Observation/Tracing 与 OpenTelemetry 生态为基线。Boot 3 不等于所有小版本都支持同一组属性或 OTel 语义约定；升级时应固定并记录 Boot、Micrometer、OTel Java Agent/SDK 和 Collector 版本，避免把语义属性重命名误判成指标消失。
+
+## 从 SLO 设计信号
+
+先定义用户视角的服务水平：例如订单查询 99.9% 可用，成功请求 P99 小于 500ms。指标围绕 RED：Rate、Errors、Duration；资源围绕 USE：Utilization、Saturation、Errors。告警应针对错误预算燃烧率，而不是 CPU 超过 80% 就永远报警。
+
+Spring Boot 配置示例：
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: order-service
+```
+
+Actuator 端点不可直接暴露公网；health 详情、环境和配置可能泄露敏感信息。存活探针只判断进程是否需重启，就绪探针判断是否接流量，不应因一个可降级的非核心依赖失败而反复重启实例。
+
+## 指标：控制基数
+
+```java
+Timer timer = Timer.builder("order.query")
+    .tag("result", result)
+    .publishPercentileHistogram()
+    .register(registry);
+```
+
+标签应是有限集合。`result` 必须先归一成 `success`、`not_found` 等有限值，不能直接使用异常消息。userId、orderId、原始 URL 会产生高基数，耗尽监控系统内存。路径应使用路由模板 `/orders/{id}`。百分位优先通过 histogram 在监控后端聚合，客户端计算的 percentile 通常不能跨实例正确聚合。直方图也会按标签组合产生大量 time series，应为 bucket、标签和保留期建立容量预算；Prometheus native histogram 是否采用，要按当前服务端与查询链支持情况验证。
+
+在 Spring Boot 3 中，核心业务埋点可优先围绕 `ObservationRegistry` 建模一次 Observation，让同一语义按配置生成指标和 span；仅需要聚合数值时直接使用 Meter 仍然合理。不要为了“统一”给每条循环或极细粒度方法都创建 span。
+
+## 结构化日志
+
+每条关键日志包含 timestamp、level、service、instance、traceId、业务操作和稳定错误码。异常只在责任边界记录一次，避免每层重复打印同一堆栈。PII、密码、Token、银行卡和完整请求体必须脱敏或禁止记录。
+
+日志适合离散事件和细节，不适合计算每秒成功率；指标适合聚合趋势，不适合保存订单上下文；Trace 适合单请求因果路径。三者用 traceId、版本和实例标签关联，而不是互相替代。
+
+## Trace 与上下文传播
+
+可以使用 Spring/Micrometer 原生 instrumentation，也可以用 OpenTelemetry Java Agent 覆盖 HTTP、数据库和消息组件，再为核心业务阶段增加手工 span。必须明确谁负责哪一层：同时启用 Agent 和框架内同类 instrumentation 可能生成重复 span、重复指标或冲突的上下文。异步线程池、`CompletableFuture`、消息生产消费需要传播 W3C Trace Context；baggage 只放严格白名单的小字段，因为它会跨服务复制并可能泄露敏感信息。
+
+Span 属性只保留可诊断且低风险的信息，并遵循所用版本的 OpenTelemetry semantic conventions；SQL 参数和消息正文默认不采集。尾部采样能优先保留错误和高延迟请求，但 Collector 需要缓存 trace，必须监控内存、决策延迟和丢弃率。若只使用头部采样，应显式设置生产采样率，不要沿用开发环境的 100%。traceId 可通过 exemplar 关联指标样本，而不是作为指标标签。
+
+遥测导出也需要稳定性边界：应用到 Collector 使用 TLS/认证，Exporter 队列有界，Collector 故障时丢遥测而不是阻塞核心请求；同时监控 dropped spans、dropped logs、export failures 和 Collector 自身饱和度。可观测性链路不能成为业务雪崩的新依赖。
+
+## 建议仪表盘
+
+第一屏显示 SLO、QPS、错误率、P50/P95/P99；第二屏显示线程池队列、连接池 pending、JVM 暂停、CPU throttling；下游依赖按 route 展示调用率、错误和延迟。每次发布打 deployment marker，故障时首先确认是否与变更同窗。
+
+告警必须可行动：包含影响、开始时间、相关仪表盘和 Runbook。磁盘即将耗尽应报警；单次 Full GC 不一定需要叫醒值班人员。用多窗口燃烧率同时捕获快速大故障与缓慢消耗。
+
+## 验证可观测性
+
+在预发主动制造慢 SQL、线程池饱和、依赖 500、消息积压和 Trace 上下文断裂，检查能否仅靠现有信号定位。若每次事故后都要临时发版加日志，说明观测模型仍有盲区。
+
+## 生产检查清单
+
+- 是否从用户 SLO 和错误预算出发设计告警？
+- 指标标签是否有基数预算与治理规则？
+- 自动 Agent 与框架 instrumentation 是否明确分工并验证无重复遥测？
+- 日志、指标、Trace 是否能通过 traceId/版本/实例关联？
+- 异步与消息链路是否正确传播上下文？
+- Actuator 和遥测数据是否受鉴权与脱敏保护？
+- 告警是否附带仪表盘、Runbook 且能直接行动？
+- 是否通过故障注入验证观测覆盖？
+- Collector/Exporter 故障时是否有界降级，并能看到遥测丢弃量？
+
+可观测性不是上线后的附属功能，而是服务接口的一部分：没有证据快速解释其行为，就无法可靠运营它。

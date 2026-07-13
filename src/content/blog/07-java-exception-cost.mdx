@@ -1,0 +1,171 @@
+---
+title: Java 异常处理的隐藏成本：真正昂贵的是哪一步？
+description: 分析异常对象创建、栈追踪、抛出捕获、日志 I/O 对性能的影响，并给出可靠的 JMH 测试方法。
+pubDate: 2026-04-12
+category: JVM
+tags:
+  - Java
+  - 异常处理
+  - 性能优化
+  - JMH
+  - JVM
+series: jvm-java-core
+seriesOrder: 7
+draft: false
+---
+
+“异常很慢，所以不能用异常”过于绝对。异常机制的不同阶段成本差异很大：设置一个错误码很便宜，创建带完整栈轨迹的异常更贵，打印日志和同步写磁盘可能更贵。工程上要避免的是用异常表达高频正常分支，而不是为了性能放弃清晰的错误边界。
+
+## 1. 异常的成本拆分
+
+一次异常路径大致包括：
+
+1. 创建异常对象；
+2. 捕获当前线程栈轨迹；
+3. 执行 `throw` 并查找匹配处理器；
+4. 展开调用栈并进入 `catch/finally`；
+5. 格式化栈轨迹；
+6. 写日志、上报监控或序列化响应。
+
+多数普通异常在构造时通过 `Throwable.fillInStackTrace()` 捕获栈信息。调用栈越深、抛出频率越高，累计 CPU 和分配压力越明显。`printStackTrace` 或日志框架还要把栈元素格式化成文本，输出目标若是磁盘或网络，成本进一步放大。
+
+## 2. 不抛出，创建异常也可能很贵
+
+```java
+for (int i = 0; i < 1_000_000; i++) {
+    RuntimeException ex = new RuntimeException("failed");
+}
+```
+
+即使没有 `throw`，构造过程仍可能捕获栈轨迹。反过来，重复抛出同一个异常避免了重复创建，却会产生错误栈位置、并发安全和可读性问题，不应作为普通优化方案。
+
+自定义无栈异常可调用 Throwable 的受保护构造器：
+
+```java
+final class FastSignal extends RuntimeException {
+    FastSignal(String message) {
+        super(message, null, false, false);
+    }
+}
+```
+
+它只适合经过测量的内部控制信号，并且必须接受“没有诊断栈”的代价。业务失败通常更需要可观测性，不能随意关闭。
+
+## 3. 为什么不要用异常表达正常分支
+
+```java
+int parseOrDefault(String text) {
+    try {
+        return Integer.parseInt(text);
+    } catch (NumberFormatException e) {
+        return 0;
+    }
+}
+```
+
+若非法输入极少，这种写法完全合理；若接口输入中 30% 都是非数字，异常就成了高频控制流。应在入口验证格式，或使用返回结果明确表达“可预期失败”。
+
+```java
+record ParseResult(boolean success, int value) {}
+```
+
+但不要为了消灭异常而重复造一套层层传递的错误码。不可恢复的底层故障、违反方法契约和跨层传播失败，异常仍然是自然工具。
+
+## 4. try-catch 本身通常不是主要成本
+
+没有抛异常时，现代 JVM 对结构良好的 `try-catch` 通常无需在每次执行时付出很大成本。真正值得关注的是异常被实际抛出的频率和后续处理。
+
+因此把所有 `try-catch` 移到循环外未必更快，还可能改变语义：
+
+```java
+for (Item item : items) {
+    try {
+        process(item);
+    } catch (RecoverableException e) {
+        record(item, e);
+    }
+}
+```
+
+这里设计目标是单个元素失败不影响其余元素。性能优化不能破坏故障隔离。
+
+## 5. 日志风暴往往比异常本身更致命
+
+```java
+catch (Exception e) {
+    log.error("request failed", e);
+    throw e;
+}
+```
+
+上层又记录一次，就形成重复日志。同一异常穿越五层可能打印五份完整栈轨迹。故障高峰期，这会带来字符串分配、日志锁竞争、队列堆积、磁盘 I/O 和日志费用，甚至反过来拖垮服务。
+
+建议：
+
+- 在最理解异常、能补充业务上下文或最终消费异常的边界记录；
+- 包装异常时保留 cause；
+- 不要 `log.error` 后原样抛出，让每一层都重复打印；
+- 对已知高频错误做聚合指标、采样或限速；
+- 日志保留请求 ID、关键资源 ID，不记录敏感信息。
+
+## 6. 包装异常时不要丢失现场
+
+```java
+try {
+    repository.save(order);
+} catch (SQLException e) {
+    throw new OrderStoreException("save order failed: " + order.id(), e);
+}
+```
+
+错误写法是只保留 `e.getMessage()`，这样底层类型和堆栈链会丢失。也不要捕获 `Throwable` 后吞掉 `OutOfMemoryError` 等严重错误，除非是在非常明确的容器边界并知道如何处理。
+
+## 7. 用 JMH 正确测试
+
+```java
+@Benchmark
+public int returnCode() {
+    return parseByCode(input);
+}
+
+@Benchmark
+public int exceptionPath() {
+    try {
+        return Integer.parseInt(input);
+    } catch (NumberFormatException e) {
+        return 0;
+    }
+}
+```
+
+可靠基准还应做到：
+
+- 用 `@State` 控制输入，防止常量折叠；
+- 分开测成功路径、1% 失败、50% 失败；
+- 用返回值或 Blackhole 防止死代码消除；
+- 多轮预热，让 JIT 达到稳定状态；
+- 同时观察 `gc.alloc.rate.norm`；
+- 日志测试与纯异常测试分开，否则 I/O 淹没其他结果；
+- 不把微基准数字直接等同于生产 p99。
+
+HotSpot 还可能针对极高频重复异常省略部分栈轨迹，具体行为受 JVM 和参数影响，不能依赖它保证诊断信息。
+
+## 8. API 设计建议
+
+- 非法参数、违反契约：抛明确的参数异常。
+- 外部依赖失败：保留 cause，并转换为本层有意义的异常。
+- 高频、预期的业务分支：用显式结果类型或状态表达。
+- 批处理局部失败：按元素隔离并汇总结果。
+- 异常消息提供上下文，但不泄漏密码、Token、身份证号等。
+- 不用异常代替空集合、Optional 等正常“无结果”语义。
+
+## 9. 检查清单
+
+- 异常是低频失败还是高频正常分支？
+- 成本来自创建、栈追踪，还是日志 I/O？
+- 是否重复记录同一个异常？
+- 包装后是否保留 cause？
+- 是否用 JMH 测了真实失败比例和分配率？
+- 关闭栈轨迹后是否仍满足排障要求？
+
+异常的核心价值是让错误沿调用链传播并保存现场。优化方向应是降低无意义的高频抛出和重复日志，而不是牺牲错误语义与可诊断性。

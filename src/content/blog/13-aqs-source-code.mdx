@@ -1,0 +1,153 @@
+---
+title: 从源码理解 AQS：Java 并发工具的基础设施
+description: 从 state、CLH 变体队列和 park/unpark 出发，理解 AQS 如何支撑锁、信号量与倒计时器。
+pubDate: 2025-11-11
+category: 并发编程
+tags:
+  - AQS
+  - ReentrantLock
+  - Semaphore
+  - JUC
+  - 源码分析
+series: java-concurrency
+seriesOrder: 1
+draft: false
+---
+
+# 从源码理解 AQS：Java 并发工具的基础设施
+
+`ReentrantLock`、`Semaphore`、`CountDownLatch` 看起来用途完全不同，底层却都建立在 `AbstractQueuedSynchronizer`（AQS）上。AQS 不替开发者定义“能否获得资源”，它只解决三个通用问题：同步状态如何保存、竞争失败的线程如何排队、资源释放后如何唤醒继任者。
+
+## 一、先抓住三个核心成员
+
+下面的字段和伪代码用于解释稳定设计，不应当作 Java 21/25 的逐行源码。AQS 的节点类型、等待状态编码以及获取主循环在不同 JDK 中持续重构；阅读源码时必须固定目标 JDK tag，避免拿 JDK 8 的方法名和控制流解释 JDK 25。
+
+```java
+private volatile int state;
+private transient volatile Node head;
+private transient volatile Node tail;
+```
+
+`state` 的含义由子类决定：独占锁中可表示重入次数，信号量中表示剩余许可，闭锁中表示尚未完成的任务数。`head` 与 `tail` 维护一个双向 FIFO 等待队列。线程获取失败时被包装成节点入队，随后阻塞；状态变化时，队首附近的合适节点被唤醒。
+
+AQS 的模板方法把“机制”和“策略”分开：
+
+```java
+protected boolean tryAcquire(int arg) { throw new UnsupportedOperationException(); }
+protected boolean tryRelease(int arg) { throw new UnsupportedOperationException(); }
+protected int tryAcquireShared(int arg) { throw new UnsupportedOperationException(); }
+protected boolean tryReleaseShared(int arg) { throw new UnsupportedOperationException(); }
+```
+
+子类实现资源规则，AQS 负责 CAS、排队、取消与唤醒。这也是它能被大量同步器复用的原因。
+
+## 二、一次独占获取经历了什么
+
+以 `acquire(1)` 为例，经典逻辑可以压缩成下面的教学伪代码。它接近早期 JDK 的结构，现代 JDK 已合并和重构部分入队、取消及获取路径，但协议没有改变：
+
+```java
+public final void acquire(int arg) {
+    if (!tryAcquire(arg) && acquireQueued(addWaiter(Node.EXCLUSIVE), arg)) {
+        selfInterrupt();
+    }
+}
+```
+
+1. 当前线程先直接尝试，成功就不入队。
+2. 失败后通过 CAS 把节点追加到队尾。
+3. 只有前驱是头节点时再次竞争，减少无效争抢。
+4. 暂时不该竞争的线程调用 `LockSupport.park(this)` 挂起。
+5. 被唤醒后重新检查条件，而不是假设自己已经获得锁。
+
+这解释了一个重要事实：`unpark` 只发放一次“继续运行的许可”，并不转移锁的所有权。线程醒来后仍必须重新 CAS。
+
+## 三、为什么等待队列不是普通业务队列
+
+AQS 队列需要应对中断、超时、取消和并发入队。节点的等待状态用于表达继任者是否需要被唤醒。取消节点可能留在链上，后续操作再跳过或清理，因此观察源码时不能把链表瞬时形态理解成严格、干净的 FIFO 容器。
+
+此外，队列中的 `head` 表示同步队列的已处理前沿，常由最近成功获取资源的节点推进；真正等待最久的候选通常从 `head.next` 附近寻找，但取消节点和并发清理意味着不能把它理解成始终存在、永不跳跃的严格指针。理解这一点后，再结合目标 JDK 的具体推进与唤醒方法阅读源码才不会混淆。
+
+## 四、独占与共享的差异
+
+独占模式一次通常只让一个继任者继续竞争；共享模式在资源仍有剩余时会传播唤醒。例如信号量有多个许可，一个线程成功后可能继续唤醒后续节点。
+
+```java
+static final class Sync extends AbstractQueuedSynchronizer {
+    protected int tryAcquireShared(int permits) {
+        for (;;) {
+            int available = getState();
+            int remaining = available - permits;
+            if (remaining < 0 || compareAndSetState(available, remaining))
+                return remaining;
+        }
+    }
+}
+```
+
+返回负数表示失败，零表示成功但无剩余资源，正数表示成功且可能继续传播。
+
+## 五、手写一个不可重入独占锁
+
+```java
+final class Mutex implements java.util.concurrent.locks.Lock {
+    private static final class Sync extends AbstractQueuedSynchronizer {
+        protected boolean tryAcquire(int ignored) {
+            if (compareAndSetState(0, 1)) {
+                setExclusiveOwnerThread(Thread.currentThread());
+                return true;
+            }
+            return false;
+        }
+        protected boolean tryRelease(int ignored) {
+            if (getState() == 0 || getExclusiveOwnerThread() != Thread.currentThread())
+                throw new IllegalMonitorStateException();
+            setExclusiveOwnerThread(null);
+            setState(0);
+            return true;
+        }
+        Condition newCondition() { return new ConditionObject(); }
+    }
+    private final Sync sync = new Sync();
+    public void lock() { sync.acquire(1); }
+    public void unlock() { sync.release(1); }
+    public boolean tryLock() { return sync.tryAcquire(1); }
+    public Condition newCondition() { return sync.newCondition(); }
+    public void lockInterruptibly() throws InterruptedException { sync.acquireInterruptibly(1); }
+    public boolean tryLock(long t, TimeUnit u) throws InterruptedException {
+        return sync.tryAcquireNanos(1, u.toNanos(t));
+    }
+}
+```
+
+它适合学习，不适合直接投入生产：没有可重入语义、监控指标和充分测试。
+
+## 六、Condition 为什么有另一条队列
+
+调用 `await()` 的线程必须先持锁。它会进入条件队列并完全释放锁；`signal()` 只是把节点转移到同步队列，线程仍要重新竞争锁后才能从 `await()` 返回。因此 `await()` 必须放在循环里：
+
+```java
+lock.lock();
+try {
+    while (!conditionSatisfied()) condition.await();
+    consume();
+} finally {
+    lock.unlock();
+}
+```
+
+循环既应对虚假唤醒，也应对条件在重新获得锁之前再次失效。
+
+## 实验与排查建议
+
+用 20 个线程竞争一个许可，在获取前后记录线程名；再分别测试中断、超时、取消。结合 JFR 的 Java Monitor Blocked/Thread Park 事件或线程转储观察 `WAITING (parking)`。不要只打印平均耗时，还要记录 P95/P99 等待时间和队列长度。
+
+## 生产检查清单
+
+- 是否在 `finally` 中释放锁？
+- 是否需要可中断或带超时的获取，避免永久等待？
+- 是否在持锁期间执行网络或磁盘 I/O？
+- Condition 是否使用 `while` 检查谓词？
+- 是否误把“被唤醒”等同于“获得资源”？
+- 自定义同步器是否覆盖中断、取消、溢出和非法释放测试？
+
+理解 AQS 的关键不是背源码行号，而是掌握“不满足条件就排队，状态变化后再竞争”的闭环。

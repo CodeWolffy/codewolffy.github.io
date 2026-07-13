@@ -1,0 +1,97 @@
+---
+title: 联合索引不只是最左前缀：索引下推、回表与覆盖索引
+description: 通过执行计划和可复现实验，说明联合索引列顺序、范围条件、ICP、覆盖索引和排序之间的真实关系。
+pubDate: 2026-01-16
+category: 数据库
+tags:
+  - MySQL
+  - 联合索引
+  - ICP
+  - 覆盖索引
+  - EXPLAIN
+series: mysql-orm-deep-dive
+seriesOrder: 3
+draft: false
+---
+
+联合索引常被简化为“遵守最左前缀”。这句话只描述了 B+ 树如何确定连续扫描区间，却没有回答剩余条件在哪里过滤、是否回表、能否避免排序。
+
+## 实验表
+
+```sql
+CREATE TABLE orders (
+ id BIGINT PRIMARY KEY AUTO_INCREMENT,
+ user_id BIGINT NOT NULL,
+ status TINYINT NOT NULL,
+ created_at DATETIME NOT NULL,
+ amount DECIMAL(12,2) NOT NULL,
+ remark VARCHAR(200),
+ KEY idx_user_status_created(user_id,status,created_at)
+);
+```
+
+索引按 `(user_id,status,created_at,id)` 排序，末尾主键由 InnoDB 隐式携带。
+
+```sql
+EXPLAIN ANALYZE SELECT id,created_at
+FROM orders
+WHERE user_id=42 AND status=1
+  AND created_at>='2026-01-01';
+```
+
+前三列形成连续索引区间，返回列也在索引中，通常无需回表。`Extra` 中 `Using index` 指覆盖索引，不等于“使用了索引访问”。
+
+## 范围条件之后的列彻底没用吗
+
+```sql
+WHERE user_id=42
+  AND status BETWEEN 1 AND 3
+  AND created_at>='2026-01-01'
+```
+
+通常只有范围列之前的等值条件和范围列参与确定扫描边界；但 `created_at` 仍可能由 Index Condition Pushdown（ICP）在存储引擎读取索引项时过滤，减少回表。`Extra: Using index condition` 是典型信号。它减少的是回表，不必然减少索引叶子扫描量。
+
+若查询 `amount`，amount 不在索引内，命中记录需要回聚簇索引。把所有返回列都塞进索引会造成索引膨胀和写放大，应只为高频、稳定、收益明确的路径设计覆盖索引。
+
+## 列顺序如何决定
+
+“选择性最高放最左”也不是绝对规则。应同时考虑：等值过滤列、范围列、排序/分组、查询频率以及能否复用前缀。
+
+```sql
+-- 索引可直接输出同一 user/status 下按时间排序的数据
+SELECT id,created_at FROM orders
+WHERE user_id=42 AND status=1
+ORDER BY created_at DESC LIMIT 20;
+```
+
+若跳过 `status`：
+
+```sql
+WHERE user_id=42 ORDER BY created_at DESC
+```
+
+由于同一 user 下先按 status 分组，整体并不按 created_at 连续有序，可能仍需 filesort。MySQL 8.0 支持降序索引，但混合排序方向需要让索引定义与查询一致。
+
+## 函数与隐式转换
+
+```sql
+WHERE DATE(created_at)='2026-01-01'; -- 普通索引通常难以直接定位
+WHERE created_at>='2026-01-01' AND created_at<'2026-01-02';
+```
+
+还应避免字符串列与数字参数比较。隐式类型转换可能作用在列上，使索引失效。若必须按表达式查询，可评估 MySQL 8.0 函数索引或生成列索引。
+
+## 验证方法
+
+同时查看 `key`、`key_len`、`rows`、`filtered`、`Extra`，再用 `EXPLAIN ANALYZE` 对比实际行数。`key_len` 只能辅助判断使用到哪些前缀，受字符集、NULL 和变长字段影响，不能机械解读。
+
+## 生产检查清单
+
+- 索引列顺序是否来自核心 SQL，而不是字段选择性口诀？
+- 是否区分扫描区间、ICP 过滤与 Server 层过滤？
+- 回表次数是否过多，覆盖索引的空间成本是否值得？
+- 排序方向和中间列是否允许利用索引顺序？
+- 参数类型是否与列类型一致，列上是否套函数？
+- 上线前是否在接近生产的数据量和分布上运行 `EXPLAIN ANALYZE`？
+
+联合索引优化的目标不是让执行计划出现一个 `key`，而是尽量缩小扫描区间、减少回表，并在合适时消除排序。

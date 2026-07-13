@@ -1,0 +1,117 @@
+---
+title: CompletableFuture 的线程池与异常处理陷阱
+description: 系统梳理公共线程池阻塞、异常恢复、超时边界、任务取消和上下文丢失。
+pubDate: 2026-02-24
+category: 并发编程
+tags:
+  - CompletableFuture
+  - 线程池
+  - 异步编程
+  - 超时
+  - 上下文传播
+series: java-concurrency
+seriesOrder: 5
+draft: false
+---
+
+# CompletableFuture 的线程池与异常处理陷阱
+
+`CompletableFuture` 擅长表达异步任务之间的依赖，但不会自动赋予系统无限并发、可靠取消或正确的上下文。许多线上问题都来自“链写对了，资源边界没设计”。
+
+## 默认线程池不是免费资源
+
+未传 Executor 的 `supplyAsync/runAsync` 通常使用 `ForkJoinPool.commonPool()`：
+
+```java
+CompletableFuture.supplyAsync(() -> remoteCall());
+```
+
+公共池被整个进程共享。把慢 RPC、数据库调用或文件 I/O 放进去，阻塞线程可能耗尽并行度，连其他无关功能也受影响。在 Java 21/25 中，阻塞型且并发量较大的调用也可评估“每任务一个虚拟线程”的执行器；若继续使用平台线程，应按依赖和隔离目标提供有界线程池：
+
+```java
+ExecutorService remotePool = new ThreadPoolExecutor(
+    16, 32, 60, TimeUnit.SECONDS,
+    new ArrayBlockingQueue<>(200),
+    new ThreadPoolExecutor.AbortPolicy());
+
+CompletableFuture<Response> f = CompletableFuture
+    .supplyAsync(() -> client.query(), remotePool);
+```
+
+有界队列和拒绝策略让过载可见；无限队列只会把失败推迟为超时与内存压力。虚拟线程执行器本身不应通过池大小承担限流；数据库连接、外部 QPS 等稀缺资源仍要由连接池、信号量或速率限制器约束。无论采用哪种执行器，都要明确其关闭生命周期。
+
+## `thenApply` 与 `thenApplyAsync`
+
+不带 Async 的阶段通常由完成上一步的线程直接执行；带 Async 的阶段提交到默认或指定 Executor。若转换很轻，额外调度没有价值；若转换耗 CPU 或可能阻塞，应显式选择隔离的执行器。
+
+```java
+future.thenApply(this::parseSmallObject)
+      .thenApplyAsync(this::cpuHeavyTransform, cpuPool);
+```
+
+不要依赖“它大概在哪个线程运行”，需要线程亲和或上下文时必须明确设计。
+
+## 异常为何悄悄消失
+
+异步异常保存在 Future 中。如果既不 `join/get`，也没有异常阶段，它可能只成为一个无人观察的失败结果。
+
+```java
+return load()
+    .thenApply(this::convert)
+    .whenComplete((v, ex) -> {
+        if (ex != null) log.error("load failed", ex);
+    });
+```
+
+`exceptionally` 用于失败后恢复成正常值；`handle` 同时处理成功与失败；`whenComplete` 适合观测，通常不应吞掉原异常。恢复值必须有明确业务语义，不能随手返回 `null` 让错误在更远处变成 NPE。
+
+聚合任务时，`allOf` 只返回 `Void`，需要自行保留子 Future：
+
+```java
+List<CompletableFuture<Item>> fs = ids.stream()
+    .map(id -> CompletableFuture.supplyAsync(() -> load(id), remotePool))
+    .toList();
+
+CompletableFuture<List<Item>> all = CompletableFuture
+    .allOf(fs.toArray(CompletableFuture[]::new))
+    .thenApply(v -> fs.stream().map(CompletableFuture::join).toList());
+```
+
+## 超时不是底层请求取消
+
+`orTimeout` 会让原 Future 以超时异常完成，`completeOnTimeout` 会尝试用降级值完成原 Future；它们不是创建一个与原任务隔离的新副本，链路中的其他观察者也会看到这个完成结果。底层网络调用可能仍在运行并占用连接。真正的超时预算应下沉到 HTTP 客户端、数据库驱动等依赖层，并区分连接、读取和总截止时间。
+
+```java
+future.orTimeout(800, TimeUnit.MILLISECONDS)
+      .exceptionally(ex -> fallback());
+```
+
+调用 `cancel(true)` 也不保证任意阶段能被中断。供应函数必须支持中断或依赖客户端自己的取消机制。并行调用还要确定：一个失败后是否取消兄弟任务、部分成功是否可接受。
+
+## ThreadLocal 上下文会丢失
+
+日志 MDC、用户身份、租户信息通常存在线程本地变量中，线程切换后不会自然传播。提交前捕获必要值，在任务执行前设置并在 `finally` 清理；更稳妥的是使用框架提供的 TaskDecorator/Context Propagation。
+
+```java
+String traceId = MDC.get("traceId");
+return CompletableFuture.supplyAsync(() -> {
+    try {
+        MDC.put("traceId", traceId);
+        return call();
+    } finally {
+        MDC.remove("traceId");
+    }
+}, remotePool);
+```
+
+## 生产检查清单
+
+- 每个异步阶段由哪个线程池执行？队列是否有界？
+- 阻塞 I/O 与 CPU 任务是否隔离？
+- Future 是否总有人观察异常？恢复值语义是否明确？
+- 总超时是否向底层依赖传播？超时后任务是否仍占资源？
+- 聚合时允许部分成功还是快速失败？
+- MDC、租户和安全上下文是否传播并清理？
+- 是否监控活跃线程、队列、拒绝、完成耗时和异常率？
+
+异步编排真正困难的不是链式 API，而是容量、失败、取消和上下文四个边界。先设计这些边界，再写 `thenCompose`。

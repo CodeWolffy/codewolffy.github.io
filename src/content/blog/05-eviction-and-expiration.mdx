@@ -1,0 +1,98 @@
+---
+title: Redis 内存淘汰与过期删除机制：Key 到期后为什么还占内存？
+description: 解释惰性删除、主动过期、maxmemory 淘汰策略及 TTL 抖动，并给出容量与告警实践。
+pubDate: 2026-03-17
+category: Redis
+tags:
+  - Redis
+  - 内存管理
+  - 淘汰策略
+  - TTL
+  - 缓存
+series: redis-deep-dive
+seriesOrder: 5
+draft: false
+---
+
+给 Key 设置 TTL，不代表到期那一刻内存立即释放；配置 `maxmemory`，也不代表 Redis 会自动做出符合业务价值的选择。过期删除解决“到期数据何时清理”，内存淘汰解决“内存达到上限时牺牲谁”，二者目标不同。
+
+## 1. 过期 Key 为什么不会准点消失
+
+若 Redis 为每个 Key 创建定时器，海量定时器会带来显著开销。它采用两类机制配合：
+
+- 惰性删除：访问 Key 时检查 TTL，已过期则删除并当作不存在；
+- 主动过期：周期性抽样检查带 TTL 的 Key，删除已过期项，并依据命中情况继续扫描。
+
+所以过期数据可能在短时间内仍占内存，但不会作为有效结果返回。若大量 Key 同时过期，主动清理和内存释放会形成 CPU 尖峰；TTL 应加入合理抖动。
+
+```java
+long ttl = 1800 + ThreadLocalRandom.current().nextLong(0, 300);
+redis.set(key, value, SetArgs.Builder.ex(ttl));
+```
+
+## 2. 淘汰何时发生
+
+写入导致 Redis 管理的内存超过 `maxmemory` 时，实例依据 `maxmemory-policy` 尝试淘汰 Key；若策略不允许淘汰或无法释放足够空间，写命令会报错。常见策略可按两个维度理解：
+
+| 候选集合 | 选择依据 |
+| --- | --- |
+| 所有 Key / 仅带 TTL Key | LRU、LFU、随机 |
+| 仅带 TTL Key | TTL 更短者优先 |
+| 不淘汰 | noeviction，写入失败 |
+
+Redis 的 LRU/LFU 通常是近似算法，通过采样在内存成本和精度之间折中，并非维护一个全量严格排序链表。
+
+## 3. 策略如何选
+
+- 纯缓存、所有数据可回源：常用 `allkeys-lfu` 或 `allkeys-lru`；
+- 只有部分 Key 可淘汰：可考虑 volatile 系列，但必须保证候选 Key 都有 TTL；
+- 数据不可丢、Redis 作为权威存储：更倾向 `noeviction`，配套容量告警和写失败处理；
+- 访问热点长期稳定：LFU 通常更贴近价值；热点变化快时需压测衰减行为。
+
+如果同一实例混放缓存、分布式锁、队列和关键状态，任何统一淘汰策略都可能伤害某类数据。最好按用途拆实例或至少拆清楚容量和故障域。
+
+## 4. maxmemory 不等于容器内存限制
+
+Redis 进程还需要：复制缓冲、客户端缓冲、AOF/RDB、fork 写时复制、内存碎片和运行时开销。把 `maxmemory` 设到容器上限 100%，可能在尚未触发预期淘汰前就被 OOM Killer 终止。
+
+重点观察：
+
+```bash
+INFO memory
+INFO stats
+CONFIG GET maxmemory*
+```
+
+- `used_memory`：Redis 分配器统计内存；
+- `used_memory_rss`：进程驻留内存；
+- `mem_fragmentation_ratio`：需结合绝对值分析，不能只看比例；
+- `evicted_keys`：因内存压力被淘汰；
+- `expired_keys`：正常过期删除。
+
+淘汰率突然上升通常意味着容量或访问模型变化，而不是“缓存机制工作正常”就可以忽略。
+
+## 5. TTL 设计原则
+
+- 不要所有 Key 固定在同一秒过期；
+- 热点数据采用主动刷新或逻辑过期；
+- 空值 TTL 比正常值短；
+- 锁 TTL 根据执行上界设计，不能照搬缓存 TTL；
+- 写入后确认是否真的设置 TTL，避免永久 Key；
+- 覆盖 value 的 `SET` 默认会清除原 TTL；需要保留时使用 Redis 6.0+ 的 `KEEPTTL`，或在同一条命令中明确新过期时间，并核对客户端是否正确映射该选项。
+
+可定期抽样 `TTL/PTTL` 和永久 Key 占比，但禁止线上全量 `KEYS`。
+
+## 6. 删除与释放并非同一时刻
+
+大 Key 到期或淘汰时，同步释放内部对象可能造成阻塞。Redis 提供 lazy free 相关配置，让部分删除工作转入后台。开启前应理解版本行为并监控待释放对象量；异步释放只是搬走 CPU 工作，不会让成本消失。
+
+## 7. 检查清单
+
+- maxmemory 与容器/机器上限之间是否留足余量？
+- 淘汰策略是否符合数据可丢失程度？
+- 是否混放不同可靠性等级的数据？
+- TTL 是否随机化，并监控永久 Key？
+- 是否告警 evicted_keys 增量、写入错误和 RSS？
+- 大 Key 过期是否会造成集中释放？
+
+过期是生命周期策略，淘汰是容量压力下的应急选择。真正稳健的设计，要让业务明确哪些数据可以丢、能否回源，以及 Redis 没空间时系统如何降级。

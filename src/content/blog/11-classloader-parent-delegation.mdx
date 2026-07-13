@@ -1,0 +1,177 @@
+---
+title: 类加载器与双亲委派：为什么应用服务器和插件系统要打破它？
+description: 深入分析类加载器命名空间、双亲委派、线程上下文类加载器，以及容器和插件系统采用子优先策略时的隔离与安全边界。
+pubDate: 2026-06-26
+category: JVM
+tags:
+  - Java
+  - JVM
+  - 类加载器
+  - 双亲委派
+  - SPI
+  - 插件系统
+series: jvm-java-core
+seriesOrder: 11
+draft: false
+---
+
+类加载问题最令人困惑的一点是：明明类的全限定名相同，强制转换却抛出 `ClassCastException`；明明 JAR 已经存在，运行时却报 `ClassNotFoundException`。理解这些现象的钥匙是：JVM 中一个类的身份不只由类名决定，还包含定义它的类加载器。
+
+## 1. JVM 中的“同一个类”
+
+下面两个加载器分别加载 `com.example.Plugin`：
+
+```java
+Class<?> a = loaderA.loadClass("com.example.Plugin");
+Class<?> b = loaderB.loadClass("com.example.Plugin");
+
+System.out.println(a == b); // 可能为 false
+```
+
+即使字节码来自同一个文件，`a` 和 `b` 也属于不同类型命名空间，实例不能相互转换。类型身份可以近似理解为：
+
+```text
+类的全限定名 + defining ClassLoader
+```
+
+`loadClass` 的发起者与最终 `defineClass` 的定义者也可能不同。诊断时应查看 `clazz.getClassLoader()`，而不只是 JAR 路径。
+
+## 2. 双亲委派的基本过程
+
+典型 `ClassLoader.loadClass` 逻辑是：先检查是否已经加载，再请求父加载器，父加载失败后才由自己查找：
+
+```java
+protected Class<?> loadClass(String name, boolean resolve)
+        throws ClassNotFoundException {
+    synchronized (getClassLoadingLock(name)) {
+        Class<?> c = findLoadedClass(name);
+        if (c == null) {
+            try {
+                c = getParent() != null
+                    ? getParent().loadClass(name)
+                    : findBootstrapClassOrNull(name);
+            } catch (ClassNotFoundException ignored) {
+                c = findClass(name);
+            }
+        }
+        if (resolve) resolveClass(c);
+        return c;
+    }
+}
+```
+
+这是概念化代码，具体 JDK 实现可能不同。重点是“父优先”，而不是每次都沿继承链加载。
+
+## 3. 为什么采用父优先
+
+父优先带来两个重要收益。
+
+第一，核心类的一致性。应用不能轻易用自己的 `java.lang.String` 替换平台核心类型；JVM 还会对受保护包执行额外校验，因此安全并非只靠双亲委派。
+
+第二，共享与去重。多个子加载器可以共同使用父加载器定义的 API 类型，避免每个模块复制一份并产生类型不兼容。
+
+但这种模型也意味着子模块无法覆盖父层已经提供的同名库，这在容器和插件场景会形成版本冲突。
+
+## 4. 应用服务器为什么会“打破”委派
+
+一个服务器可能同时运行多个 Web 应用：应用 A 依赖库 1.x，应用 B 依赖 2.x。若所有依赖都由公共父加载器加载，两者只能共享一个版本。
+
+容器通常为每个应用建立独立加载器，并对应用依赖采用 child-first 策略：
+
+```text
+Bootstrap / Platform
+        ↑
+Container shared loader
+        ↑
+WebApp-A loader     WebApp-B loader
+```
+
+子优先不是完全拒绝父加载器。Java 核心类、Servlet API 或容器约定的共享接口仍必须父优先，否则应用会加载自己的 API 副本，传给容器时出现类型不兼容。
+
+## 5. 插件系统的 API 与实现隔离
+
+一个可靠插件系统通常把契约放在父加载器，把插件实现和私有依赖放在各自子加载器：
+
+```text
+Host ClassLoader
+  └─ plugin-api.jar: Plugin, PluginContext
+       ├─ PluginClassLoader A: implementation + gson 2.x
+       └─ PluginClassLoader B: implementation + gson 3.x
+```
+
+插件必须实现父加载器中的 `Plugin`。如果插件 JAR 又打包并优先加载一份 `Plugin` 接口，名字虽然相同，宿主却无法把实现转换为自己的接口。
+
+可对子优先加载设置白名单边界：
+
+```java
+if (name.startsWith("java.") || name.startsWith("com.acme.plugin.api.")) {
+    return super.loadClass(name, resolve); // 父优先
+}
+// 其他包先 findClass，找不到再委派父加载器
+```
+
+## 6. SPI 引出的方向反转
+
+JDBC 等 SPI 面临一个特殊问题：平台或公共层定义接口，但实现类位于应用层，父加载器看不到子加载器内容。线程上下文类加载器（TCCL）提供了“由上层代码使用调用者加载器”的通道：
+
+```java
+ClassLoader old = Thread.currentThread().getContextClassLoader();
+try {
+    Thread.currentThread().setContextClassLoader(pluginLoader);
+    // 执行需要发现插件实现的代码
+} finally {
+    Thread.currentThread().setContextClassLoader(old);
+}
+```
+
+在线程池中忘记恢复 TCCL 会造成跨任务污染，还可能让已卸载插件的加载器一直被工作线程强引用。
+
+## 7. 类加载器泄漏为何常见
+
+卸载一个插件不是关闭 `URLClassLoader` 就结束。只要类加载器或它定义的任意类仍可从 GC Root 到达，整个类型图及静态字段都无法释放。常见引用包括：
+
+- 插件创建但未停止的线程；
+- 线程池任务、TCCL 与 `ThreadLocal`；
+- 宿主全局缓存保存插件 Class、实例或代理；
+- JDBC Driver、日志框架、MBean、监听器注册未注销；
+- 定时任务和 shutdown hook。
+
+结果通常表现为 Metaspace 持续增长，反复热部署后才出现 OOM。MAT 中应从可疑 `ClassLoader` 查看其加载类数量与到 GC Roots 的路径。
+
+## 8. 常见异常如何定位
+
+`ClassNotFoundException` 通常表示主动按名称加载失败；`NoClassDefFoundError` 可能是类初始化曾失败，或链接时依赖缺失。两者不能只靠“再加一个 JAR”解决。
+
+可使用：
+
+```bash
+-Xlog:class+load=info
+jcmd <pid> VM.classloaders
+jcmd <pid> GC.class_histogram
+```
+
+同时打印冲突类型的加载器与代码来源：
+
+```java
+System.out.println(type.getClassLoader());
+System.out.println(type.getProtectionDomain().getCodeSource());
+```
+
+诊断 `ClassCastException: X cannot be cast to X` 时，应分别记录源对象类和目标接口的加载器。
+
+## 9. 安全边界不能只依赖 ClassLoader
+
+类加载隔离主要解决名称空间和依赖版本，不等于安全沙箱。插件代码仍可能访问文件、网络、反射或终止进程。JDK 24 已永久禁用 Security Manager，不能再把它当作可恢复的通用沙箱方案；不可信插件应使用独立进程、容器权限、操作系统账号和受限协议边界。
+
+## 10. 设计检查清单
+
+- 明确哪些 API 必须由父加载器唯一加载。
+- 为插件私有依赖建立包级 child-first 规则。
+- 禁止插件重复打包宿主契约，或在加载时校验。
+- 在线程池任务结束后恢复 TCCL 和 ThreadLocal。
+- 卸载时停止线程、任务并注销所有全局注册项。
+- 用弱引用不能替代完整生命周期管理。
+- 记录类名、定义加载器与代码来源三项证据。
+- 对不可信扩展使用进程级安全隔离。
+
+双亲委派不是不可打破的 JVM 强制规则，而是一种有价值的默认组织方式。容器和插件系统改变委派顺序，是为了依赖隔离；真正困难的是同时维护共享 API 的类型唯一性、插件生命周期以及清晰的安全边界。

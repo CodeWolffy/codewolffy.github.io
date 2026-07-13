@@ -1,0 +1,208 @@
+---
+title: Spring AOP 代理对象内部调用为什么绕过切面？
+description: 通过代理调用模型、JDK 动态代理与 CGLIB 的差异，解释 Spring AOP 自调用失效的根因，并比较拆分 Bean、自注入、AopContext 与 AspectJ 等解决方案。
+pubDate: 2026-01-14
+category:
+  discriminant: custom
+  value: Spring
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Spring AOP
+  - discriminant: custom
+    value: 代理模式
+series: spring-deep-dive
+seriesOrder: 4
+draft: false
+---
+
+`@Transactional`、`@Cacheable`、`@Async` 和自定义审计注解都可能遇到同一个问题：从其他 Bean 调用时正常，在同一个类内部调用时却不生效。
+
+这不是某个注解的 Bug，而是 Spring AOP 的代理模型决定的。
+
+## 一、切面拦截的是“经过代理的调用”
+
+假设容器创建了一个目标对象 `target`，并返回代理对象 `proxy`：
+
+```text
+Controller -> proxy -> interceptor chain -> target.method()
+```
+
+拦截器链可能依次执行日志、鉴权、事务和缓存，最后才调用目标方法。调用方必须持有 `proxy`，切面才有入口。
+
+## 二、自调用为什么绕过代理
+
+```java
+@Service
+public class ReportService {
+    public void generateAll() {
+        generateOne();
+    }
+
+    @Audit
+    public void generateOne() {
+        // 生成报表
+    }
+}
+```
+
+外部调用 `generateAll()` 的确先经过代理，但代理进入目标对象后，方法体里的 `generateOne()` 等价于：
+
+```java
+this.generateOne();
+```
+
+此处的 `this` 是正在执行方法的目标对象，不是外部持有的代理引用。因此调用直接落到目标方法，拦截器链不会再次执行。
+
+## 三、换成 CGLIB 为什么通常也不行
+
+常见误解是：“JDK 动态代理才有自调用问题，换 CGLIB 就好了。”
+
+JDK 动态代理基于接口，CGLIB 通过生成目标类子类进行代理。两者入口形式不同，但 Spring 最终仍是代理对象把调用委托给目标逻辑。进入目标方法后的 `this.method()` 不会神奇地重新穿过完整的 Spring 拦截器链。
+
+两类代理的主要差异是：
+
+| 维度 | JDK 动态代理 | CGLIB |
+| --- | --- | --- |
+| 基础 | 接口代理 | 子类代理 |
+| 是否要求接口 | 是 | 否 |
+| final 类/方法 | 接口方法可代理 | 无法覆写 final |
+| 类型判断 | 代理通常不是目标实现类本身 | 代理是目标类子类 |
+
+无论哪一种，都应从“调用有没有进入代理”判断切面是否执行。
+
+## 四、用最小实验验证
+
+```java
+@Aspect
+@Component
+public class TimingAspect {
+    @Around("@annotation(Timed)")
+    public Object around(ProceedingJoinPoint pjp) throws Throwable {
+        long start = System.nanoTime();
+        try {
+            return pjp.proceed();
+        } finally {
+            System.out.println(pjp.getSignature() + " cost="
+                    + (System.nanoTime() - start));
+        }
+    }
+}
+
+@Service
+public class DemoService {
+    public void outer() { inner(); }
+
+    @Timed
+    public void inner() { System.out.println("inner"); }
+}
+```
+
+从 Controller 直接调用 `demoService.inner()` 会打印耗时；调用 `demoService.outer()` 虽然执行了 `inner`，却不会打印该方法的切面日志。
+
+## 五、最推荐的解决方案：拆分 Bean
+
+把需要独立切面语义的方法移动到独立协作者：
+
+```java
+@Service
+public class ReportExecutor {
+    @Timed
+    public void generateOne() { /* ... */ }
+}
+
+@Service
+public class ReportService {
+    private final ReportExecutor executor;
+
+    public void generateAll() {
+        executor.generateOne();
+    }
+}
+```
+
+这不仅让调用经过代理，也迫使我们明确职责和事务边界，通常是可维护性最好的选择。
+
+## 六、其他解决方案的取舍
+
+### 1. 把切面注解放到外层方法
+
+如果 `outer()` 本来就是业务事务或缓存边界，直接标注外层方法最自然：
+
+```java
+@Transactional
+public void generateAll() { ... }
+```
+
+但要确认外层大事务不会导致锁持有过久，也不要为了让一个内部动作重试而把整个批次都纳入重试。
+
+### 2. 注入自身代理
+
+```java
+@Lazy
+@Autowired
+private DemoService self;
+
+public void outer() {
+    self.inner();
+}
+```
+
+这种方式能工作，却暴露了结构异味，还可能引入循环依赖。代码读者也难以一眼看出 `self` 与 `this` 的行为差异。
+
+### 3. 使用 AopContext
+
+开启 `exposeProxy` 后可以获取当前代理：
+
+```java
+((DemoService) AopContext.currentProxy()).inner();
+```
+
+它要求当前线程本来就在 AOP 调用上下文内，并把业务代码绑定到 Spring AOP API。除非维护遗留系统，不建议作为日常写法。
+
+### 4. 使用 AspectJ 编织
+
+AspectJ 可以在编译期或类加载期改写字节码，不局限于代理入口，因此能拦截自调用、构造器等更多连接点。代价是构建、调试和运维复杂度更高。只有代理 AOP 的能力边界确实不够时，才值得引入。
+
+## 七、不同注解失效后的具体后果
+
+### `@Transactional`
+
+内部方法不会新建或切换事务，`REQUIRES_NEW` 等传播语义失效。
+
+### `@Cacheable`
+
+内部调用每次都真实执行，不会查询或写入缓存；`@CacheEvict` 也不会清理缓存。
+
+### `@Async`
+
+内部调用仍在当前线程同步执行，可能直接拉长请求耗时。
+
+### `@Retryable`
+
+内部调用不会建立重试拦截器链，异常只抛出一次。
+
+### 自定义权限或审计切面
+
+内部入口可能绕过鉴权、审计或幂等校验。若安全完全依赖方法切面，要特别检查所有调用路径。
+
+## 八、final、private 与静态方法
+
+基于子类的代理需要覆写方法，因此 `final` 方法无法被 CGLIB 增强，`private` 方法对子类不可见，静态方法属于类而非实例。把 AOP 注解放在这些位置，即使表面上编译通过，也可能不符合预期。
+
+最稳妥的约定是：切面边界使用容器 Bean 上可被外部调用的公开实例方法。Spring Framework 6 的类代理对部分 `protected`、包可见方法已有支持，但这不会改变 `private/final/static` 和自调用的代理边界；若库代码还可能切换到接口代理，公开接口方法仍是最可移植的约定。
+
+## 九、排查清单
+
+- 入口调用方持有的是代理还是 `new` 出来的目标对象？
+- 是否为同类内部的 `this.method()`？
+- 目标方法是否 `private`、`final` 或 `static`？
+- 切点表达式是否真的匹配该方法和注解位置？
+- 多个切面顺序是否符合预期？可用 `@Order` 明确。
+- 异步、事务、缓存组合时，哪个切面应该位于外层？
+- 能否通过拆分协作者让横切边界与业务边界一致？
+
+## 总结
+
+Spring AOP 的核心规则很简单：代理只能增强经过它的调用。自调用发生在目标对象内部，没有重新经过代理，因此切面不会执行。解决问题的最佳方向不是寻找更隐蔽的代理技巧，而是让事务、缓存、异步和审计边界成为清晰的组件边界。

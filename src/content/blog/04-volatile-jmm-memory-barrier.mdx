@@ -1,0 +1,178 @@
+---
+title: volatile 为什么保证可见性，却不能保证原子性？
+description: 从 Java 内存模型、happens-before、读改写竞态和内存屏障解释 volatile 的能力边界。
+pubDate: 2025-12-30
+category: Java并发
+tags:
+  - Java
+  - 并发编程
+  - volatile
+  - JMM
+  - 内存屏障
+series: jvm-java-core
+seriesOrder: 4
+draft: false
+---
+
+`volatile` 经常被概括为“让变量在线程间可见”，但这句话容易让人误以为：只要变量加了 `volatile`，所有并发操作就安全了。真正的边界是：volatile 读写本身具备可见性和特定有序性，但由多步组成的业务操作不会因此自动成为一个不可分割的整体。
+
+## 1. 可见性问题从哪里来
+
+编译器和 CPU 为提高性能，会重排不影响单线程结果的指令；CPU 还有多级缓存和写缓冲区。没有同步关系时，一个线程写入普通字段，另一个线程何时观察到新值并无保证。
+
+```java
+class Worker {
+    boolean stopped;
+
+    void run() {
+        while (!stopped) {
+            // work
+        }
+    }
+}
+```
+
+JIT 甚至可能认为循环内没有修改 `stopped` 的路径，从而减少重复读取。把字段声明为 `volatile boolean stopped` 后，每次 volatile 读都必须遵守内存模型的同步语义。
+
+## 2. happens-before 才是核心契约
+
+Java 内存模型规定：对某个 volatile 变量的写，happens-before 后续任意线程对同一变量的读。happens-before 不只是时间先后，它意味着写线程在 volatile 写之前的操作结果，对成功观察到该写的读线程可见。
+
+```java
+class ConfigHolder {
+    int timeout;
+    String endpoint;
+    volatile boolean ready;
+
+    void load() {
+        timeout = 3000;
+        endpoint = "https://example.com";
+        ready = true;
+    }
+
+    void use() {
+        if (ready) {
+            // 能观察到 ready=true 时，也应看到此前的配置写入
+            send(endpoint, timeout);
+        }
+    }
+}
+```
+
+`ready` 在这里承担“发布屏障”。注意读线程必须实际读取这个 volatile 字段并观察到相应状态，不能完全绕开它。
+
+## 3. 为什么 count++ 仍然不安全
+
+```java
+volatile int count;
+
+void increment() {
+    count++;
+}
+```
+
+`count++` 至少包含三步：读取 count、加一、写回。两个线程可能都读到 10，分别算出 11，再都写回 11，最终丢失一次更新。volatile 保证每次读写不会长期使用陈旧值，却不能把“读—计算—写”锁成一个整体。
+
+解决方式根据语义选择：
+
+```java
+AtomicInteger count = new AtomicInteger();
+count.incrementAndGet();
+```
+
+或在需要维护多个变量不变式时使用锁：
+
+```java
+synchronized void transfer() {
+    if (balance >= amount) {
+        balance -= amount;
+        target += amount;
+    }
+}
+```
+
+原子类适合单变量 CAS 更新；锁更适合跨字段、带条件判断的复合状态变更。
+
+补充一个常见旧知识点：自 Java 5 起，普通 `long`、`double` 的单次读写也要求原子，不需要为了防止“撕裂读取”机械地加 `volatile`。但普通读写仍不建立跨线程可见性与有序性；需要发布关系时依然要使用 `volatile`、锁或其他同步机制。
+
+## 4. 内存屏障与硬件实现
+
+从实现角度，JIT 会在 volatile 访问周围放置必要的内存屏障，限制特定方向的重排，并使用目标 CPU 提供的缓存一致性与指令能力。不同架构强弱不同，生成的机器指令也不同。
+
+因此不要把 volatile 简化成“每次都从物理内存读取”。现代 CPU 并不是这样工作的。Java 只承诺内存模型效果，具体通过缓存一致性协议、屏障、带锁指令等共同完成。
+
+可借助 JITWatch、JMH 的 perfasm 或诊断版 JVM 查看生成代码，但结论必须区分 Java 语义与某款 CPU 的实现细节。
+
+## 5. volatile 与禁止重排
+
+经典双重检查单例必须给实例引用加 volatile：
+
+```java
+class Singleton {
+    private static volatile Singleton instance;
+
+    static Singleton getInstance() {
+        Singleton local = instance;
+        if (local == null) {
+            synchronized (Singleton.class) {
+                local = instance;
+                if (local == null) {
+                    local = new Singleton();
+                    instance = local;
+                }
+            }
+        }
+        return local;
+    }
+}
+```
+
+没有正确发布时，引用写入可能被其他线程观察到，而对象初始化产生的字段写入尚未被正确观察。volatile 写与读建立发布关系，避免读线程拿到未安全发布的对象。
+
+实际项目通常更推荐枚举单例、静态字段或初始化按需持有者，代码更简单，正确性由类初始化机制保证。
+
+## 6. volatile 适合什么场景
+
+适合：
+
+- 停止标志、开关和最新配置快照；
+- 单写多读，且新值不依赖旧值的状态；
+- 安全发布不可变对象；
+- 配合锁实现快速路径检查。
+
+不适合：
+
+- 计数器的 `++`；
+- “余额不能为负”等跨步骤不变式；
+- 多字段必须同时变化；
+- 需要等待条件、排队公平性或临界区互斥。
+
+若在实现高性能基础设施并确实需要比 volatile 更精细的语义，可评估 `VarHandle` 的 opaque、acquire/release 和 volatile 访问模式。它们不是普通业务代码的“更快替代品”：内存序越弱，正确性证明越难，必须用 jcstress 等并发测试验证。
+
+## 7. 不可变快照是一种好搭档
+
+```java
+record Config(String endpoint, int timeout, Set<String> features) {
+    Config {
+        features = Set.copyOf(features);
+    }
+}
+
+private volatile Config config = load();
+
+void refresh() {
+    config = load(); // 一次替换完整快照
+}
+```
+
+读取者只读一个稳定快照，更新者构造新对象后一次替换引用。前提是对象内部也真正不可变，不能把可变集合直接暴露出去。
+
+## 8. 检查清单
+
+- 操作是否依赖变量旧值？若是，单用 volatile 通常不够。
+- 是否需要维护多个字段之间的一致性？考虑锁或不可变快照。
+- 读写双方是否通过同一个 volatile 变量建立发布关系？
+- 是否错误地把 volatile 当作物理内存直读？
+- 能否用 Atomic 类、并发容器或更简单的消息传递替代共享可变状态？
+
+volatile 的价值不是“轻量锁”，而是以较低成本建立清晰的可见性与有序性边界。它解决发布问题，不自动解决复合操作的互斥问题。

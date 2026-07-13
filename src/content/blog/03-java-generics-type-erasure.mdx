@@ -1,0 +1,176 @@
+---
+title: 从字节码理解泛型擦除：Java 为什么没有运行时泛型参数？
+description: 通过 javap、桥接方法和反射实验，解释类型擦除、泛型数组限制、堆污染与类型令牌。
+pubDate: 2025-12-26
+category: Java
+tags:
+  - Java
+  - 泛型
+  - 字节码
+  - 反射
+  - 类型擦除
+series: jvm-java-core
+seriesOrder: 3
+draft: false
+---
+
+Java 泛型能在编译期阻止我们把 `Integer` 放进 `List<String>`，但运行时的两个列表通常都是同一个 `ArrayList` 类。这个看似矛盾的现象来自类型擦除：泛型主要是一套编译期类型系统，编译器会在生成字节码时擦除大部分类型参数，并插入必要的类型转换。
+
+## 1. 擦除到底擦掉了什么
+
+```java
+public static String first(List<String> values) {
+    return values.get(0);
+}
+```
+
+反编译字节码，核心逻辑类似：
+
+```text
+aload_0
+iconst_0
+invokeinterface java/util/List.get:(I)Ljava/lang/Object;
+checkcast java/lang/String
+areturn
+```
+
+`List.get` 在字节码层返回 `Object`，编译器随后插入 `checkcast String`。泛型没有让 `ArrayList` 为 `String` 生成一个新版本，而是在编译期保证调用合法，并在读取位置恢复具体类型。
+
+无界类型参数 `T` 通常擦除为 `Object`；有上界时擦除为第一个上界：
+
+```java
+class Box<T extends Number & Comparable<T>> {
+    T value;
+}
+```
+
+字段描述符会以 `Number` 为主擦除类型，其他约束记录在泛型签名属性中，供编译器和反射使用。
+
+## 2. 为什么 `List<String>.class` 不存在
+
+```java
+List<String> a = new ArrayList<>();
+List<Integer> b = new ArrayList<>();
+System.out.println(a.getClass() == b.getClass()); // true
+```
+
+运行时类都是 `java.util.ArrayList`，所以不能写：
+
+```java
+if (obj instanceof List<String>) { } // 编译失败
+```
+
+JVM 无法仅凭对象判断列表元素的参数类型。可以判断 `obj instanceof List<?>`，因为这里只要求对象是某种 List。
+
+这里涉及“可具体化类型”（reifiable type）：`String`、`List<?>`、原始类型 `List` 等在运行时拥有足够完整的表示，`List<String>`、`T` 等则不是。现代 Java 的模式匹配 `if (obj instanceof List<?> list)` 改善了语法，但没有改变擦除模型，也不会让 `List<String>` 突然可检查。
+
+需要注意：“擦除”并不表示 class 文件完全没有泛型信息。字段、方法和父类型声明可通过 `Signature` 属性保留结构化元数据，因此反射能读取 `List<String>` 形式的声明；但一个普通 `new ArrayList<String>()` 对象本身通常不携带其实参。
+
+## 3. 桥接方法如何维持多态
+
+```java
+class Parent<T> {
+    T get() { return null; }
+}
+
+class Child extends Parent<String> {
+    @Override String get() { return "ok"; }
+}
+```
+
+擦除后，父类方法接近 `Object get()`，子类声明却是 `String get()`。为了保持 Java 覆盖语义，编译器会在 `Child` 中生成桥接方法：
+
+```java
+// 编译器生成，带 ACC_BRIDGE、ACC_SYNTHETIC 标记
+Object get() {
+    return get(); // 调用 String get()
+}
+```
+
+框架通过反射扫描方法时，可能同时看到真实方法和桥接方法。若不检查 `Method.isBridge()` / `isSynthetic()`，就可能重复注册处理器或错误解析注解。
+
+## 4. 为什么不能 new T 或创建 T[]
+
+```java
+class Factory<T> {
+    T create() { return new T(); } // 不允许
+    T[] array(int n) { return new T[n]; } // 不允许
+}
+```
+
+擦除后 JVM 不知道 `T` 的具体构造器和数组运行时组件类型。数组是协变且运行时检查类型的：`String[]` 会记住自己只能装字符串；泛型则主要在编译期检查。这两套机制无法直接拼接。
+
+可显式传入工厂或类型：
+
+```java
+class Factory<T> {
+    private final Supplier<T> supplier;
+    Factory(Supplier<T> supplier) { this.supplier = supplier; }
+    T create() { return supplier.get(); }
+}
+
+Factory<User> factory = new Factory<>(User::new);
+```
+
+数组可通过 `Array.newInstance(componentType, length)` 创建，但仍要谨慎处理转换。
+
+## 5. 泛型不变与通配符
+
+即使 `Integer extends Number`，`List<Integer>` 也不是 `List<Number>`。否则以下代码会破坏类型安全：
+
+```java
+void addDecimal(List<Number> list) {
+    list.add(1.5D);
+}
+```
+
+若允许把 `List<Integer>` 传入，列表就混入了 `Double`。通配符用来表达安全边界：
+
+- `List<? extends Number>`：适合读取 Number，不能安全写入具体数字；
+- `List<? super Integer>`：可以写入 Integer，读取只能当 Object；
+- 口诀 PECS：Producer Extends，Consumer Super。
+
+```java
+static <T> void copy(List<? super T> dest, List<? extends T> src) {
+    for (T item : src) dest.add(item);
+}
+```
+
+## 6. 堆污染：编译通过，运行时爆炸
+
+```java
+List<String> strings = new ArrayList<>();
+List raw = strings;
+raw.add(42);
+String value = strings.get(0); // ClassCastException
+```
+
+原始类型绕开了泛型检查，错误被延迟到编译器插入的 `checkcast`。反射、未检查转换和可变参数也可能造成堆污染。
+
+```java
+@SafeVarargs
+static <T> void printAll(T... values) { /* 必须确实不污染数组 */ }
+```
+
+`@SafeVarargs` 不是消除风险的开关，而是作者对实现安全性的承诺。若方法把可变参数数组暴露出去或写入不兼容值，就不应使用。
+
+## 7. 框架如何保留类型：TypeToken
+
+JSON 框架反序列化 `List<User>` 时只传 `List.class` 不够，因为元素类型丢失。常见方案利用匿名子类把泛型信息保存在父类签名里：
+
+```java
+Type type = new TypeReference<List<User>>() {}.getType();
+```
+
+匿名类的泛型父类声明仍可通过反射读取。这不是“恢复所有运行时泛型”，而是开发者主动把类型描述保存到一个可反射的位置。
+
+## 8. 工程检查清单
+
+- 公共 API 避免原始类型 `List`、`Map`。
+- 重视 `unchecked` 警告，不要全局压制。
+- 反射扫描时识别桥接方法与合成方法。
+- 序列化复杂泛型时传递 `Type`，不要只传 `Class`。
+- 使用 `? extends` / `? super` 表达读写方向。
+- 不要假设运行时能通过对象获得所有泛型实参。
+
+类型擦除不是泛型“失效”，而是 Java 为兼容既有 JVM 和类库选择的实现策略。看懂编译器插入的转换、桥接方法和签名元数据，很多反射与框架问题就能准确定位。

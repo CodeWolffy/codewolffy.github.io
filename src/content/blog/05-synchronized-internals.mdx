@@ -1,0 +1,162 @@
+---
+title: synchronized 真的很重吗？从 monitor 到锁优化的完整理解
+description: 解析 synchronized 的字节码语义、对象监视器、竞争升级、锁消除与正确的性能测试方式。
+pubDate: 2026-02-17
+category: Java并发
+tags:
+  - Java
+  - synchronized
+  - 并发编程
+  - JVM
+  - 锁
+series: jvm-java-core
+seriesOrder: 5
+draft: false
+---
+
+早期 Java 教材常把 `synchronized` 称为“重量级锁”，于是有人不加分析就换成 CAS、分布式锁甚至复杂队列。现代 JVM 已对内置锁进行了大量优化。它在无竞争时往往很便宜，在高竞争时则会进入阻塞、唤醒和调度路径。关键不是给它贴轻重标签，而是理解竞争形态和临界区成本。
+
+## 1. synchronized 锁住的是什么
+
+```java
+synchronized (lock) {
+    update();
+}
+```
+
+同步代码块编译后使用 `monitorenter` 与 `monitorexit`。编译器会生成异常处理路径，确保代码抛出异常时仍能退出 monitor。
+
+同步实例方法在 class 文件方法标志中带 `ACC_SYNCHRONIZED`，锁对象是当前实例；同步静态方法锁的是对应 `Class` 对象。
+
+```java
+public synchronized void instanceMethod() {} // this
+public static synchronized void staticMethod() {} // Demo.class
+```
+
+二者锁对象不同，所以可以并发执行。所谓“锁住一段代码”并不准确：线程竞争的是同一个对象关联的监视器。
+
+## 2. synchronized 提供的不只是互斥
+
+它同时提供：
+
+- 原子性：同一锁保护的临界区不会被其他持有该锁的线程交叉执行；
+- 可见性：解锁 happens-before 后续对同一锁的加锁；
+- 有序性：临界区边界限制相关重排；
+- 可重入：线程已经持有锁时可再次进入。
+
+```java
+synchronized void outer() {
+    inner();
+}
+synchronized void inner() {}
+```
+
+可重入避免同一线程调用内部同步方法时把自己锁死。JVM/监视器会跟踪持有者和重入次数。
+
+## 3. 对象头与 monitor
+
+HotSpot 常利用对象头中的 Mark Word 编码锁相关状态。遇到竞争时，还可能关联到更完整的监视器数据结构，其中包含持有线程、等待队列、阻塞线程等信息。
+
+不同 JDK 版本的锁实现持续演进，偏向锁等历史机制在新版本中已经禁用或移除。因此文章或面试中背诵固定的“无锁→偏向→轻量→重量”流程容易过时。更稳定的理解是：
+
+1. 无竞争或低竞争走快速路径；
+2. 短暂竞争可能尝试用户态原子操作和自旋；
+3. 竞争持续或不适合自旋时，进入监视器等待与线程调度；
+4. JVM 会依据版本和运行状态选择具体实现。
+
+## 4. 自旋为什么有时快、有时浪费
+
+若锁马上释放，让竞争线程短暂自旋可能避免操作系统挂起与唤醒的成本。但如果临界区执行数据库访问、网络请求或长时间计算，自旋只会白白占用 CPU。
+
+因此锁性能与以下因素相关：
+
+- 临界区持续时间；
+- 同时竞争的线程数；
+- CPU 核数与系统负载；
+- 持锁线程是否被阻塞或抢占；
+- 对象是否频繁计算 identity hash code；
+- JVM 版本和实际生成代码。
+
+不要试图靠手工设置若干陈旧的锁参数解决所有问题，先用 JFR、线程转储和基准数据识别竞争。
+
+## 5. JIT 还能直接消除锁
+
+```java
+String concat(String a, String b) {
+    StringBuffer buffer = new StringBuffer();
+    buffer.append(a).append(b);
+    return buffer.toString();
+}
+```
+
+若逃逸分析证明 `buffer` 只在当前线程使用，JIT 可能消除其内部同步。循环中连续锁定同一对象时，JIT 还可能进行锁粗化，以减少反复进入退出的成本。
+
+这些是优化机会，不是规范保证。日志或源码中看到 `synchronized`，不代表机器代码一定执行了完整的锁路径。
+
+## 6. 一个常见错误：锁对象不稳定
+
+```java
+private Integer lock = 0;
+
+void increment() {
+    synchronized (lock) {
+        lock++; // 自动装箱后，lock 引用变了
+    }
+}
+```
+
+不同线程可能锁住不同 `Integer` 对象，互斥失效。字符串常量、装箱缓存对象和外部可访问对象也不适合作为私有锁，因为其他代码可能意外共享它们。
+
+```java
+private final Object lock = new Object();
+```
+
+锁对象应保持稳定，并尽量缩小可见范围。
+
+## 7. synchronized 与 ReentrantLock 怎么选
+
+优先使用 `synchronized` 的场景：语义简单、作用域结构化、只需要互斥与 wait/notify，且希望异常时自动解锁。
+
+选择 `ReentrantLock` 的典型理由：
+
+- 需要可中断获取锁；
+- 需要 `tryLock` 或超时；
+- 需要多个 Condition 等待队列；
+- 明确需要公平锁（接受吞吐下降）；
+- 锁获取和释放无法形成简单词法作用域。
+
+```java
+lock.lock();
+try {
+    update();
+} finally {
+    lock.unlock();
+}
+```
+
+不要因为“显式锁更高级”就替换内置锁。功能匹配和可维护性比名称重要。
+
+在虚拟线程场景还要更新一个旧结论：JDK 24 的 JEP 491 已让 `synchronized` 中的阻塞不再因为 monitor 而长期固定（pin）载体线程，过去“为了虚拟线程把所有 synchronized 换成 ReentrantLock”的建议已经过时。固定仍可能来自本地方法、外部函数或特定运行时路径；应通过 JFR 的虚拟线程事件和真实负载验证，而不是做机械替换。锁内执行长时间 I/O 仍会串行化业务，这个逻辑问题不会因虚拟线程消失。
+
+## 8. 如何测量锁竞争
+
+JMH 基准必须避免死代码消除、错误共享状态和不真实的线程模型。生产诊断更应该看：
+
+- JFR 的 Java Monitor Blocked、锁实例和阻塞时间；
+- `jcmd <pid> Thread.print -l` 或多份线程转储；
+- CPU 使用率、上下文切换、运行队列；
+- 业务临界区是否包含 I/O；
+- p95/p99 延迟，而不仅是平均吞吐。
+
+锁等待只是结果。修复手段可能是缩短临界区、锁分段、不可变快照、批处理、减少共享状态或调整业务模型，而非简单换一种锁。
+
+## 9. 检查清单
+
+- 锁对象是否 `final`、私有且稳定？
+- 所有相关读写是否统一使用同一把锁？
+- 临界区内是否有 RPC、数据库或文件 I/O？
+- 是否嵌套多把锁，并保持一致的获取顺序？
+- 是否根据当前 JDK 的 JFR/线程转储确认了真实竞争？
+- 替换锁之后是否验证正确性、吞吐与尾延迟？
+
+`synchronized` 并不天然“很重”。没有竞争时它通常走优化路径；真正昂贵的是持续竞争、长临界区以及线程阻塞调度。优化锁之前，先优化共享状态的设计。

@@ -1,0 +1,211 @@
+---
+title: Spring Bean 从定义到可用经历了什么？一文吃透完整生命周期
+description: 从 BeanDefinition、实例化、属性填充、Aware 回调、BeanPostProcessor、初始化到销毁，结合源码入口和扩展点梳理 Spring Bean 的完整生命周期。
+pubDate: 2025-11-18
+category:
+  discriminant: custom
+  value: Spring
+tags:
+  - discriminant: existing
+    value: Java
+  - discriminant: custom
+    value: Spring
+  - discriminant: custom
+    value: Spring源码
+series: spring-deep-dive
+seriesOrder: 1
+draft: false
+---
+
+我们每天都在写 `@Service`、`@Component` 和 `@Bean`，但一个类被 Spring 扫描到之后，并不会立刻变成可以注入的对象。它需要先变成一份 Bean 定义，再经过实例化、依赖注入、各种回调和代理包装，最终才进入单例池。
+
+理解这条链路，能直接帮助我们回答几个高频问题：`@Autowired` 何时生效？AOP 代理在哪里创建？为什么构造器里拿不到某些依赖？`BeanPostProcessor` 为什么如此重要？
+
+本文以 Spring Framework 6.x / Spring Boot 3.x 为基线。示例中的生命周期注解来自 `jakarta.annotation.PostConstruct` 与 `jakarta.annotation.PreDestroy`，不是旧版教程里的 `javax.annotation` 包。
+
+## 一、先区分 BeanDefinition 与 Bean
+
+`BeanDefinition` 是对象的“施工图”，Bean 才是按图创建出的实例。施工图保存类名、作用域、是否懒加载、构造参数、属性值、初始化方法等元数据。
+
+配置类扫描大致经历以下过程：
+
+```text
+扫描 @Component
+  -> 解析为 BeanDefinition
+  -> 注册到 BeanDefinitionRegistry
+  -> BeanFactory 按需创建 Bean
+```
+
+这也是为什么实现 `BeanDefinitionRegistryPostProcessor` 可以在任何 Bean 创建前，动态增加或修改定义。
+
+## 二、单例 Bean 的完整生命周期
+
+核心入口通常是 `AbstractBeanFactory#doGetBean`，真正创建对象进入 `AbstractAutowireCapableBeanFactory#doCreateBean`。可以把主流程压缩成十步：
+
+1. 取得并合并当前 Bean 使用的 BeanDefinition 元数据。
+2. 执行 `InstantiationAwareBeanPostProcessor` 的实例化前回调；处理器若直接返回对象，常规创建流程可能被短路。
+3. 选择构造器并实例化对象。
+4. 对单例提前暴露 ObjectFactory，为循环依赖预留入口。
+5. 属性填充，处理 `@Autowired`、`@Value` 等依赖。
+6. 执行各种 `Aware` 回调。
+7. 执行 `BeanPostProcessor#postProcessBeforeInitialization`。
+8. 通过初始化前处理器执行 `@PostConstruct`，再执行 `InitializingBean` 和自定义 init-method。
+9. 执行 `postProcessAfterInitialization`，AOP 通常在这里返回代理。
+10. 将最终对象放入单例池，容器关闭时执行销毁回调。
+
+## 三、实例化不等于初始化
+
+实例化只是通过构造器拿到一个对象。此时属性注入通常尚未完成：
+
+```java
+@Component
+public class OrderService {
+    @Autowired
+    private PaymentService paymentService;
+
+    public OrderService() {
+        // 此时通常仍为 null，不要在构造器中使用字段注入的依赖
+        System.out.println(paymentService);
+    }
+}
+```
+
+更推荐构造器注入，因为依赖会作为构造参数参与实例化，能保证对象创建后处于完整状态：
+
+```java
+@Service
+public class OrderService {
+    private final PaymentService paymentService;
+
+    public OrderService(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+}
+```
+
+## 四、Aware、初始化方法的准确顺序
+
+常见回调顺序如下：
+
+```text
+属性注入
+-> BeanNameAware / BeanFactoryAware / ApplicationContextAware
+-> BeanPostProcessor before
+-> @PostConstruct
+-> InitializingBean#afterPropertiesSet
+-> init-method
+-> BeanPostProcessor after
+```
+
+验证代码：
+
+```java
+@Component
+public class LifecycleBean implements BeanNameAware, InitializingBean {
+    @PostConstruct
+    public void postConstruct() {
+        System.out.println("2. @PostConstruct");
+    }
+
+    @Override
+    public void setBeanName(String name) {
+        System.out.println("1. BeanNameAware: " + name);
+    }
+
+    @Override
+    public void afterPropertiesSet() {
+        System.out.println("3. afterPropertiesSet");
+    }
+
+    @PreDestroy
+    public void destroy() {
+        System.out.println("4. @PreDestroy");
+    }
+}
+```
+
+业务代码优先使用 `@PostConstruct`，框架代码才更常实现 Spring 接口，避免领域对象与容器 API 强耦合。
+
+## 五、BeanPostProcessor 为什么是核心扩展点
+
+大量看似“注解魔法”的能力都由后置处理器完成：
+
+| 能力 | 典型处理器 |
+| --- | --- |
+| `@Autowired` | `AutowiredAnnotationBeanPostProcessor` |
+| `@PostConstruct` | `CommonAnnotationBeanPostProcessor` |
+| AOP 代理 | `AbstractAutoProxyCreator` 子类 |
+| 配置属性绑定 | 对应的配置属性后处理器 |
+
+下面的处理器可以记录所有 Bean 的初始化耗时：
+
+```java
+@Component
+public class TimingPostProcessor implements BeanPostProcessor {
+    private final Map<String, Long> starts = new ConcurrentHashMap<>();
+
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String name) {
+        starts.put(name, System.nanoTime());
+        return bean;
+    }
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String name) {
+        Long start = starts.remove(name);
+        if (start != null) {
+            System.out.printf("%s init: %d μs%n", name,
+                    (System.nanoTime() - start) / 1_000);
+        }
+        return bean;
+    }
+}
+```
+
+注意：后处理器本身会参与大量 Bean 的创建，内部逻辑必须轻量，也不要随意触发其他 Bean 的提前初始化。
+
+## 六、AOP 代理在生命周期中的位置
+
+Spring 注入给其他对象的，可能不是原始 Bean，而是代理。自动代理创建器通常在初始化后回调中判断当前 Bean 是否匹配切点，匹配则包装为 JDK 动态代理或 CGLIB 代理。
+
+因此下面两者可能不是同一个引用：
+
+```text
+原始对象 rawBean -> 初始化 -> AOP 包装 -> proxyBean -> singletonObjects
+```
+
+这解释了为什么生命周期回调里直接调用自身方法，通常不会经过代理；也解释了循环依赖和 AOP 同时出现时，Spring 必须尽可能提前暴露“最终代理语义”的引用。
+
+## 七、销毁阶段容易忽略什么
+
+容器正常关闭时，会依次触发 `@PreDestroy`、`DisposableBean#destroy` 和自定义 destroy-method。适合在这里关闭线程池、连接、客户端与本地缓存刷新任务。
+
+```java
+@Bean(destroyMethod = "close")
+public RemoteClient remoteClient() {
+    return new RemoteClient();
+}
+```
+
+但进程被 `kill -9`、机器掉电时没有任何回调保证。重要数据必须在正常请求链路中持久化，不能把销毁回调当作可靠事务机制。
+
+## 八、常见误区
+
+- 构造器执行完成，不代表 Bean 已完成依赖注入。
+- `@PostConstruct` 执行时依赖已注入，但 AOP 代理可能尚未最终包装完成。
+- prototype Bean 的销毁不会由容器完整托管，使用方要负责释放资源。
+- 在 `BeanPostProcessor` 中返回一个新对象会改变后续注入结果。
+- 手动 `new` 出来的对象没有经过容器生命周期，`@Autowired`、AOP、事务均不会自动生效。
+
+## 九、排查清单
+
+- 这个对象是否真的由 Spring 创建，而不是业务代码 `new` 的？
+- Bean 是否因为 `@Conditional`、扫描路径或 Profile 没有注册？
+- 问题发生在实例化、属性填充还是初始化回调？
+- 注入的是原始对象还是代理对象？可用 `AopUtils.isAopProxy` 判断。
+- 是否在构造器或过早的回调中使用尚未准备好的依赖？
+- 自定义后处理器是否改变了返回对象或提前触发其他 Bean？
+
+## 总结
+
+Spring Bean 生命周期不是一串需要背诵的回调名称，而是一条清晰的对象加工流水线：先注册定义，再实例化和填充属性，随后执行容器扩展点，最后产生可能被代理包装的可用对象。掌握这条主线后，循环依赖、AOP、事务和自动配置等机制都会变得更容易理解。

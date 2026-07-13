@@ -1,0 +1,102 @@
+---
+title: 深分页为什么慢？从 OFFSET 扫描到游标分页的完整优化
+description: 分析 LIMIT 大偏移的执行成本，对比延迟关联、Seek Method、复合游标与跳页方案。
+pubDate: 2026-05-05
+category: 数据库
+tags:
+  - MySQL
+  - 深分页
+  - 游标分页
+  - 索引
+  - 性能优化
+series: mysql-orm-deep-dive
+seriesOrder: 8
+draft: false
+---
+
+```sql
+SELECT * FROM orders
+ORDER BY created_at DESC
+LIMIT 1000000,20;
+```
+
+这条 SQL 只返回 20 行，却通常需要找到并丢弃前 1,000,000 行。`LIMIT` 控制返回量，不会让数据库凭空跳到逻辑上的第一百万条。
+
+## OFFSET 的真实成本
+
+若排序可利用索引，MySQL 仍要沿索引扫描 offset+size 个条目；查询 `*` 时还可能对大量候选记录回表后再丢弃。若不能利用索引顺序，则需先过滤、排序并产生临时结果，成本更高。并发数据变化还会造成重复或漏项：第一页读取后插入新记录，第二页的偏移位置已经改变。
+
+## 方案一：延迟关联
+
+```sql
+SELECT o.*
+FROM orders o
+JOIN (
+ SELECT id FROM orders
+ ORDER BY created_at DESC,id DESC
+ LIMIT 1000000,20
+) x ON x.id=o.id
+ORDER BY o.created_at DESC,o.id DESC;
+```
+
+配合索引 `(created_at,id)`，子查询仅扫描较窄的索引，最后只对 20 个主键回表。它减少回表和传输，但仍然需要扫描百万个索引项，因此是缓解，不是根治。
+
+## 方案二：Seek Method
+
+让客户端携带上一页最后一条记录的排序键：
+
+```sql
+SELECT id,created_at,amount
+FROM orders
+WHERE (created_at,id) < (CAST('2026-07-12 10:30:00' AS DATETIME),987654)
+ORDER BY created_at DESC,id DESC
+LIMIT 20;
+```
+
+索引：
+
+```sql
+CREATE INDEX idx_orders_created_id ON orders(created_at DESC,id DESC);
+```
+
+在索引和谓词匹配时，数据库可以从游标位置继续扫描，访问量通常接近页大小，不随页数线性增长。这里不应把它绝对化为固定复杂度：额外过滤条件、低选择性、回表和并发可见性仍会增加工作量。必须加入唯一的 `id` 作为稳定排序的 tie-breaker，否则相同 created_at 的记录可能漏读或重复。
+
+游标不应暴露可随意篡改的原始条件。API 可将排序值、方向、过滤条件摘要和过期时间编码后签名。翻页期间数据删除通常不影响继续向后；新插入数据不会被混入已遍历区间，语义比 OFFSET 更稳定，但它不是数据库快照。
+
+## 动态排序与过滤
+
+游标条件必须与排序完全对应。升序使用 `>`，降序使用 `<`；多列混合方向时，简单行比较可能不适用，需要展开字典序条件：
+
+```sql
+WHERE score < :score
+   OR (score = :score AND id > :id)
+ORDER BY score DESC,id ASC
+```
+
+过滤条件也必须在后续页保持一致，并有匹配索引。例如租户内时间流更适合 `(tenant_id,created_at DESC,id DESC)`。
+
+## 必须跳到第 5000 页怎么办
+
+Seek 分页不支持任意页码，这是产品语义与性能的取舍。可选方案：限制最大页数；提供按日期/条件定位；维护周期性锚点；离线导出全量结果；搜索场景使用专门搜索引擎。不要为了一个很少使用的“跳页”功能，让每个请求扫描数百万行。
+
+总数 `COUNT(*)` 也可能昂贵。可以异步计算、缓存近似值、显示“超过 10,000 条”，或只返回 `hasNext`。为精确总数付出的成本应由产品价值证明。
+
+## Java 接口示例
+
+```java
+public record OrderCursor(Instant createdAt, long id) {}
+public record Slice<T>(List<T> items, String nextCursor, boolean hasNext) {}
+```
+
+查询 `pageSize+1` 条即可判断 hasNext，然后丢弃多取的一条并生成 nextCursor。限制 pageSize 上限，避免客户端绕过分页制造大查询。
+
+## 生产检查清单
+
+- 排序是否稳定并包含唯一键？
+- 索引是否以固定过滤列开头，并与排序方向一致？
+- 游标是否绑定过滤条件、防篡改并可版本化？
+- 是否限制 pageSize、最大 OFFSET 和导出规模？
+- 是否真的需要精确总数与任意跳页？
+- 是否用百万级真实数据对比扫描行数，而非只测前几页？
+
+深分页优化不只是 SQL 技巧。最有效的方案，是把“第 N 页”的随机访问模型改为“从上次位置继续”的顺序遍历模型。
