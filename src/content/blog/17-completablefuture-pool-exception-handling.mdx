@@ -14,8 +14,6 @@ seriesOrder: 5
 draft: false
 ---
 
-# CompletableFuture 的线程池与异常处理陷阱
-
 `CompletableFuture` 擅长表达异步任务之间的依赖，但不会自动赋予系统无限并发、可靠取消或正确的上下文。许多线上问题都来自“链写对了，资源边界没设计”。
 
 ## 默认线程池不是免费资源

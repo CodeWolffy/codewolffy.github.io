@@ -14,8 +14,6 @@ seriesOrder: 1
 draft: false
 ---
 
-# 从源码理解 AQS：Java 并发工具的基础设施
-
 `ReentrantLock`、`Semaphore`、`CountDownLatch` 看起来用途完全不同，底层却都建立在 `AbstractQueuedSynchronizer`（AQS）上。AQS 不替开发者定义“能否获得资源”，它只解决三个通用问题：同步状态如何保存、竞争失败的线程如何排队、资源释放后如何唤醒继任者。
 
 ## 一、先抓住三个核心成员

@@ -14,8 +14,6 @@ seriesOrder: 4
 draft: false
 ---
 
-# LongAdder 为什么比 AtomicLong 更适合高竞争场景？
-
 `AtomicLong` 和 `LongAdder` 都能避免计数丢失，却提供不同语义。前者维护一个可线性化的值；后者把写竞争分散到多个槽位，读取时汇总，换取高并发吞吐。
 
 ## AtomicLong 的热点 CAS

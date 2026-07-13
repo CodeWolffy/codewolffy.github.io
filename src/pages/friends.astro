@@ -217,6 +217,17 @@ const pageConfig = {
   </section>
 
   <script>
+    const copyText = async (text: string) => {
+      if (!window.isSecureContext || !navigator.clipboard) return false;
+
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
     const setupWechatCopyButtons = () => {
       const status = document.getElementById('wechat-copy-status');
 
@@ -228,21 +239,7 @@ const pageConfig = {
           const wechatId = button.dataset.wechatId;
           if (!wechatId) return;
 
-          let copied = false;
-          try {
-            await navigator.clipboard.writeText(wechatId);
-            copied = true;
-          } catch {
-            const input = document.createElement('textarea');
-            input.value = wechatId;
-            input.setAttribute('readonly', '');
-            input.style.position = 'fixed';
-            input.style.opacity = '0';
-            document.body.appendChild(input);
-            input.select();
-            copied = document.execCommand('copy');
-            input.remove();
-          }
+          const copied = await copyText(wechatId);
 
           const label = button.querySelector<HTMLElement>('[data-copy-label]');
           const feedback = copied ? `已复制：${wechatId}` : `复制失败，请手动添加：${wechatId}`;

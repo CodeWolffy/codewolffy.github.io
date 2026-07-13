@@ -14,8 +14,6 @@ seriesOrder: 3
 draft: false
 ---
 
-# ConcurrentHashMap 在高并发下是如何工作的？
-
 本文描述的是 OpenJDK 8～25 这一代实现的主干设计，而不是 Java API 永久承诺。`ConcurrentHashMap` 的重点不是“完全无锁”，而是把竞争限制到尽可能小的范围：空桶用 CAS，冲突桶通常采用桶级协调，读取尽量不加锁，扩容则允许多个线程协作。
 
 ## 结构：数组加链表/红黑树
