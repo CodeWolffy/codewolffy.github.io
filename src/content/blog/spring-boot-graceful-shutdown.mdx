@@ -74,7 +74,7 @@ spec:
       lifecycle:
         preStop:
           exec:
-            command: ["sh", "-c", "sleep 5"]
+            command: ['sh', '-c', 'sleep 5']
 ```
 
 是否需要 `preStop` 应由负载均衡实测决定，而且它消耗同一个终止时间预算。

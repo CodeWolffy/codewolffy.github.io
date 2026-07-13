@@ -34,11 +34,11 @@ redis.set(key, value, SetArgs.Builder.ex(ttl));
 
 写入导致 Redis 管理的内存超过 `maxmemory` 时，实例依据 `maxmemory-policy` 尝试淘汰 Key；若策略不允许淘汰或无法释放足够空间，写命令会报错。常见策略可按两个维度理解：
 
-| 候选集合 | 选择依据 |
-| --- | --- |
-| 所有 Key / 仅带 TTL Key | LRU、LFU、随机 |
-| 仅带 TTL Key | TTL 更短者优先 |
-| 不淘汰 | noeviction，写入失败 |
+| 候选集合                | 选择依据             |
+| ----------------------- | -------------------- |
+| 所有 Key / 仅带 TTL Key | LRU、LFU、随机       |
+| 仅带 TTL Key            | TTL 更短者优先       |
+| 不淘汰                  | noeviction，写入失败 |
 
 Redis 的 LRU/LFU 通常是近似算法，通过采样在内存成本和精度之间折中，并非维护一个全量严格排序链表。
 

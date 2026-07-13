@@ -66,14 +66,14 @@ public class SmsAutoConfiguration {
 
 常用条件包括：
 
-| 注解 | 含义 |
-| --- | --- |
-| `@ConditionalOnClass` | classpath 存在指定类 |
-| `@ConditionalOnMissingClass` | classpath 不存在指定类 |
-| `@ConditionalOnBean` | 容器已有指定 Bean |
-| `@ConditionalOnMissingBean` | 用户尚未提供同类 Bean |
-| `@ConditionalOnProperty` | 配置属性满足条件 |
-| `@ConditionalOnWebApplication` | 当前为 Web 应用 |
+| 注解                           | 含义                   |
+| ------------------------------ | ---------------------- |
+| `@ConditionalOnClass`          | classpath 存在指定类   |
+| `@ConditionalOnMissingClass`   | classpath 不存在指定类 |
+| `@ConditionalOnBean`           | 容器已有指定 Bean      |
+| `@ConditionalOnMissingBean`    | 用户尚未提供同类 Bean  |
+| `@ConditionalOnProperty`       | 配置属性满足条件       |
+| `@ConditionalOnWebApplication` | 当前为 Web 应用        |
 
 `@ConditionalOnMissingBean` 是“用户配置优先”的关键：业务方自定义 `SmsClient` 后，默认 Bean 自动退让。
 

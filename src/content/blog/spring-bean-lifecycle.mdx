@@ -130,12 +130,12 @@ public class LifecycleBean implements BeanNameAware, InitializingBean {
 
 大量看似“注解魔法”的能力都由后置处理器完成：
 
-| 能力 | 典型处理器 |
-| --- | --- |
-| `@Autowired` | `AutowiredAnnotationBeanPostProcessor` |
-| `@PostConstruct` | `CommonAnnotationBeanPostProcessor` |
-| AOP 代理 | `AbstractAutoProxyCreator` 子类 |
-| 配置属性绑定 | 对应的配置属性后处理器 |
+| 能力             | 典型处理器                             |
+| ---------------- | -------------------------------------- |
+| `@Autowired`     | `AutowiredAnnotationBeanPostProcessor` |
+| `@PostConstruct` | `CommonAnnotationBeanPostProcessor`    |
+| AOP 代理         | `AbstractAutoProxyCreator` 子类        |
+| 配置属性绑定     | 对应的配置属性后处理器                 |
 
 下面的处理器可以记录所有 Bean 的初始化耗时：
 
