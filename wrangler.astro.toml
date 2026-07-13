@@ -1,0 +1,5 @@
+# Build-only configuration for Astro's Cloudflare Workers adapter.
+# The deploy-facing Pages configuration remains in wrangler.toml.
+name = "codewolffy-astro-build"
+compatibility_date = "2026-04-15"
+compatibility_flags = ["nodejs_compat"]

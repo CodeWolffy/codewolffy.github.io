@@ -2,7 +2,7 @@
 export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import PostCard from '@/components/blog/PostCard.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
@@ -102,23 +102,24 @@ const websiteJsonLd = {
             </p>
           </div>
           <div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-            <a href="#latest-posts">
-              <Button
-                size="lg"
-                variant="outline"
-                className="rounded-full px-8 bg-background hover:bg-muted text-foreground shadow-sm border transition-all"
-              >
-                {homeUi.readButton}
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
+            <a
+              href="#latest-posts"
+              class:list={[
+                buttonVariants({ size: 'lg', variant: 'outline' }),
+                'rounded-full px-8 bg-background hover:bg-muted text-foreground shadow-sm border transition-all',
+              ]}
+            >
+              {homeUi.readButton}
+              <ArrowRight className="ml-2 w-4 h-4" />
             </a>
-            <a href="/archives/">
-              <Button
-                size="lg"
-                className="rounded-full px-8 bg-foreground text-background hover:bg-foreground/90 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
-              >
-                {homeUi.archivesButton}
-              </Button>
+            <a
+              href="/archives/"
+              class:list={[
+                buttonVariants({ size: 'lg' }),
+                'rounded-full px-8 bg-foreground text-background hover:bg-foreground/90 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all',
+              ]}
+            >
+              {homeUi.archivesButton}
             </a>
           </div>
         </div>

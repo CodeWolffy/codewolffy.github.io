@@ -3,7 +3,7 @@ export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Comments } from '@/components/blog/Comments';
 import { getIconComponent } from '@/lib/icons';
 import { getSiteSettings } from '@/utils/site-settings';
@@ -154,22 +154,46 @@ const pageConfig = {
             {
               pageConfig.contactMethods.map((contact) => {
                 const IconComponent = getIconComponent(contact.icon);
-                return (
-                  <a href={contact.url} target="_blank" rel="noopener noreferrer">
+                const isWechat = (contact.icon || '').toLowerCase() === 'wechat';
+
+                if (isWechat) {
+                  return (
                     <Button
+                      type="button"
                       size="lg"
                       variant="outline"
+                      data-copy-wechat
+                      data-wechat-id={contact.url}
+                      data-copy-default-label={contact.name}
+                      aria-label={`复制微信号 ${contact.url}`}
                       className="rounded-full px-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
                     >
                       <IconComponent className="mr-2 h-5 w-5" />
-                      {contact.name}
+                      <span data-copy-label>{contact.name}</span>
                     </Button>
+                  );
+                }
+
+                return (
+                  <a
+                    href={contact.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class:list={[
+                      buttonVariants({ size: 'lg', variant: 'outline' }),
+                      'rounded-full px-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300',
+                    ]}
+                  >
+                    <IconComponent className="mr-2 h-5 w-5" />
+                    {contact.name}
                   </a>
                 );
               })
             }
           </div>
         </div>
+
+        <p id="wechat-copy-status" class="sr-only" role="status" aria-live="polite"></p>
 
         {
           settings.comments.giscus.enabled && (
@@ -191,4 +215,48 @@ const pageConfig = {
       </div>
     </div>
   </section>
+
+  <script>
+    const setupWechatCopyButtons = () => {
+      const status = document.getElementById('wechat-copy-status');
+
+      document.querySelectorAll<HTMLButtonElement>('[data-copy-wechat]').forEach((button) => {
+        if (button.dataset.copyBound === 'true') return;
+        button.dataset.copyBound = 'true';
+
+        button.addEventListener('click', async () => {
+          const wechatId = button.dataset.wechatId;
+          if (!wechatId) return;
+
+          let copied = false;
+          try {
+            await navigator.clipboard.writeText(wechatId);
+            copied = true;
+          } catch {
+            const input = document.createElement('textarea');
+            input.value = wechatId;
+            input.setAttribute('readonly', '');
+            input.style.position = 'fixed';
+            input.style.opacity = '0';
+            document.body.appendChild(input);
+            input.select();
+            copied = document.execCommand('copy');
+            input.remove();
+          }
+
+          const label = button.querySelector<HTMLElement>('[data-copy-label]');
+          const feedback = copied ? `已复制：${wechatId}` : `复制失败，请手动添加：${wechatId}`;
+          if (label) label.textContent = copied ? '已复制微信号' : '复制失败';
+          if (status) status.textContent = feedback;
+
+          window.setTimeout(() => {
+            if (label) label.textContent = button.dataset.copyDefaultLabel || 'WeChat';
+          }, 2000);
+        });
+      });
+    };
+
+    setupWechatCopyButtons();
+    document.addEventListener('astro:page-load', setupWechatCopyButtons);
+  </script>
 </BaseLayout>

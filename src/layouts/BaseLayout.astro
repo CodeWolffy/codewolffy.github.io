@@ -16,6 +16,8 @@ interface Props {
   publishedTime?: Date;
   modifiedTime?: Date;
   author?: string;
+  robots?: string;
+  canonical?: boolean;
 }
 
 const settings = await getSiteSettings();
@@ -28,6 +30,8 @@ const {
   publishedTime,
   modifiedTime,
   author = settings.author.name,
+  robots,
+  canonical = true,
 } = Astro.props;
 
 // 构建完整的 OG 图片 URL
@@ -73,6 +77,7 @@ const musicTracks = await getMusicTracks();
       })();
     </script>
     <meta name="description" content={description} />
+    {robots && <meta name="robots" content={robots} />}
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
@@ -103,7 +108,7 @@ const musicTracks = await getMusicTracks();
     }
 
     <!-- Canonical URL -->
-    <link rel="canonical" href={canonicalUrl} />
+    {canonical && <link rel="canonical" href={canonicalUrl} />}
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content={type} />

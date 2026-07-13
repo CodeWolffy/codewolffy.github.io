@@ -137,8 +137,13 @@ const prevPost = seriesIndex >= 0 ? seriesPosts[seriesIndex - 1] || null : chron
 const nextPost = seriesIndex >= 0 ? seriesPosts[seriesIndex + 1] || null : chronologicalNextPost;
 const navigationLabel = seriesIndex >= 0 ? '专栏篇章' : '时间归档';
 
-// 当前页面 URL
-const pageUrl = Astro.url.href;
+// 文章规范 URL 与结构化数据图片始终使用绝对地址，避免搜索引擎解析到相对资源。
+const siteBaseUrl = Astro.site ?? new URL(settings.urls.primary);
+const pageUrl = new URL(getBlogPostPath(post), siteBaseUrl).href;
+const articleImageUrl = new URL(
+  post.data.coverImage || post.data.heroImage || settings.og.defaultImage,
+  siteBaseUrl
+).href;
 ---
 
 <BaseLayout
@@ -175,7 +180,7 @@ const pageUrl = Astro.url.href;
         '@type': 'WebPage',
         '@id': pageUrl,
       },
-      image: post.data.coverImage || post.data.heroImage || '/og-image.jpg',
+      image: articleImageUrl,
       keywords: tagNames.join(', '),
       articleSection: seriesName || categoryName || '技术文章',
       wordCount: wordCount,
@@ -315,6 +320,9 @@ const pageUrl = Astro.url.href;
             loading="eager"
             fetchpriority="high"
             decoding="async"
+            tabindex="0"
+            role="button"
+            aria-label={`查看文章封面大图：${post.data.title}`}
             class="block max-w-full w-auto h-auto mb-4 rounded-md border bg-muted transition-colors max-h-[50vh] mx-auto cursor-zoom-in cover-image"
           />
         )
@@ -570,6 +578,10 @@ const pageUrl = Astro.url.href;
           newCoverImage.addEventListener('click', () => {
             // Create overlay
             const overlay = document.createElement('div');
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-modal', 'true');
+            overlay.setAttribute('aria-label', `文章封面大图：${newCoverImage.alt}`);
+            overlay.tabIndex = -1;
             overlay.style.cssText = `
                             position: fixed;
                             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -601,6 +613,7 @@ const pageUrl = Astro.url.href;
 
             // Prevent scrolling on body, but we need to listen for scroll events to close
             document.body.style.overflow = 'hidden';
+            overlay.focus();
 
             // Animate in
             requestAnimationFrame(() => {
@@ -620,6 +633,7 @@ const pageUrl = Astro.url.href;
 
               setTimeout(() => {
                 if (overlay.parentNode) overlay.remove();
+                newCoverImage.focus();
               }, 300);
             };
 
@@ -638,6 +652,13 @@ const pageUrl = Astro.url.href;
               }
             };
             document.addEventListener('keydown', onEsc);
+          });
+
+          newCoverImage.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              newCoverImage.click();
+            }
           });
         }
       };

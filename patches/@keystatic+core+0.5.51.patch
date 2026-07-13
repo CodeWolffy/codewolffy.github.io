@@ -1,7 +1,7 @@
-diff --git a/node_modules/@keystatic/core/dist/index-a8452c26.js b/node_modules/@keystatic/core/dist/index-a8452c26.js
-index 92ea45b..9ec7cd5 100644
---- a/node_modules/@keystatic/core/dist/index-a8452c26.js
-+++ b/node_modules/@keystatic/core/dist/index-a8452c26.js
+diff --git a/node_modules/@keystatic/core/dist/index-6e442145.js b/node_modules/@keystatic/core/dist/index-6e442145.js
+index 0c8454d..7356b50 100644
+--- a/node_modules/@keystatic/core/dist/index-6e442145.js
++++ b/node_modules/@keystatic/core/dist/index-6e442145.js
 @@ -4908,7 +4908,7 @@ function ArrayFieldInput(props) {
          modalStateIndex: modalState.index,
          onClose: t15,

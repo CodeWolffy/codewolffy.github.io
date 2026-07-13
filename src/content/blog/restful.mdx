@@ -26,7 +26,7 @@ REST (Representational State Transfer) 是一种架构风格。在 Spring Boot �
 
 ---
 
-### 核心原则：资源与动词分离
+## 核心原则：资源与动词分离
 
 REST 的核心思想是将\*\*资源（Resources）**与**操作（Verbs）\*\*分离开来。
 
@@ -36,19 +36,19 @@ REST 的核心思想是将\*\*资源（Resources）**与**操作（Verbs）\*\*�
 * Shutterstock
 * 探索
 
-#### ❌ 错误示范 (RPC 风格)
+### ❌ 错误示范 (RPC 风格)
 
 - `GET /api/getAllUsers`
 - `POST /api/createUser`
 - `POST /api/deleteUser?id=1`
 
-#### ✅ 正确示范 (RESTful 风格)
+### ✅ 正确示范 (RESTful 风格)
 
 - `GET /api/users` (获取用户列表)
 - `POST /api/users` (创建用户)
 - `DELETE /api/users/1` (删除 ID 为 1 的用户)
 
-### HTTP 动词与 Spring 注解映射
+## HTTP 动词与 Spring 注解映射
 
 在 Spring Boot 中，使用 `Controller` 层注解来对应标准的 HTTP 动词：
 
@@ -62,11 +62,11 @@ REST 的核心思想是将\*\*资源（Resources）**与**操作（Verbs）\*\*�
 
 **注意：**`PUT` 通常用于完全替换一个资源对象，而 `PATCH` 用于只修改对象中的某几个字段（例如只修改用户的 `email` 而不修改 `username`）。
 
-### URI 路径参数规范
+## URI 路径参数规范
 
 在 Spring Boot 中，参数传递主要有三种方式，应根据场景严格区分：
 
-#### A. 路径参数 (`@PathVariable`)
+### A. 路径参数 (`@PathVariable`)
 
 用于定位具体的资源。
 
@@ -77,7 +77,7 @@ REST 的核心思想是将\*\*资源（Resources）**与**操作（Verbs）\*\*�
 public Order getOrder(@PathVariable Long id) { ... }
 ```
 
-#### B. 查询参数 (`@RequestParam`)
+### B. 查询参数 (`@RequestParam`)
 
 用于过滤、分页、排序。
 
@@ -90,7 +90,7 @@ public List<User> getUsers(
     @RequestParam(defaultValue = "10") int size) { ... }
 ```
 
-#### C. 请求体 (`@RequestBody`)
+### C. 请求体 (`@RequestBody`)
 
 用于传输复杂的对象数据（通常用于 POST/PUT）。
 
@@ -101,7 +101,7 @@ public List<User> getUsers(
 public User createUser(@RequestBody UserDTO userDto) { ... }
 ```
 
-### HTTP 状态码规范
+## HTTP 状态码规范
 
 不要总是返回 `200 OK`，应利用 HTTP 状态码表达请求的结果。
 
@@ -124,11 +124,11 @@ public User createUser(@RequestBody UserDTO userDto) { ... }
 
 ---
 
-### 统一响应结构 (Wrapper)
+## 统一响应结构 (Wrapper)
 
 在企业级开发中，直接返回 `List<User>` 或 `String` 是不规范的。通常需要封装一个统一的 `Result` 对象，包含状态码、消息和数据。
 
-#### 定义统一响应类
+### 定义统一响应类
 
 ```java
 public class Result<T> {
@@ -148,7 +148,7 @@ public class Result<T> {
 }
 ```
 
-#### Controller 使用示例
+### Controller 使用示例
 
 ```java
 @GetMapping("/{id}")
@@ -162,7 +162,7 @@ public Result<User> getUser(@PathVariable Long id) {
 }
 ```
 
-### 全局异常处理 (Global Exception Handling)
+## 全局异常处理 (Global Exception Handling)
 
 不要在每个 Controller 里写 `try-catch`。使用 Spring 的 `@RestControllerAdvice` 进行统一拦截。
 
@@ -192,7 +192,7 @@ public class GlobalExceptionHandler {
 }
 ```
 
-### 版本控制 (Versioning)
+## 版本控制 (Versioning)
 
 随着业务迭代，接口可能会发生不兼容的变化。常见的版本控制方式是在 URL 中加入版本号。
 
@@ -204,7 +204,7 @@ public class GlobalExceptionHandler {
 
 ---
 
-### 总结：最佳实践清单
+## 总结：最佳实践清单
 
 1. **URI 使用连字符 (-)**：推荐 `/api/user-profiles` 而不是 `/api/userProfiles` 或 `/api/user_profiles`。
 2. **避免尾部斜杠**：使用 `/api/users` 而不是 `/api/users/`。

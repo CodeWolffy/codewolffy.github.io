@@ -122,6 +122,10 @@ export default defineConfig({
   ],
   adapter: enableCloudflareAdapter
     ? cloudflare({
+        // The root wrangler.toml targets Cloudflare Pages. The adapter uses
+        // the Workers Vite plugin internally, so it needs a Workers-only
+        // config without pages_build_output_dir during the Astro build.
+        configPath: 'wrangler.astro.toml',
         imageService: 'compile',
       })
     : undefined,

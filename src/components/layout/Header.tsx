@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Moon, Sun, Menu, X } from 'lucide-react';
@@ -12,12 +12,43 @@ interface HeaderProps {
 
 export function Header({ name, navigation, githubUrl }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [pathname, setPathname] = useState('');
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileNavRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const closeMenu = () => setIsMenuOpen(false);
-    document.addEventListener('astro:page-load', closeMenu);
-    return () => document.removeEventListener('astro:page-load', closeMenu);
+    const handlePageLoad = () => {
+      setIsMenuOpen(false);
+      setPathname(window.location.pathname);
+    };
+    handlePageLoad();
+    document.addEventListener('astro:page-load', handlePageLoad);
+    return () => document.removeEventListener('astro:page-load', handlePageLoad);
   }, []);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const firstLink = mobileNavRef.current?.querySelector<HTMLAnchorElement>('a');
+    requestAnimationFrame(() => firstLink?.focus());
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setIsMenuOpen(false);
+      requestAnimationFrame(() => menuButtonRef.current?.focus());
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isMenuOpen]);
+
+  const isCurrentPage = (href: string) => {
+    const normalizedHref = href === '/' ? '/' : href.replace(/\/$/, '');
+    const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/$/, '');
+    return normalizedHref === '/'
+      ? normalizedPath === '/'
+      : normalizedPath === normalizedHref || normalizedPath.startsWith(`${normalizedHref}/`);
+  };
 
   const toggleTheme = () => {
     const isDark = document.documentElement.classList.toggle('dark');
@@ -41,6 +72,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
                     key={item.href}
                     className="transition-colors hover:text-foreground/80 text-foreground/60"
                     href={item.href}
+                    aria-current={isCurrentPage(item.href) ? 'page' : undefined}
                   >
                     {item.label}
                   </a>
@@ -51,6 +83,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
             {/* Mobile: Menu Button */}
             <div className="lg:hidden shrink-0">
               <Button
+                ref={menuButtonRef}
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 md:h-10 md:w-10"
@@ -116,13 +149,18 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
       </div>
       {/* Mobile Nav */}
       {isMenuOpen && (
-        <div id="mobile-nav" className="lg:hidden border-t p-4 space-y-2 bg-background">
+        <div
+          ref={mobileNavRef}
+          id="mobile-nav"
+          className="lg:hidden border-t p-4 space-y-2 bg-background"
+        >
           <nav className="flex flex-col space-y-1" aria-label="移动端导航">
             {navigation.map((item) => (
               <a
                 key={item.href}
                 className="block py-3 px-4 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md active:bg-accent/80"
                 href={item.href}
+                aria-current={isCurrentPage(item.href) ? 'page' : undefined}
               >
                 {item.label}
               </a>

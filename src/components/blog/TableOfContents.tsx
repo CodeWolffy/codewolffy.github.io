@@ -65,19 +65,23 @@ export function TableOfContents({ headings }: TocProps) {
 
   return (
     <nav className="relative">
-      <div
-        className="flex items-center justify-between gap-1 cursor-pointer lg:cursor-default min-h-[36px]"
-        onClick={() => setIsOpen(!isOpen)}
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-1 min-h-[36px] text-left lg:pointer-events-none"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        aria-controls="article-table-of-contents"
       >
-        <h3 className="font-medium text-sm leading-none">此页内容</h3>
+        <span className="font-medium text-sm leading-none">此页内容</span>
         <ChevronRight
           className={cn(
             'h-4 w-4 transition-transform lg:hidden text-muted-foreground shrink-0',
             isOpen && 'rotate-90'
           )}
         />
-      </div>
+      </button>
       <ul
+        id="article-table-of-contents"
         className={cn(
           'space-y-2 text-sm',
           // Mobile: Absolute Overlay

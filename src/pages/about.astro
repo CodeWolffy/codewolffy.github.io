@@ -2,7 +2,7 @@
 export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Comments } from '@/components/blog/Comments';
 import { getEntry, render } from 'astro:content';
 import { getIconComponent } from '@/lib/icons';
@@ -104,15 +104,17 @@ const settings = await getSiteSettings();
             {aboutPage.data.socialLinks.map((link) => {
               const IconComponent = getIconComponent(link.icon);
               return (
-                <a href={link.url} target="_blank" rel="noopener noreferrer">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
-                  >
-                    <IconComponent className="mr-2 h-5 w-5" />
-                    {link.name}
-                  </Button>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class:list={[
+                    buttonVariants({ size: 'lg', variant: 'outline' }),
+                    'rounded-full px-8 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300',
+                  ]}
+                >
+                  <IconComponent className="mr-2 h-5 w-5" />
+                  {link.name}
                 </a>
               );
             })}
