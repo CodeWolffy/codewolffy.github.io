@@ -173,15 +173,52 @@ export function Search() {
     return () => document.removeEventListener('keydown', down);
   }, [isExpanded, searchValue]);
 
-  // Lock body scroll on mobile when expanded
+  // Complete scroll locking (desktop + mobile) to prevent background page scroll
   useEffect(() => {
-    if (isExpanded && typeof window !== 'undefined' && window.innerWidth < 768) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
+    if (!isExpanded || typeof window === 'undefined') return;
+
+    const docEl = document.documentElement;
+    const body = document.body;
+    const scrollbarWidth = window.innerWidth - docEl.clientWidth;
+
+    const prevDocOverflow = docEl.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevBodyPaddingRight = body.style.paddingRight;
+
+    docEl.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
     }
+
+    // Prevent mouse wheel outside results list from scrolling the background
+    const handleWheel = (e: WheelEvent) => {
+      const scrollArea = pagefindContainerRef.current?.querySelector('.pagefind-ui__results-area');
+      if (!scrollArea || !scrollArea.contains(e.target as Node)) {
+        e.preventDefault();
+      }
+    };
+
+    // Prevent touch drag outside results list from pulling the background on mobile
+    const handleTouchMove = (e: TouchEvent) => {
+      const scrollArea = pagefindContainerRef.current?.querySelector('.pagefind-ui__results-area');
+      if (!scrollArea || !scrollArea.contains(e.target as Node)) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      docEl.style.overflow = prevDocOverflow;
+      body.style.overflow = prevBodyOverflow;
+      body.style.paddingRight = prevBodyPaddingRight;
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
   }, [isExpanded]);
 
   // 支持 ?q= 深链（结构化数据 SearchAction / 外部直达搜索时自动聚焦）
@@ -329,6 +366,112 @@ export function Search() {
     return () => container.removeEventListener('keydown', handleResultsKeyDown);
   }, []);
 
+  // Auto-load more results on scroll (Infinite Scroll)
+  useEffect(() => {
+    if (!isExpanded || searchStatus !== 'ready') return;
+    const container = pagefindContainerRef.current;
+    if (!container) return;
+
+    let isAutoLoading = false;
+    let observer: IntersectionObserver | null = null;
+    let currentObservedBtn: HTMLButtonElement | null = null;
+
+    const triggerAutoLoad = (btn: HTMLButtonElement) => {
+      if (isAutoLoading) return;
+      isAutoLoading = true;
+      btn.click();
+      setTimeout(() => {
+        isAutoLoading = false;
+      }, 300);
+    };
+
+    const attachAutoLoad = () => {
+      const scrollArea = container.querySelector<HTMLElement>('.pagefind-ui__results-area');
+      const loadMoreBtn = container.querySelector<HTMLButtonElement>('.pagefind-ui__button');
+
+      if (!loadMoreBtn) {
+        if (observer && currentObservedBtn) {
+          observer.unobserve(currentObservedBtn);
+          currentObservedBtn = null;
+        }
+        return;
+      }
+
+      if (loadMoreBtn === currentObservedBtn && observer) {
+        return;
+      }
+
+      if (observer) {
+        observer.disconnect();
+      }
+
+      currentObservedBtn = loadMoreBtn;
+      observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting && !isAutoLoading) {
+              triggerAutoLoad(loadMoreBtn);
+            }
+          }
+        },
+        {
+          root: scrollArea || null,
+          rootMargin: '200px',
+        }
+      );
+
+      observer.observe(loadMoreBtn);
+    };
+
+    const handleScroll = (e: Event) => {
+      const scrollArea = e.currentTarget as HTMLElement;
+      if (!scrollArea || isAutoLoading) return;
+      const loadMoreBtn = container.querySelector<HTMLButtonElement>('.pagefind-ui__button');
+      if (!loadMoreBtn) return;
+
+      if (scrollArea.scrollTop + scrollArea.clientHeight >= scrollArea.scrollHeight - 200) {
+        triggerAutoLoad(loadMoreBtn);
+      }
+    };
+
+    const mutationObserver = new MutationObserver(() => {
+      attachAutoLoad();
+      const scrollArea = container.querySelector<HTMLElement>('.pagefind-ui__results-area');
+      if (
+        scrollArea &&
+        !(scrollArea as HTMLElement & { __infiniteScrollAttached?: boolean })
+          .__infiniteScrollAttached
+      ) {
+        scrollArea.addEventListener('scroll', handleScroll, { passive: true });
+        (
+          scrollArea as HTMLElement & { __infiniteScrollAttached?: boolean }
+        ).__infiniteScrollAttached = true;
+      }
+    });
+
+    mutationObserver.observe(container, { childList: true, subtree: true });
+
+    attachAutoLoad();
+    const initialScrollArea = container.querySelector<HTMLElement>('.pagefind-ui__results-area');
+    if (initialScrollArea) {
+      initialScrollArea.addEventListener('scroll', handleScroll, { passive: true });
+      (
+        initialScrollArea as HTMLElement & { __infiniteScrollAttached?: boolean }
+      ).__infiniteScrollAttached = true;
+    }
+
+    return () => {
+      mutationObserver.disconnect();
+      if (observer) observer.disconnect();
+      const area = container.querySelector<HTMLElement>('.pagefind-ui__results-area');
+      if (area) {
+        area.removeEventListener('scroll', handleScroll);
+        delete (area as HTMLElement & { __infiniteScrollAttached?: boolean })
+          .__infiniteScrollAttached;
+      }
+    };
+  }, [isExpanded, searchStatus, searchValue]);
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchValue(e.target.value);
   };
@@ -362,8 +505,9 @@ export function Search() {
       {/* Mobile Backdrop */}
       {isExpanded && (
         <div
-          className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm md:hidden touch-none select-none"
           onClick={() => closeSearch(false)}
+          onTouchMove={(e) => e.preventDefault()}
           aria-hidden="true"
         />
       )}
@@ -452,7 +596,7 @@ export function Search() {
         {isExpanded && (
           <div
             className={cn(
-              'fixed left-2 right-2 top-12 z-[60] mt-1 rounded-xl border border-border bg-background shadow-xl max-h-[calc(100vh-4rem)] overflow-hidden md:absolute md:top-full md:left-0 md:right-0 md:mt-2 md:rounded-lg md:shadow-lg md:max-h-[70vh]',
+              'fixed left-2 right-2 top-12 z-[60] mt-1 rounded-xl border border-border bg-background shadow-xl overflow-hidden overscroll-contain md:absolute md:top-full md:left-0 md:right-0 md:mt-2 md:rounded-lg md:shadow-lg',
               hasSearchQuery && 'min-h-[12rem]'
             )}
             role="dialog"
@@ -496,7 +640,7 @@ export function Search() {
               ref={pagefindContainerRef}
               id="pagefind-results"
               className={cn(
-                'max-h-[calc(100vh-5rem)] overflow-y-auto p-2 md:max-h-[70vh]',
+                'w-full p-2 overscroll-contain',
                 searchStatus === 'ready' && hasSearchQuery ? 'block' : 'hidden'
               )}
             />
