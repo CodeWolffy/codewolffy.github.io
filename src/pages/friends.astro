@@ -231,7 +231,8 @@ const pageConfig = {
     const setupWechatCopyButtons = () => {
       const status = document.getElementById('wechat-copy-status');
 
-      document.querySelectorAll<HTMLButtonElement>('[data-copy-wechat]').forEach((button) => {
+      document.querySelectorAll('[data-copy-wechat]').forEach((node) => {
+        const button = node as HTMLButtonElement;
         if (button.dataset.copyBound === 'true') return;
         button.dataset.copyBound = 'true';
 
