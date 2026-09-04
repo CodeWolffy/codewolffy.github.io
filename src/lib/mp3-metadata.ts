@@ -442,10 +442,24 @@ export const getFallbackMetadata = (
   src: string
 ): Required<Pick<Mp3Metadata, 'title' | 'artist'>> => {
   const filename = src.split('/').pop()?.split('?')[0] ?? '';
-  const title = decodeURIComponent(filename.replace(/\.[^.]+$/, '') || '未命名音乐');
+  const rawName = decodeURIComponent(filename.replace(/\.[^.]+$/, '') || '').trim();
+  if (!rawName) {
+    return {
+      title: '未命名音乐',
+      artist: '未知艺术家',
+    };
+  }
+
+  const match = rawName.match(/^(.*?)\s*[-—]\s*(.*?)$/);
+  if (match && match[1]?.trim() && match[2]?.trim()) {
+    return {
+      title: match[1].trim(),
+      artist: match[2].trim(),
+    };
+  }
 
   return {
-    title,
+    title: rawName,
     artist: '未知艺术家',
   };
 };

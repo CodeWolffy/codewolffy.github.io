@@ -31,21 +31,26 @@ const patchKeystaticApiEnvAccess = () => {
 
     // Keystatic 5.2 still reads context.locals.runtime.env, but Astro's
     // Cloudflare adapter removed that API and deliberately throws from the
-    // getter. The Pages advanced-mode wrapper synchronizes bindings to
-    // process.env before dispatching the request, so use that stable bridge.
-    const patched = source.replace(
-      /const envVarsForCf = .*?context\.locals.*?runtime.*?env;/s,
-      'const envVarsForCf = globalThis.process?.env;'
-    );
+    // getter. Keystatic 6.0 natively switched to standard astro:env/server.
+    if (source.includes('context.locals') && source.includes('envVarsForCf')) {
+      const patched = source.replace(
+        /const envVarsForCf = .*?context\.locals.*?runtime.*?env;/s,
+        'const envVarsForCf = globalThis.process?.env;'
+      );
 
-    if (patched === source) {
-      throw new Error(
-        `[cloudflare-pages] Keystatic env compatibility patch could not find the expected runtime env access in ${entry}.`
+      if (patched === source) {
+        throw new Error(
+          `[cloudflare-pages] Keystatic env compatibility patch could not find the expected runtime env access in ${entry}.`
+        );
+      }
+
+      writeFileSync(target, patched);
+      console.log(`[cloudflare-pages] Patched Keystatic env access in ${entry}.`);
+    } else {
+      console.log(
+        `[cloudflare-pages] Keystatic 6.0+ uses native astro:env/server in ${entry}; legacy patch skipped.`
       );
     }
-
-    writeFileSync(target, patched);
-    console.log(`[cloudflare-pages] Patched Keystatic env access in ${entry}.`);
   }
 
   if (!matchedChunk) {

@@ -127,6 +127,7 @@ export default defineConfig({
         // config without pages_build_output_dir during the Astro build.
         configPath: 'wrangler.astro.toml',
         imageService: 'compile',
+        prerenderEnvironment: 'node',
       })
     : undefined,
   site: getSiteUrl({ isGitHubActions }),

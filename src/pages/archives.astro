@@ -3,13 +3,12 @@ export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
-import Sidebar from '@/components/Sidebar.astro';
+import { ArchiveNav, type ArchiveNavYear } from '@/components/blog/ArchiveNav';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { getBlogPostPath, getSeriesPath } from '@/utils/content-paths';
 import { getSiteSettings } from '@/utils/site-settings';
+import { calculateReadingTime } from '@/utils/reading-time';
 import {
-  countPostCategories,
-  countPostTags,
   createSeriesSummaries,
   createTaxonomyNameMap,
   getPostSeries,
@@ -21,15 +20,8 @@ const archivesUi = settings.ui.archives;
 
 const allPosts = await getPublicBlogPostsSorted();
 
-const allTags = await getCollection('tags');
-const tagMap = createTaxonomyNameMap(allTags);
-const sortedTags = countPostTags(allPosts, tagMap);
-const topTags = sortedTags.slice(0, 8);
-
 const allCategories = await getCollection('categories');
 const categoryMap = createTaxonomyNameMap(allCategories);
-const sortedCategories = countPostCategories(allPosts, categoryMap);
-const topCategories = sortedCategories.slice(0, 4);
 
 type SeriesEntry = CollectionEntry<'series'>;
 
@@ -63,39 +55,102 @@ const yearRangeLabel = newestYear
   : '暂无';
 const latestDateLabel = newestPost ? formatReadableDate(newestPost.data.pubDate) : '暂无';
 
-const groupedPosts = allPosts.reduce(
-  (acc, post) => {
-    const year = post.data.pubDate.getFullYear();
+// 计算全站总字数
+let totalWordCount = 0;
+allPosts.forEach((post) => {
+  if (post.body) {
+    totalWordCount += calculateReadingTime(post.body).wordCount;
+  }
+});
+const formatWordCountDisplay = (count: number) => {
+  if (count >= 10000) {
+    return `${(count / 10000).toFixed(1)} 万`;
+  }
+  return `${count}`;
+};
 
-    let yearGroup = acc.find((item) => item.year === year);
-    if (!yearGroup) {
-      yearGroup = { year, posts: [] };
-      acc.push(yearGroup);
-    }
+// 按年份和月份两级分组
+interface MonthGroup {
+  month: number;
+  monthSlug: string;
+  monthLabel: string;
+  anchorId: string;
+  posts: typeof allPosts;
+}
 
-    yearGroup.posts.push(post);
-    return acc;
-  },
-  [] as {
-    year: number;
-    posts: typeof allPosts;
-  }[]
-);
+interface YearGroup {
+  year: number;
+  anchorId: string;
+  posts: typeof allPosts;
+  monthGroups: MonthGroup[];
+}
+
+const groupedPosts = allPosts.reduce((acc, post) => {
+  const date = post.data.pubDate;
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const monthSlug = formatTwoDigits(month);
+
+  let yearGroup = acc.find((item) => item.year === year);
+  if (!yearGroup) {
+    yearGroup = {
+      year,
+      anchorId: `year-${year}`,
+      posts: [],
+      monthGroups: [],
+    };
+    acc.push(yearGroup);
+  }
+  yearGroup.posts.push(post);
+
+  let monthGroup = yearGroup.monthGroups.find((m) => m.month === month);
+  if (!monthGroup) {
+    monthGroup = {
+      month,
+      monthSlug,
+      monthLabel: `${monthSlug} 月`,
+      anchorId: `month-${year}-${monthSlug}`,
+      posts: [],
+    };
+    yearGroup.monthGroups.push(monthGroup);
+  }
+  monthGroup.posts.push(post);
+
+  return acc;
+}, [] as YearGroup[]);
 
 groupedPosts.sort((a, b) => b.year - a.year);
+groupedPosts.forEach((yg) => {
+  yg.monthGroups.sort((a, b) => b.month - a.month);
+});
+
+// 传递给侧边栏的数据
+const navYears: ArchiveNavYear[] = groupedPosts.map((yg) => ({
+  year: yg.year,
+  count: yg.posts.length,
+  id: yg.anchorId,
+  months: yg.monthGroups.map((mg) => ({
+    month: mg.month,
+    label: mg.monthLabel,
+    count: mg.posts.length,
+    id: mg.anchorId,
+  })),
+}));
 
 const archiveSummary = [
   { value: allPosts.length.toString(), label: '篇文章' },
+  { value: formatWordCountDisplay(totalWordCount), label: '全站字数' },
   { value: yearRangeLabel, label: '写作跨度' },
   { value: latestDateLabel, label: '最近更新' },
-  { value: `${sortedCategories.length}/${sortedTags.length}`, label: '分类/标签' },
 ];
 ---
 
 <BaseLayout title={`文章归档 | ${settings.name}`} description="按时间、分类和标签浏览所有文章">
-  <section class="container mx-auto pt-0 pb-8">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
+  <section class="container mx-auto pt-0 pb-12">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+      {/* 左侧主要内容区 */}
       <div class="lg:col-span-8 space-y-4">
+        {/* 顶部指标统计卡片 */}
         <section class="rounded-xl border border-border/70 bg-card/80 px-4 py-4 shadow-sm sm:px-5">
           <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="space-y-2">
@@ -113,12 +168,12 @@ const archiveSummary = [
             </div>
 
             <div
-              class="grid grid-cols-2 gap-x-5 gap-y-2.5 border-t border-border/60 pt-3 md:min-w-72 md:border-l md:border-t-0 md:pl-5 md:pt-0"
+              class="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border/60 pt-3 md:min-w-72 md:border-l md:border-t-0 md:pl-6 md:pt-0"
             >
               {
                 archiveSummary.map((item) => (
                   <div class="min-w-0">
-                    <p class="truncate text-lg font-black leading-none tracking-tight text-foreground sm:text-xl">
+                    <p class="truncate text-xl font-black leading-none tracking-tight text-foreground sm:text-2xl font-mono">
                       {item.value}
                     </p>
                     <p class="mt-1 text-xs font-medium text-muted-foreground">{item.label}</p>
@@ -129,131 +184,301 @@ const archiveSummary = [
           </div>
         </section>
 
+        {/* 移动端快捷年份导航（移动端保留横向紧凑滑块） */}
         {
           allPosts.length > 0 && (
             <nav
-              aria-label="归档快速导航"
-              class="space-y-3 rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm lg:hidden"
+              aria-label="移动端归档快速导航"
+              class="space-y-2.5 rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm lg:hidden"
             >
-              <div class="flex items-center gap-2 overflow-x-auto pb-0.5">
-                <span class="shrink-0 text-xs font-semibold text-muted-foreground">年份</span>
+              <div class="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+                <span class="shrink-0 text-xs font-semibold text-muted-foreground">跳转年份</span>
                 {groupedPosts.map((yearGroup) => (
                   <a
-                    href={`#year-${yearGroup.year}`}
-                    class="shrink-0 rounded-full border border-border/70 px-2.5 py-1 text-xs font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-muted hover:text-primary"
+                    href={`#${yearGroup.anchorId}`}
+                    class="shrink-0 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                   >
                     {yearGroup.year}
-                    <span class="ml-1 text-muted-foreground">{yearGroup.posts.length}</span>
+                    <span class="ml-1 text-muted-foreground font-mono">
+                      {yearGroup.posts.length}
+                    </span>
                   </a>
                 ))}
               </div>
-
-              {featuredSeries.length > 0 && (
-                <div class="flex items-center gap-2 overflow-x-auto border-t border-border/60 pt-3">
-                  <a
-                    href="/series/"
-                    class="shrink-0 text-xs font-semibold text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    专栏
-                  </a>
-                  {featuredSeries.map((series) => (
-                    <a
-                      href={getSeriesPath(series.id)}
-                      class="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground/80 transition-colors hover:bg-primary hover:text-primary-foreground"
-                    >
-                      {series.data.name}
-                    </a>
-                  ))}
-                </div>
-              )}
             </nav>
           )
         }
 
+        {/* 交互工具栏：即时标题过滤 + 正倒序切换 + 全部展开/折叠 */}
+        {
+          allPosts.length > 0 && (
+            <div class="flex flex-col gap-2.5 rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              {/* 即时搜索框 */}
+              <div class="relative flex-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+                <input
+                  type="text"
+                  id="archive-filter-input"
+                  placeholder="在归档中按标题即时筛选..."
+                  class="w-full rounded-lg border border-border/70 bg-background/90 py-1.5 pl-9 pr-8 text-xs text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
+                />
+                <button
+                  type="button"
+                  id="archive-filter-clear"
+                  class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                  aria-label="清空筛选"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* 右侧控制按钮 */}
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  id="archive-sort-btn"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-background/80 px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  title="切换文章排序方式"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-3.5 w-3.5 text-primary"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m3 16 4 4 4-4" />
+                    <path d="M7 20V4" />
+                    <path d="m21 8-4-4-4 4" />
+                    <path d="M17 4v16" />
+                  </svg>
+                  <span id="archive-sort-label">最新在前</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="archive-collapse-all-btn"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-background/80 px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  title="展开或折叠所有年份"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-3.5 w-3.5 text-muted-foreground"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m7 15 5 5 5-5" />
+                    <path d="m7 9 5-5 5 5" />
+                  </svg>
+                  <span id="archive-collapse-label">折叠全部</span>
+                </button>
+              </div>
+            </div>
+          )
+        }
+
+        {/* 筛选结果提示栏 */}
+        <div
+          id="archive-filter-stats"
+          class="hidden items-center justify-between rounded-lg border border-primary/20 bg-primary/10 px-3.5 py-2 text-xs text-primary"
+        >
+          <span>
+            筛选结果：匹配到 <strong id="archive-filter-count" class="font-bold">0</strong> 篇文章
+          </span>
+          <button
+            type="button"
+            id="archive-reset-filter"
+            class="text-xs font-semibold underline underline-offset-2 hover:opacity-80"
+          >
+            清除筛选
+          </button>
+        </div>
+
+        {/* 无文章空状态 */}
         {
           allPosts.length === 0 ? (
             <EmptyState type="post" class="w-full" />
           ) : (
-            <div class="space-y-8 rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-5">
+            /* 时间轴主体容器 */
+            <div
+              id="archive-timeline-list"
+              class="space-y-8 rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-6"
+            >
               {groupedPosts.map((yearGroup) => (
-                <section id={`year-${yearGroup.year}`} class="scroll-mt-24">
-                  <div class="grid grid-cols-[4.25rem_1.25rem_minmax(0,1fr)] items-center gap-2.5 sm:grid-cols-[5rem_1.5rem_minmax(0,1fr)] sm:gap-3">
-                    <h2 class="border-l-2 border-foreground pl-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                      {yearGroup.year}
-                    </h2>
-                    <div class="flex justify-center">
-                      <span class="h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
+                <section
+                  id={yearGroup.anchorId}
+                  class="archive-year-group scroll-mt-24 space-y-4"
+                  data-year={yearGroup.year}
+                >
+                  {/* 年份主标头 */}
+                  <div class="flex items-center justify-between border-b border-border/60 pb-3">
+                    <div class="flex items-center gap-3">
+                      <h2 class="border-l-4 border-foreground pl-3 text-2xl font-black tracking-tight text-foreground sm:text-3xl font-mono">
+                        {yearGroup.year}
+                      </h2>
+                      <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-mono font-medium text-muted-foreground">
+                        {yearGroup.posts.length} 篇
+                      </span>
                     </div>
-                    <p class="text-sm text-muted-foreground sm:text-base">
-                      {yearGroup.posts.length} 篇文章
-                    </p>
+
+                    {/* 单年份折叠按钮 */}
+                    <button
+                      type="button"
+                      class="archive-year-toggle inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      data-year-target={yearGroup.year}
+                      aria-label={`展开或折叠 ${yearGroup.year} 年文章`}
+                    >
+                      <span class="year-toggle-text text-[0.75rem]">折叠</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="year-toggle-icon h-3.5 w-3.5 transition-transform duration-200"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
                   </div>
 
-                  <div class="mt-2">
-                    {yearGroup.posts.map((post, postIndex) => (
-                      <article class="group/archive-row relative grid grid-cols-[4.25rem_1.25rem_minmax(0,1fr)] gap-2.5 rounded-lg transition-colors hover:bg-accent/70 sm:grid-cols-[5rem_1.5rem_minmax(0,1fr)] sm:gap-3">
-                        <time
-                          datetime={post.data.pubDate.toISOString()}
-                          class="relative z-10 py-2.5 text-right font-mono text-xs text-muted-foreground transition-colors group-hover/archive-row:text-foreground sm:text-sm"
-                        >
-                          {formatShortDate(post.data.pubDate)}
-                        </time>
-
-                        <div class="relative flex justify-center">
-                          <span
-                            class:list={[
-                              'absolute top-0 bottom-0 border-l border-dashed border-border transition-colors group-hover/archive-row:border-primary/50',
-                              postIndex === yearGroup.posts.length - 1 ? 'h-3' : '',
-                            ]}
-                          />
-                          <span class="relative mt-[0.95rem] h-1.5 w-1.5 rounded-full bg-muted-foreground ring-[3px] ring-background transition-colors group-hover/archive-row:bg-primary group-hover/archive-row:ring-accent" />
+                  {/* 年份内的月份容器 */}
+                  <div class="archive-month-container space-y-6 pt-1">
+                    {yearGroup.monthGroups.map((monthGroup) => (
+                      <div
+                        id={monthGroup.anchorId}
+                        class="archive-month-group scroll-mt-24 space-y-2"
+                        data-month={monthGroup.month}
+                      >
+                        {/* 月份微标头与中继节点 */}
+                        <div class="flex items-center gap-3 py-1">
+                          <div class="flex items-center gap-2">
+                            <span class="h-2 w-2 rounded-full border border-primary bg-primary/20" />
+                            <span class="font-mono text-xs font-bold text-foreground/85">
+                              {monthGroup.monthLabel}
+                            </span>
+                          </div>
+                          <span class="font-mono text-[0.7rem] text-muted-foreground/60">
+                            ({monthGroup.posts.length} 篇)
+                          </span>
+                          <div class="h-px flex-1 bg-border/40" />
                         </div>
 
-                        <a
-                          href={getBlogPostPath(post)}
-                          class="relative z-10 grid min-w-0 gap-1.5 py-2.5 pr-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline sm:gap-3"
-                        >
-                          <h3 class="min-w-0 break-words text-base font-bold leading-snug tracking-tight text-foreground transition-colors group-hover/archive-row:text-primary sm:text-[1.05rem]">
-                            {post.data.title}
-                          </h3>
+                        {/* 月份内的文章列表 */}
+                        <div class="archive-posts-list pl-1 sm:pl-2">
+                          {monthGroup.posts.map((post, postIndex) => (
+                            <article
+                              class="archive-post-row group/archive-row relative grid grid-cols-[3.75rem_1.25rem_minmax(0,1fr)] gap-2 rounded-lg transition-colors hover:bg-accent/70 sm:grid-cols-[4.5rem_1.5rem_minmax(0,1fr)] sm:gap-3"
+                              data-title={post.data.title.toLowerCase()}
+                              data-category={post.data.category?.toLowerCase() || ''}
+                            >
+                              {/* 日期 */}
+                              <time
+                                datetime={post.data.pubDate.toISOString()}
+                                class="relative z-10 py-2.5 text-right font-mono text-xs text-muted-foreground transition-colors group-hover/archive-row:text-foreground sm:text-sm"
+                              >
+                                {formatShortDate(post.data.pubDate)}
+                              </time>
 
-                          {(() => {
-                            const series = getPostSeries(allSeries, post);
-                            const label = series
-                              ? `专栏 · ${series.data.name}`
-                              : post.data.category
-                                ? categoryMap.get(post.data.category) || post.data.category
-                                : undefined;
+                              {/* 时间线与小节点 */}
+                              <div class="relative flex justify-center">
+                                <span
+                                  class:list={[
+                                    'absolute top-0 bottom-0 border-l border-dashed border-border/70 transition-colors group-hover/archive-row:border-primary/50',
+                                    postIndex === monthGroup.posts.length - 1 ? 'h-3' : '',
+                                  ]}
+                                />
+                                <span class="relative mt-[0.95rem] h-1.5 w-1.5 rounded-full bg-muted-foreground ring-[3px] ring-background transition-colors group-hover/archive-row:bg-primary group-hover/archive-row:ring-accent" />
+                              </div>
 
-                            return (
-                              label && (
-                                <span class="truncate text-xs text-muted-foreground/75 transition-colors group-hover/archive-row:text-foreground/75 sm:max-w-44 sm:text-right">
-                                  {label}
-                                </span>
-                              )
-                            );
-                          })()}
-                        </a>
-                      </article>
+                              {/* 标题与胶囊徽标 */}
+                              <a
+                                href={getBlogPostPath(post)}
+                                class="relative z-10 flex min-w-0 flex-col gap-1 py-2.5 pr-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
+                              >
+                                <h3 class="min-w-0 break-words text-sm font-bold leading-snug tracking-tight text-foreground transition-colors group-hover/archive-row:text-primary sm:text-[0.98rem]">
+                                  {post.data.title}
+                                </h3>
+
+                                {/* 专栏 / 分类胶囊 Badge */}
+                                {(() => {
+                                  const series = getPostSeries(allSeries, post);
+                                  if (series) {
+                                    return (
+                                      <span class="inline-flex shrink-0 items-center rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[0.7rem] font-medium text-primary transition-colors group-hover/archive-row:bg-primary/20">
+                                        专栏 · {series.data.name}
+                                      </span>
+                                    );
+                                  }
+                                  const categoryName = post.data.category
+                                    ? categoryMap.get(post.data.category) || post.data.category
+                                    : undefined;
+                                  if (categoryName) {
+                                    return (
+                                      <span class="inline-flex shrink-0 items-center rounded-md border border-border/80 bg-muted/60 px-2 py-0.5 text-[0.7rem] text-muted-foreground transition-colors group-hover/archive-row:border-border group-hover/archive-row:text-foreground">
+                                        {categoryName}
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </a>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </section>
               ))}
+
+              {/* 筛选无结果时显示的提示 */}
+              <div
+                id="archive-filter-empty"
+                class="hidden py-12 text-center text-sm text-muted-foreground"
+              >
+                <p>未找到符合条件的文章</p>
+                <p class="mt-1 text-xs text-muted-foreground/60">尝试更换关键词或清空筛选条件</p>
+              </div>
             </div>
           )
         }
       </div>
 
-      <div class="hidden lg:block lg:col-span-4 pl-4">
-        <div class="sticky top-24 space-y-4">
-          <Sidebar tags={topTags} categories={topCategories} />
+      {/* 右侧专属性归档侧边栏 (PC 端 Sticky 吸顶自适应视口) */}
+      <div class="hidden lg:block lg:col-span-4 pl-2">
+        <div
+          class="sticky top-20 max-h-[calc(100vh-5.5rem)] overflow-y-auto overscroll-contain pr-1 space-y-3.5 pb-4 sidebar-scrollbar"
+        >
+          {/* 归档专属时间导航与年度分布 */}
+          <ArchiveNav client:load years={navYears} totalPosts={allPosts.length} />
 
+          {/* 精选专栏模块 */}
           {
             featuredSeries.length > 0 && (
-              <aside class="rounded-xl border border-border/50 bg-card p-3 shadow-sm">
-                <div class="mb-2 flex items-center justify-between gap-3">
-                  <h2 class="flex items-center gap-2 text-base font-bold text-foreground">
-                    <span class="h-4 w-1 rounded-full bg-primary" />
+              <aside class="rounded-xl border border-border/60 bg-card p-3.5 shadow-sm">
+                <div class="mb-2.5 flex items-center justify-between">
+                  <h2 class="flex items-center gap-2 text-sm font-bold text-foreground">
+                    <span class="h-3.5 w-1 rounded-full bg-primary" />
                     精选专栏
                   </h2>
                   <a
@@ -269,20 +494,20 @@ const archiveSummary = [
                     <li>
                       <a
                         href={getSeriesPath(series.id)}
-                        class="group block rounded-lg px-2 py-2 transition-colors hover:bg-muted/60"
+                        class="group block rounded-lg px-2.5 py-1.5 transition-colors hover:bg-muted/70"
                       >
-                        <div class="flex items-start justify-between gap-3">
-                          <span class="min-w-0 font-medium leading-snug text-foreground/85 transition-colors group-hover:text-primary">
+                        <div class="flex items-start justify-between gap-2">
+                          <span class="min-w-0 text-xs font-semibold text-foreground/85 transition-colors group-hover:text-primary">
                             {series.data.name}
                           </span>
                           <span class="shrink-0 rounded-full border border-border/70 px-1.5 py-0.5 text-[0.65rem] text-muted-foreground">
                             {getSeriesStatusLabel(series.data.status)}
                           </span>
                         </div>
-                        <p class="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        <p class="mt-0.5 line-clamp-1 text-xs leading-relaxed text-muted-foreground">
                           {series.data.description}
                         </p>
-                        <p class="mt-1 text-[0.7rem] text-muted-foreground/70">
+                        <p class="mt-0.5 font-mono text-[0.7rem] text-muted-foreground/70">
                           {seriesPostCounts.get(series.id) || 0} 篇
                         </p>
                       </a>
@@ -297,3 +522,195 @@ const archiveSummary = [
     </div>
   </section>
 </BaseLayout>
+
+{/* 客户端交互脚本：即时筛选、正倒序翻转、年份折叠 */}
+<script>
+  function setupArchiveInteractions() {
+    const filterInput = document.getElementById('archive-filter-input') as HTMLInputElement | null;
+    const filterClear = document.getElementById('archive-filter-clear');
+    const filterStats = document.getElementById('archive-filter-stats');
+    const filterCount = document.getElementById('archive-filter-count');
+    const resetFilterBtn = document.getElementById('archive-reset-filter');
+    const filterEmpty = document.getElementById('archive-filter-empty');
+
+    const sortBtn = document.getElementById('archive-sort-btn');
+    const sortLabel = document.getElementById('archive-sort-label');
+
+    const collapseAllBtn = document.getElementById('archive-collapse-all-btn');
+    const collapseLabel = document.getElementById('archive-collapse-label');
+
+    const timelineContainer = document.getElementById('archive-timeline-list');
+    const yearGroups = document.querySelectorAll<HTMLElement>('.archive-year-group');
+    const monthGroups = document.querySelectorAll<HTMLElement>('.archive-month-group');
+    const postRows = document.querySelectorAll<HTMLElement>('.archive-post-row');
+
+    // 1. 标题即时过滤功能
+    const handleFilter = () => {
+      if (!filterInput) return;
+      const query = filterInput.value.trim().toLowerCase();
+
+      if (filterClear) {
+        filterClear.classList.toggle('hidden', query === '');
+      }
+
+      if (query === '') {
+        // 重置全部显示
+        postRows.forEach((row) => row.classList.remove('hidden'));
+        monthGroups.forEach((mg) => mg.classList.remove('hidden'));
+        yearGroups.forEach((yg) => yg.classList.remove('hidden'));
+        filterStats?.classList.add('hidden');
+        filterEmpty?.classList.add('hidden');
+        return;
+      }
+
+      let matchCount = 0;
+
+      // 逐行匹配
+      postRows.forEach((row) => {
+        const title = row.dataset.title || '';
+        const category = row.dataset.category || '';
+        const isMatched = title.includes(query) || category.includes(query);
+
+        if (isMatched) {
+          row.classList.remove('hidden');
+          matchCount++;
+        } else {
+          row.classList.add('hidden');
+        }
+      });
+
+      // 检查月份容器是否还有可见文章
+      monthGroups.forEach((mg) => {
+        const visiblePosts = mg.querySelectorAll('.archive-post-row:not(.hidden)');
+        mg.classList.toggle('hidden', visiblePosts.length === 0);
+      });
+
+      // 检查年份容器是否还有可见月份
+      yearGroups.forEach((yg) => {
+        const visibleMonths = yg.querySelectorAll('.archive-month-group:not(.hidden)');
+        yg.classList.toggle('hidden', visibleMonths.length === 0);
+      });
+
+      // 更新统计条与空状态
+      if (filterStats && filterCount) {
+        filterStats.classList.remove('hidden');
+        filterStats.classList.add('flex');
+        filterCount.textContent = matchCount.toString();
+      }
+
+      if (filterEmpty) {
+        filterEmpty.classList.toggle('hidden', matchCount > 0);
+      }
+    };
+
+    filterInput?.addEventListener('input', handleFilter);
+
+    const clearFilter = () => {
+      if (filterInput) {
+        filterInput.value = '';
+        handleFilter();
+        filterInput.focus();
+      }
+    };
+
+    filterClear?.addEventListener('click', clearFilter);
+    resetFilterBtn?.addEventListener('click', clearFilter);
+
+    // 2. 正序 / 倒序切换功能 (时间顺叙 / 倒叙)
+    let isAscending = false;
+    sortBtn?.addEventListener('click', () => {
+      if (!timelineContainer) return;
+      isAscending = !isAscending;
+
+      if (sortLabel) {
+        sortLabel.textContent = isAscending ? '最早开始' : '最新在前';
+      }
+
+      // 翻转年份节点
+      const currentYearEls = Array.from(
+        timelineContainer.querySelectorAll<HTMLElement>(':scope > .archive-year-group')
+      );
+      currentYearEls.reverse().forEach((yg) => timelineContainer.appendChild(yg));
+
+      // 翻转每个年份内的月份，以及月份内的文章
+      currentYearEls.forEach((yg) => {
+        const monthContainer = yg.querySelector<HTMLElement>('.archive-month-container');
+        if (monthContainer) {
+          const currentMonthEls = Array.from(
+            monthContainer.querySelectorAll<HTMLElement>(':scope > .archive-month-group')
+          );
+          currentMonthEls.reverse().forEach((mg) => monthContainer.appendChild(mg));
+
+          currentMonthEls.forEach((mg) => {
+            const postList = mg.querySelector<HTMLElement>('.archive-posts-list');
+            if (postList) {
+              const currentPosts = Array.from(
+                postList.querySelectorAll<HTMLElement>(':scope > .archive-post-row')
+              );
+              currentPosts.reverse().forEach((p) => postList.appendChild(p));
+            }
+          });
+        }
+      });
+    });
+
+    // 3. 单年份折叠 / 展开
+    const yearToggleButtons = document.querySelectorAll<HTMLButtonElement>('.archive-year-toggle');
+    yearToggleButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const yearGroup = btn.closest('.archive-year-group');
+        if (!yearGroup) return;
+
+        const monthContainer = yearGroup.querySelector<HTMLElement>('.archive-month-container');
+        const icon = btn.querySelector<HTMLElement>('.year-toggle-icon');
+        const text = btn.querySelector<HTMLElement>('.year-toggle-text');
+
+        if (!monthContainer) return;
+
+        const isCurrentlyHidden = monthContainer.classList.contains('hidden');
+        if (isCurrentlyHidden) {
+          monthContainer.classList.remove('hidden');
+          icon?.classList.remove('-rotate-90');
+          if (text) text.textContent = '折叠';
+        } else {
+          monthContainer.classList.add('hidden');
+          icon?.classList.add('-rotate-90');
+          if (text) text.textContent = '展开';
+        }
+      });
+    });
+
+    // 4. 全部年份折叠 / 展开
+    let allCollapsed = false;
+    collapseAllBtn?.addEventListener('click', () => {
+      allCollapsed = !allCollapsed;
+
+      if (collapseLabel) {
+        collapseLabel.textContent = allCollapsed ? '展开全部' : '折叠全部';
+      }
+
+      yearGroups.forEach((yg) => {
+        const monthContainer = yg.querySelector<HTMLElement>('.archive-month-container');
+        const toggleBtn = yg.querySelector<HTMLButtonElement>('.archive-year-toggle');
+        const icon = toggleBtn?.querySelector<HTMLElement>('.year-toggle-icon');
+        const text = toggleBtn?.querySelector<HTMLElement>('.year-toggle-text');
+
+        if (monthContainer) {
+          if (allCollapsed) {
+            monthContainer.classList.add('hidden');
+            icon?.classList.add('-rotate-90');
+            if (text) text.textContent = '展开';
+          } else {
+            monthContainer.classList.remove('hidden');
+            icon?.classList.remove('-rotate-90');
+            if (text) text.textContent = '折叠';
+          }
+        }
+      });
+    });
+  }
+
+  // 支持 Astro View Transitions / ClientRouter
+  setupArchiveInteractions();
+  document.addEventListener('astro:page-load', setupArchiveInteractions);
+</script>

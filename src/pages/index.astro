@@ -7,12 +7,13 @@ import { ArrowRight } from 'lucide-react';
 import PostCard from '@/components/blog/PostCard.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
 import Sidebar from '@/components/Sidebar.astro';
-import { getCollection, getEntry } from 'astro:content';
+import { getCollection } from 'astro:content';
 import { getReadingTimeMinutes } from '@/utils/reading-time';
 import { getSiteSettings } from '@/utils/site-settings';
 import {
   countPostCategories,
   countPostTags,
+  createSeriesSummaries,
   createTaxonomyNameMap,
   getPublicBlogPostsSorted,
 } from '@/utils/posts';
@@ -20,23 +21,33 @@ import {
 const settings = await getSiteSettings();
 const homeUi = settings.ui.home;
 
-const aboutPage = await getEntry('pages', 'about');
-const about = aboutPage?.data;
-
 const posts = (await getPublicBlogPostsSorted()).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 
 const allCategories = await getCollection('categories');
 const allTags = await getCollection('tags');
+const allSeries = await getCollection('series');
 
 const categoryMap = createTaxonomyNameMap(allCategories);
 const tagMap = createTaxonomyNameMap(allTags);
 
-const latestPosts = posts.slice(0, 8);
+const latestPosts = posts.slice(0, 15);
 
 const sortedTags = countPostTags(posts, tagMap);
 const sortedCategories = countPostCategories(posts, categoryMap);
+
+// 精选专栏数据 (取文章数大于 0 的前 3 个)
+const seriesSummaries = createSeriesSummaries(allSeries, posts);
+const featuredSeries = seriesSummaries
+  .filter((summary) => summary.postCount > 0)
+  .slice(0, 3)
+  .map((summary) => ({
+    id: summary.series.id,
+    name: summary.series.data.name,
+    description: summary.series.data.description,
+    postCount: summary.postCount,
+  }));
 
 // Limit items for homepage (Preview)
 const topCategories = sortedCategories.slice(0, 4);
@@ -81,9 +92,9 @@ const websiteJsonLd = {
       <!-- Mobile Sidebar Content (Moved to bottom) -->
 
       <!-- Left Column: Posts List -->
-      <div class="lg:col-span-8 space-y-2">
-        <!-- Hero Text Block (Moved) -->
-        <div class="space-y-4 text-center md:text-left max-w-3xl mb-2">
+      <div class="lg:col-span-8 space-y-4">
+        <!-- Hero Text Block -->
+        <div class="space-y-3 text-center md:text-left max-w-3xl mb-4 pt-1">
           <div class="space-y-2">
             <div
               class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20"
@@ -91,22 +102,22 @@ const websiteJsonLd = {
               {homeUi.badge}
             </div>
             <h1
-              class="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none pb-3 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70"
+              class="text-3xl font-extrabold tracking-tight sm:text-4xl xl:text-5xl pb-1 bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/75"
             >
-              {about?.tagline || homeUi.taglineFallback}
+              {homeUi.taglineFallback}
             </h1>
             <p
-              class="mx-auto md:mx-0 max-w-[600px] text-muted-foreground text-lg md:text-xl leading-relaxed"
+              class="mx-auto md:mx-0 max-w-[620px] text-muted-foreground text-base md:text-lg leading-relaxed"
             >
-              {about?.subtitle || homeUi.subtitleFallback}
+              {homeUi.subtitleFallback}
             </p>
           </div>
-          <div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+          <div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start pt-1">
             <a
               href="#latest-posts"
               class:list={[
-                buttonVariants({ size: 'lg', variant: 'outline' }),
-                'rounded-full px-8 bg-background hover:bg-muted text-foreground shadow-sm border transition-all',
+                buttonVariants({ size: 'default', variant: 'outline' }),
+                'rounded-full px-6 bg-background hover:bg-muted text-foreground shadow-sm border transition-all',
               ]}
             >
               {homeUi.readButton}
@@ -115,8 +126,8 @@ const websiteJsonLd = {
             <a
               href="/archives/"
               class:list={[
-                buttonVariants({ size: 'lg' }),
-                'rounded-full px-8 bg-foreground text-background hover:bg-foreground/90 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all',
+                buttonVariants({ size: 'default' }),
+                'rounded-full px-6 bg-foreground text-background hover:bg-foreground/90 shadow-md transition-all',
               ]}
             >
               {homeUi.archivesButton}
@@ -124,25 +135,34 @@ const websiteJsonLd = {
           </div>
         </div>
 
-        <div id="latest-posts" class="flex items-center justify-between border-b pb-1 scroll-mt-20">
-          <h2 class="text-2xl font-bold tracking-tight flex items-center gap-2">
+        <div
+          id="latest-posts"
+          class="flex items-center justify-between border-b pb-2 mb-2 scroll-mt-20"
+        >
+          <h2 class="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
             {homeUi.latestTitle}
           </h2>
           <a
             href="/archives/"
-            class="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+            class="text-xs sm:text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
           >
             {homeUi.viewAllText}
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-3.5 h-3.5" />
           </a>
         </div>
 
-        <div class="grid gap-2 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2">
           {
             latestPosts.map((post, index) => (
               <PostCard
                 post={post}
                 index={index}
+                featured={index === 0}
+                categoryLabel={
+                  post.data.category
+                    ? categoryMap.get(post.data.category) || post.data.category
+                    : undefined
+                }
                 mainTagLabel={
                   post.data.tags && post.data.tags.length > 0
                     ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
@@ -159,13 +179,20 @@ const websiteJsonLd = {
 
       <!-- Mobile Sidebar Content (Moved to bottom) -->
       <div class="lg:hidden w-full mt-2">
-        <Sidebar tags={topTags} categories={topCategories} className="w-full" />
+        <Sidebar
+          tags={topTags}
+          categories={topCategories}
+          featuredSeries={featuredSeries}
+          className="w-full"
+        />
       </div>
 
-      <!-- Right Column: Sidebar -->
+      <!-- Right Column: Sidebar (独立分开滑动) -->
       <div class="hidden lg:block lg:col-span-4 pl-4">
-        <div class="sticky top-24">
-          <Sidebar tags={topTags} categories={topCategories} />
+        <div
+          class="sticky top-20 max-h-[calc(100vh-5.5rem)] overflow-y-auto overscroll-contain pr-1 pb-8 sidebar-scrollbar"
+        >
+          <Sidebar tags={topTags} categories={topCategories} featuredSeries={featuredSeries} />
         </div>
       </div>
     </div>

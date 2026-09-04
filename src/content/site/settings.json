@@ -76,8 +76,8 @@
   "ui": {
     "home": {
       "badge": "✨ 探索 · 记录 · 分享",
-      "taglineFallback": "StackOverflow 野生代言人",
-      "subtitleFallback": "如果代码一次就跑通了，那一定是哪里出 bug 了",
+      "taglineFallback": "面向异常编程",
+      "subtitleFallback": "不是在修 Bug，就是在创造新特性的路上。这里记录踩坑、翻车与避坑日常。",
       "readButton": "开始阅读",
       "archivesButton": "归档列表",
       "latestTitle": "最新文章",

@@ -169,6 +169,51 @@
     background: hsl(240 3.7% 35%);
   }
 
+  /* 侧边栏微型优雅滚动条：平时隐形，悬停时仅显示 4px 细胶囊滑块，轨道完全透明 */
+  .sidebar-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.2s ease;
+  }
+  .sidebar-scrollbar:hover {
+    scrollbar-color: hsl(240 5.9% 75% / 0.6) transparent;
+  }
+  .sidebar-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .sidebar-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+    transition: background 0.2s ease;
+  }
+  .sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: hsl(240 5.9% 75% / 0.7);
+  }
+  .sidebar-scrollbar:hover::-webkit-scrollbar-thumb:hover {
+    background: hsl(240 5.9% 55%);
+  }
+  .dark .sidebar-scrollbar:hover {
+    scrollbar-color: hsl(240 3.7% 35% / 0.6) transparent;
+  }
+  .dark .sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: hsl(240 3.7% 35% / 0.7);
+  }
+  .dark .sidebar-scrollbar:hover::-webkit-scrollbar-thumb:hover {
+    background: hsl(240 3.7% 50%);
+  }
+
+  /* 完全隐藏滚动条（保留平滑滚动） */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -1084,6 +1129,11 @@
 
 .music-record--spinning {
   animation: music-record-spin 18s linear infinite;
+  animation-play-state: paused;
+}
+
+.music-record--spinning[data-playing='true'] {
+  animation-play-state: running;
 }
 
 .music-player-surface[data-dragging='true'] {

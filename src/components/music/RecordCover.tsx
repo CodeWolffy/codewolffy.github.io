@@ -22,9 +22,8 @@ export function RecordCover({
     <div
       data-playing={isPlaying ? 'true' : undefined}
       className={cn(
-        'music-record relative flex items-center justify-center overflow-hidden rounded-full bg-muted',
+        'music-record music-record--spinning relative flex items-center justify-center overflow-hidden rounded-full bg-muted',
         coverUrl ? 'music-record--has-cover' : 'music-record--fallback',
-        isPlaying && 'music-record--spinning',
         className
       )}
     >

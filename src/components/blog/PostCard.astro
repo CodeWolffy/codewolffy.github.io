@@ -1,81 +1,176 @@
 ---
 import type { CollectionEntry } from 'astro:content';
-
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { getBlogPostPath } from '@/utils/content-paths';
 
 interface Props {
   post: CollectionEntry<'blog'>;
   mainTagLabel?: string;
+  categoryLabel?: string;
   index?: number;
   readingTime?: number;
+  featured?: boolean;
 }
 
-const { post, mainTagLabel, index = 0, readingTime } = Astro.props;
+const { post, mainTagLabel, categoryLabel, index = 0, readingTime, featured = false } = Astro.props;
 const postPath = getBlogPostPath(post);
+const hasImage = Boolean(post.data.coverImage || post.data.heroImage);
+const imageUrl = post.data.coverImage || post.data.heroImage;
 ---
 
-<article
-  class="group relative flex h-full flex-col space-y-2 rounded-2xl p-3.5 bg-card border border-border/60 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up"
-  style={`animation-delay: ${index * 50}ms;`}
->
-  {
-    (post.data.coverImage || post.data.heroImage) && (
-      <div class="aspect-video overflow-hidden rounded-xl bg-muted relative">
-        <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
-        <img
-          src={post.data.coverImage || post.data.heroImage}
-          alt={post.data.title}
-          width={804}
-          height={452}
-          loading="lazy"
-          decoding="async"
-          class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
-        />
-      </div>
-    )
-  }
-  <div class="flex-1 space-y-1 relative z-10">
-    <div class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
-      <time datetime={post.data.pubDate.toISOString()}>
-        {
-          post.data.pubDate.toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-          })
-        }
-      </time>
-      {
-        readingTime && (
-          <>
-            <span>•</span>
-            <span>{readingTime} 分钟</span>
-          </>
-        )
-      }
-      {
-        mainTagLabel && (
-          <>
-            <span>•</span>
-            <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary">
-              {mainTagLabel}
-            </span>
-          </>
-        )
-      }
-    </div>
-    <h3
-      class="text-base font-bold leading-tight group-hover:text-primary transition-colors duration-300 line-clamp-2"
+{
+  featured ? (
+    <article
+      class="group relative sm:col-span-2 overflow-hidden rounded-2xl p-6 bg-card border border-border/80 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg animate-slide-up"
+      style={`animation-delay: ${index * 50}ms;`}
     >
-      <a
-        href={postPath}
-        class="after:absolute after:inset-0 after:z-20 focus-visible:outline-none focus-visible:after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2"
+      {/* 背景微光 */}
+      <div class="absolute -right-16 -top-16 w-56 h-56 bg-primary/5 rounded-full blur-3xl pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
+
+      <div
+        class={`flex flex-col ${hasImage ? 'md:flex-row gap-6 items-center' : 'gap-3'} relative z-10`}
       >
-        {post.data.title}
-      </a>
-    </h3>
-    <p class="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
-      {post.data.description}
-    </p>
-  </div>
-</article>
+        {hasImage && imageUrl && (
+          <div class="w-full md:w-5/12 shrink-0 aspect-video overflow-hidden rounded-xl bg-muted relative">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+            <img
+              src={imageUrl}
+              alt={post.data.title}
+              width={804}
+              height={452}
+              loading="lazy"
+              decoding="async"
+              class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          </div>
+        )}
+
+        <div class="flex-1 min-w-0 space-y-3">
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20">
+              <Sparkles className="w-3 h-3 text-primary" />
+              最新精选
+            </span>
+            {categoryLabel && (
+              <span class="px-2 py-0.5 rounded-md font-medium bg-secondary text-secondary-foreground text-[11px]">
+                {categoryLabel}
+              </span>
+            )}
+            <span class="text-muted-foreground">•</span>
+            <time datetime={post.data.pubDate.toISOString()} class="text-muted-foreground">
+              {post.data.pubDate.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+              })}
+            </time>
+            {readingTime && (
+              <>
+                <span class="text-muted-foreground">•</span>
+                <span class="text-muted-foreground">{readingTime} 分钟阅读</span>
+              </>
+            )}
+          </div>
+
+          <h3 class="text-xl sm:text-2xl font-bold tracking-tight group-hover:text-primary transition-colors duration-300">
+            <a
+              href={postPath}
+              class="after:absolute after:inset-0 after:z-20 focus-visible:outline-none focus-visible:after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2"
+            >
+              {post.data.title}
+            </a>
+          </h3>
+
+          <p class="text-muted-foreground text-sm leading-relaxed line-clamp-3">
+            {post.data.description}
+          </p>
+
+          <div class="pt-2 flex items-center justify-between">
+            <div class="flex flex-wrap gap-1.5">
+              {mainTagLabel && (
+                <span class="px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground">
+                  #{mainTagLabel}
+                </span>
+              )}
+            </div>
+            <div class="inline-flex items-center text-xs font-semibold text-primary gap-1 group-hover:translate-x-1 transition-transform duration-300">
+              阅读全文
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  ) : (
+    <article
+      class="group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl p-5 bg-card border border-border/80 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md animate-slide-up"
+      style={`animation-delay: ${index * 50}ms;`}
+    >
+      {hasImage && imageUrl && (
+        <div class="aspect-video mb-3.5 overflow-hidden rounded-xl bg-muted relative">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+          <img
+            src={imageUrl}
+            alt={post.data.title}
+            width={804}
+            height={452}
+            loading="lazy"
+            decoding="async"
+            class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+      )}
+
+      <div class="flex-1 space-y-2 relative z-10">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {categoryLabel && (
+            <span class="px-1.5 py-0.5 rounded text-[11px] font-medium bg-secondary text-secondary-foreground">
+              {categoryLabel}
+            </span>
+          )}
+          <time datetime={post.data.pubDate.toISOString()}>
+            {post.data.pubDate.toLocaleDateString('zh-CN', {
+              year: 'numeric',
+              month: 'numeric',
+              day: 'numeric',
+            })}
+          </time>
+          {readingTime && (
+            <>
+              <span>•</span>
+              <span>{readingTime} 分钟</span>
+            </>
+          )}
+          {mainTagLabel && (
+            <>
+              <span>•</span>
+              <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary">
+                {mainTagLabel}
+              </span>
+            </>
+          )}
+        </div>
+
+        <h3 class="text-base font-bold leading-snug group-hover:text-primary transition-colors duration-300 line-clamp-2">
+          <a
+            href={postPath}
+            class="after:absolute after:inset-0 after:z-20 focus-visible:outline-none focus-visible:after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2"
+          >
+            {post.data.title}
+          </a>
+        </h3>
+
+        <p class="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
+          {post.data.description}
+        </p>
+      </div>
+
+      <div class="pt-3 mt-1 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
+        <span class="text-[11px] opacity-70">点击阅读</span>
+        <span class="group-hover:text-primary group-hover:translate-x-1 transition-all duration-300 inline-flex items-center gap-0.5 font-medium text-[11px]">
+          全文 <ArrowRight className="w-3 h-3" />
+        </span>
+      </div>
+    </article>
+  )
+}

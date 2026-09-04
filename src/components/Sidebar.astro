@@ -3,11 +3,18 @@ import { buttonVariants } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { getEntry } from 'astro:content';
 import { getSiteSettings } from '@/utils/site-settings';
-import { getCategoryPath, getTagPath } from '@/utils/content-paths';
+import { getCategoryPath, getTagPath, getSeriesPath } from '@/utils/content-paths';
 
 interface YearGroup {
   year: number;
   count: number;
+}
+
+export interface SeriesSummaryItem {
+  id: string;
+  name: string;
+  description?: string;
+  postCount: number;
 }
 
 interface Props {
@@ -15,15 +22,16 @@ interface Props {
   tags: { name: string; count: number; id: string }[];
   categories: { name: string; count: number; id: string }[];
   years?: YearGroup[];
+  featuredSeries?: SeriesSummaryItem[];
 }
 
-const { className, tags, categories, years = [] } = Astro.props;
+const { className, tags, categories, years = [], featuredSeries = [] } = Astro.props;
 
 const settings = await getSiteSettings();
 const aboutPage = await getEntry('pages', 'about');
 const about = aboutPage?.data;
 const profileSummary =
-  about?.subtitle || about?.tagline || '记录开发实践、技术思考与持续学习的过程。';
+  about?.subtitle || '不生产代码，只做 AI 生成物与生产服务器之间的无情搬运工。';
 ---
 
 <aside class:list={['w-full space-y-4', className]}>
@@ -75,8 +83,50 @@ const profileSummary =
     </div>
   </div>
 
+  {/* Featured Series Widget */}
+  {
+    featuredSeries.length > 0 && (
+      <div class="rounded-xl bg-card border border-border/50 p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-base flex items-center gap-2">
+            <span class="w-1 h-4 bg-primary rounded-full" />
+            精选专栏
+          </h3>
+          <a
+            href="/series/"
+            class="flex items-center text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            全部 <ArrowRight className="w-3 h-3 ml-0.5" />
+          </a>
+        </div>
+        <div class="space-y-2">
+          {featuredSeries.map((item) => (
+            <a
+              href={getSeriesPath(item.id)}
+              class="group block p-2.5 rounded-lg border border-border/40 hover:border-primary/40 bg-muted/20 hover:bg-muted/50 transition-all duration-200"
+            >
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="font-medium text-sm text-foreground/90 group-hover:text-primary transition-colors line-clamp-1">
+                  {item.name}
+                </span>
+                <span class="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {item.postCount} 篇
+                </span>
+              </div>
+              {item.description && (
+                <p class="text-xs text-muted-foreground line-clamp-1 leading-normal">
+                  {item.description}
+                </p>
+              )}
+            </a>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   {/* Categories Widget */}
-  <div class="rounded-xl bg-card border border-border/50 p-3 shadow-sm">
+  <div class="rounded-xl bg-card border border-border/50 p-4 shadow-sm">
     <h3 class="font-bold text-base mb-2 flex items-center gap-2">
       <span class="w-1 h-4 bg-primary rounded-full"></span>
       分类
