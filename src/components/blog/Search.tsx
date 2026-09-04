@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, useDeferredValue, type ChangeEvent } from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -117,6 +117,7 @@ type PagefindInstance = {
 export function Search() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+  const deferredSearchValue = useDeferredValue(searchValue);
   const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>(
     'idle'
   );
@@ -214,19 +215,19 @@ export function Search() {
   }, [isExpanded, retryCount]);
 
   // Sync search value to pagefind whenever value OR status changes.
-  // searchStatus is intentionally included: if the user typed before pagefind finished
-  // loading, this effect re-fires when status reaches 'ready' and delivers the query.
+  // Using deferredSearchValue ensures user typing is 100% smooth, while Pagefind
+  // query triggers as a low-priority transition without blocking keyboard input.
   useEffect(() => {
     if (!isExpanded || searchStatus !== 'ready') return;
     const instance = pagefindInstanceRef.current;
     if (!instance) return;
 
-    if (searchValue) {
-      instance.triggerSearch(searchValue);
+    if (deferredSearchValue) {
+      instance.triggerSearch(deferredSearchValue);
     } else {
       instance.triggerSearch('');
     }
-  }, [searchValue, isExpanded, searchStatus]);
+  }, [deferredSearchValue, isExpanded, searchStatus]);
 
   // Click outside to close
   useEffect(() => {

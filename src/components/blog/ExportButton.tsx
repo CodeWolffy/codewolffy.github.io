@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useTransition } from 'react';
 import { stringify as stringifyYaml } from 'yaml';
 import {
   Download,
@@ -50,7 +50,7 @@ type ToastType = 'error' | 'success';
 
 export function ExportButton({ title, content, frontmatter, className }: ExportButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -310,34 +310,33 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     FileSaver.saveAs(contentBlob, getFileName(title, 'zip'));
   };
 
-  const handleExport = async (format: ExportFormat) => {
-    if (isExporting) return;
+  const handleExport = (format: ExportFormat) => {
+    if (isPending) return;
     setIsOpen(false);
-    setIsExporting(true);
-    try {
-      switch (format) {
-        case 'markdown':
-          await exportMarkdown();
-          showToast('Markdown 导出成功', 'success');
-          break;
-        case 'zip':
-          await exportZip();
-          showToast('压缩包导出成功', 'success');
-          break;
-        case 'html':
-          await exportHtml();
-          showToast('HTML 导出成功', 'success');
-          break;
-        case 'pdf':
-          window.print();
-          break;
+    startTransition(async () => {
+      try {
+        switch (format) {
+          case 'markdown':
+            await exportMarkdown();
+            showToast('Markdown 导出成功', 'success');
+            break;
+          case 'zip':
+            await exportZip();
+            showToast('压缩包导出成功', 'success');
+            break;
+          case 'html':
+            await exportHtml();
+            showToast('HTML 导出成功', 'success');
+            break;
+          case 'pdf':
+            window.print();
+            break;
+        }
+      } catch (error) {
+        console.error('Export failed:', error);
+        showToast(error instanceof Error ? error.message : '导出过程中发生错误');
       }
-    } catch (error) {
-      console.error('Export failed:', error);
-      showToast(error instanceof Error ? error.message : '导出过程中发生错误');
-    } finally {
-      setIsExporting(false);
-    }
+    });
   };
 
   const formatOptions = [
@@ -364,10 +363,10 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
         size="sm"
         className="gap-2 w-full justify-center"
         onClick={() => setIsOpen(!isOpen)}
-        disabled={isExporting}
+        disabled={isPending}
       >
         <Download className="h-4 w-4" />
-        {isExporting ? '处理中...' : '导出'}
+        {isPending ? '处理中...' : '导出'}
         <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </Button>
 
@@ -378,7 +377,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
               key={option.value}
               className="flex w-full items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm hover:bg-secondary transition-colors first:rounded-t-lg last:rounded-b-lg"
               onClick={() => handleExport(option.value)}
-              disabled={isExporting}
+              disabled={isPending}
             >
               <option.icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
               <div className="min-w-0">

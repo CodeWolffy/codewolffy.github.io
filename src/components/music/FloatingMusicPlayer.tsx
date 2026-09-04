@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
@@ -67,6 +68,21 @@ const playModeOptions: { value: PlayMode; label: string; Icon: typeof Repeat }[]
   { value: 'shuffle', label: '随机播放', Icon: Shuffle },
 ];
 
+function subscribeMobile(callback: () => void) {
+  if (typeof window === 'undefined') return () => {};
+  const media = window.matchMedia('(max-width: 639px)');
+  media.addEventListener('change', callback);
+  return () => media.removeEventListener('change', callback);
+}
+
+function getMobileSnapshot() {
+  return typeof window !== 'undefined' && window.innerWidth < 640;
+}
+
+function getServerMobileSnapshot() {
+  return false;
+}
+
 export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const playerRef = useRef<HTMLDivElement>(null);
   const playerSurfaceRef = useRef<HTMLDivElement>(null);
@@ -118,17 +134,11 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const [playerAnchor, setPlayerAnchor] = useState<PlayerTransitionAnchor | null>(
     readStoredPlayerAnchor
   );
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const updateIsMobile = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-
-    updateIsMobile();
-    window.addEventListener('resize', updateIsMobile);
-    return () => window.removeEventListener('resize', updateIsMobile);
-  }, []);
+  const isMobile = useSyncExternalStore(
+    subscribeMobile,
+    getMobileSnapshot,
+    getServerMobileSnapshot
+  );
 
   const currentTrack = tracks[currentIndex];
   const currentAudio = currentTrack?.audio;

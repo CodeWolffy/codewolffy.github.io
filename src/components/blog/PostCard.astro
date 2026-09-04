@@ -21,17 +21,17 @@ const imageUrl = post.data.coverImage || post.data.heroImage;
 {
   featured ? (
     <article
-      class="group relative sm:col-span-2 overflow-hidden rounded-2xl p-6 bg-card border border-border/80 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg animate-slide-up"
+      class="group @container relative sm:col-span-2 overflow-hidden rounded-2xl p-6 bg-card border border-border/80 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg animate-slide-up"
       style={`animation-delay: ${index * 50}ms;`}
     >
       {/* 背景微光 */}
       <div class="absolute -right-16 -top-16 w-56 h-56 bg-primary/5 rounded-full blur-3xl pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
 
       <div
-        class={`flex flex-col ${hasImage ? 'md:flex-row gap-6 items-center' : 'gap-3'} relative z-10`}
+        class={`flex flex-col ${hasImage ? '@md:flex-row gap-6 items-center' : 'gap-3'} relative z-10`}
       >
         {hasImage && imageUrl && (
-          <div class="w-full md:w-5/12 shrink-0 aspect-video overflow-hidden rounded-xl bg-muted relative">
+          <div class="w-full @md:w-5/12 shrink-0 aspect-video overflow-hidden rounded-xl bg-muted relative">
             <div class="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
             <img
               src={imageUrl}
@@ -103,7 +103,7 @@ const imageUrl = post.data.coverImage || post.data.heroImage;
     </article>
   ) : (
     <article
-      class="group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl p-5 bg-card border border-border/80 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md animate-slide-up"
+      class="group @container relative flex h-full flex-col justify-between overflow-hidden rounded-2xl p-5 bg-card border border-border/80 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md animate-slide-up"
       style={`animation-delay: ${index * 50}ms;`}
     >
       {hasImage && imageUrl && (
