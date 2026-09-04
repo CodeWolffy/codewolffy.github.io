@@ -54,7 +54,19 @@ export function ArchiveNav({ years, totalPosts, className }: ArchiveNavProps) {
         const intersecting = entries.filter((e) => e.isIntersecting);
         if (intersecting.length > 0) {
           const topOne = intersecting[0];
-          setActiveId(topOne.target.id);
+          const topId = topOne.target.id;
+          setActiveId(topId);
+
+          // 自动展开当前活跃年份
+          const currentYearItem = years.find(
+            (y) => y.id === topId || y.months.some((m) => m.id === topId)
+          );
+          if (currentYearItem) {
+            setExpandedYears((prev) => {
+              if (prev[currentYearItem.year]) return prev;
+              return { ...prev, [currentYearItem.year]: true };
+            });
+          }
         }
       },
       {
@@ -76,29 +88,17 @@ export function ArchiveNav({ years, totalPosts, className }: ArchiveNavProps) {
     };
   }, [years]);
 
-  // 2. 智能联动：当 activeId 改变时，自动展开当前活跃年份，并将导航项滚入右侧侧边栏视口
+  // 2. 智能联动：当 activeId 改变时，将导航项滚入右侧侧边栏视口（非点击跳转引起时）
   useEffect(() => {
     if (!activeId) return;
 
-    // 找到当前活跃项所属的年份并自动展开
-    const currentYearItem = years.find(
-      (y) => y.id === activeId || y.months.some((m) => m.id === activeId)
-    );
-    if (currentYearItem) {
-      setExpandedYears((prev) => {
-        if (prev[currentYearItem.year]) return prev;
-        return { ...prev, [currentYearItem.year]: true };
-      });
-    }
-
-    // 自动平滑滚动侧边栏内部，保持激活项在视野中（非点击跳转引起时）
     if (!isUserScrollingRef.current) {
       const activeNavEl = document.getElementById(`nav-item-${activeId}`);
       if (activeNavEl) {
         activeNavEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
     }
-  }, [activeId, years]);
+  }, [activeId]);
 
   const toggleYear = (year: number) => {
     setExpandedYears((prev) => ({

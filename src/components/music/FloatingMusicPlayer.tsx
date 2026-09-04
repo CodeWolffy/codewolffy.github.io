@@ -290,10 +290,9 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     }
   }, []);
 
-  useEffect(() => {
-    if (currentIndex < tracks.length) return;
+  if (currentIndex >= tracks.length && tracks.length > 0) {
     setCurrentIndex(0);
-  }, [currentIndex, tracks.length]);
+  }
 
   useEffect(() => {
     if (!currentAudio) return;
@@ -325,13 +324,8 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (!isPlaying) {
+    if (!isPlaying || !currentAudio) {
       audio.pause();
-      return;
-    }
-
-    if (!currentAudio) {
-      setIsPlaying(false);
       return;
     }
 

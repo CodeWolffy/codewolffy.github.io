@@ -85,13 +85,15 @@ export function Comments({ giscus }: CommentsProps) {
   // This prevents the heavy iframe setup from blocking the initial page scroll/interaction.
   const [shouldLoad, setShouldLoad] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => setShouldLoad(true), 100);
+    const timer = setTimeout(() => {
+      setShouldLoad(true);
+      setLoadState('loading');
+    }, 100);
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (!shouldLoad || !giscus.enabled) return;
-    setLoadState('loading');
 
     const container = containerRef.current;
     if (!container) return;

@@ -114,9 +114,14 @@ type PagefindInstance = {
   destroy: () => void;
 };
 
+function getInitialSearchQuery() {
+  if (typeof window === 'undefined') return '';
+  return new URLSearchParams(window.location.search).get('q') || '';
+}
+
 export function Search() {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
+  const [searchValue, setSearchValue] = useState(getInitialSearchQuery);
+  const [isExpanded, setIsExpanded] = useState(() => Boolean(getInitialSearchQuery()));
   const deferredSearchValue = useDeferredValue(searchValue);
   const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>(
     'idle'
@@ -150,14 +155,11 @@ export function Search() {
     return () => document.removeEventListener('keydown', down);
   }, [isExpanded]);
 
-  // 支持 ?q= 深链（结构化数据 SearchAction / 外部直达搜索时自动展开并检索）
+  // 支持 ?q= 深链（结构化数据 SearchAction / 外部直达搜索时自动聚焦）
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const q = new URLSearchParams(window.location.search).get('q');
-    if (!q) return;
-    setIsExpanded(true);
-    setSearchValue(q);
-    setTimeout(() => inputRef.current?.focus(), SEARCH_FOCUS_DELAY_MS);
+    if (getInitialSearchQuery()) {
+      setTimeout(() => inputRef.current?.focus(), SEARCH_FOCUS_DELAY_MS);
+    }
   }, []);
 
   // Initialize Pagefind when expanded

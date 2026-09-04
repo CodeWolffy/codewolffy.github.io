@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import {
@@ -39,6 +39,20 @@ const getNavIcon = (href: string) => {
   }
 };
 
+function subscribePathname(callback: () => void) {
+  if (typeof document === 'undefined') return () => {};
+  document.addEventListener('astro:page-load', callback);
+  return () => document.removeEventListener('astro:page-load', callback);
+}
+
+function getPathnameSnapshot() {
+  return typeof window !== 'undefined' ? window.location.pathname : '';
+}
+
+function getServerPathnameSnapshot() {
+  return '';
+}
+
 interface HeaderProps {
   name: string;
   navigation: Array<{ label: string; href: string }>;
@@ -47,16 +61,18 @@ interface HeaderProps {
 
 export function Header({ name, navigation, githubUrl }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [pathname, setPathname] = useState('');
+  const pathname = useSyncExternalStore(
+    subscribePathname,
+    getPathnameSnapshot,
+    getServerPathnameSnapshot
+  );
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileNavRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handlePageLoad = () => {
       setIsMenuOpen(false);
-      setPathname(window.location.pathname);
     };
-    handlePageLoad();
     document.addEventListener('astro:page-load', handlePageLoad);
     return () => document.removeEventListener('astro:page-load', handlePageLoad);
   }, []);

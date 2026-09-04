@@ -1,4 +1,5 @@
 // @ts-check
+import { createElement } from 'react';
 import {
   config,
   fields,
@@ -191,7 +192,6 @@ function IconPickerInput({
   const selectedValue = value || defaultIconValue;
   const selectedOption = iconOptions.find((option) => option.value === selectedValue);
   const focusValue = selectedOption?.value ?? defaultIconValue;
-  const CurrentIcon = getIconComponent(selectedValue);
 
   return (
     <div style={iconPickerFieldStyle}>
@@ -201,7 +201,12 @@ function IconPickerInput({
       </div>
       <div style={iconPreviewCardStyle}>
         <span style={iconPreviewBoxStyle}>
-          <CurrentIcon aria-hidden="true" height={24} style={iconSvgStyle} width={24} />
+          {createElement(getIconComponent(selectedValue), {
+            'aria-hidden': true,
+            height: 24,
+            style: iconSvgStyle,
+            width: 24,
+          })}
         </span>
         <span style={iconPreviewTextStyle}>
           <strong style={iconPreviewNameStyle}>{selectedOption?.label ?? '自定义图标'}</strong>
@@ -211,7 +216,6 @@ function IconPickerInput({
       <div aria-label={label} role="radiogroup" style={iconGridStyle}>
         {iconOptions.map((option) => {
           const selected = option.value === selectedValue;
-          const Icon = getIconComponent(option.value);
 
           return (
             <button
@@ -223,7 +227,12 @@ function IconPickerInput({
               style={getIconChoiceStyle(selected)}
               type="button"
             >
-              <Icon aria-hidden="true" height={18} style={iconSvgStyle} width={18} />
+              {createElement(getIconComponent(option.value), {
+                'aria-hidden': true,
+                height: 18,
+                style: iconSvgStyle,
+                width: 18,
+              })}
               <span>{option.label}</span>
             </button>
           );

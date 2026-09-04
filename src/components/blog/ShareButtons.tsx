@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { Check, Link2, Mail, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -34,11 +34,18 @@ async function writeClipboardText(text: string) {
 
 export function ShareButtons({ title, url, description = '' }: ShareButtonsProps) {
   const [copyState, setCopyState] = useState<CopyState>('idle');
-  const [shareUrl, setShareUrl] = useState(url);
-
-  useEffect(() => {
-    setShareUrl(getBrowserShareUrl(url));
-  }, [url]);
+  const shareUrl = useSyncExternalStore(
+    (callback) => {
+      window.addEventListener('popstate', callback);
+      window.addEventListener('hashchange', callback);
+      return () => {
+        window.removeEventListener('popstate', callback);
+        window.removeEventListener('hashchange', callback);
+      };
+    },
+    () => getBrowserShareUrl(url),
+    () => url
+  );
 
   const shareLinks = useMemo(() => {
     const encodedTitle = encodeURIComponent(title);

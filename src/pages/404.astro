@@ -95,7 +95,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
       const backBtn = document.getElementById('go-back-btn');
       if (backBtn) {
         backBtn.addEventListener('click', () => {
-          let referrerIsSameOrigin = false;
+          let referrerIsSameOrigin: boolean;
           try {
             referrerIsSameOrigin =
               Boolean(document.referrer) &&

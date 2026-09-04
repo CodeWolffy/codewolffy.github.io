@@ -62,7 +62,9 @@ function parseFrontmatter(content: string, filePath = ''): Record<string, unknow
     return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
   } catch (error) {
     const source = filePath ? ` in ${filePath}` : '';
-    throw new Error(`Failed to parse frontmatter${source}: ${formatError(error)}`);
+    throw new Error(`Failed to parse frontmatter${source}: ${formatError(error)}`, {
+      cause: error,
+    });
   }
 }
 
@@ -270,7 +272,7 @@ export async function pruneContent(rootDir: string, dryRun = false): Promise<voi
   const usedCategories = new Set<string>();
 
   for (const file of blogFiles) {
-    let content = '';
+    let content: string;
 
     try {
       content = await fs.readFile(file, 'utf-8');

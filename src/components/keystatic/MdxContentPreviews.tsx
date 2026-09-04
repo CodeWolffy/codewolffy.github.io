@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { normalizeIframeUrl } from '../../utils/iframe-url';
 
 const tokens = {
@@ -699,21 +699,23 @@ export function StepsContentView(props: {
   );
 }
 
+function subscribeDarkMode(callback: () => void) {
+  if (typeof window === 'undefined') return () => {};
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  media.addEventListener('change', callback);
+  return () => media.removeEventListener('change', callback);
+}
+
+function getDarkModeSnapshot() {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function getServerDarkModeSnapshot() {
+  return false;
+}
+
 function usePreferredDarkMode() {
-  const [isDark, setIsDark] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-  );
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const updateTheme = (event: MediaQueryListEvent) => setIsDark(event.matches);
-
-    setIsDark(media.matches);
-    media.addEventListener('change', updateTheme);
-    return () => media.removeEventListener('change', updateTheme);
-  }, []);
-
-  return isDark;
+  return useSyncExternalStore(subscribeDarkMode, getDarkModeSnapshot, getServerDarkModeSnapshot);
 }
 
 function sanitizeSvg(svg: string) {
@@ -759,22 +761,22 @@ export function MermaidContentView(props: { value: { code?: { value?: string } }
   const isDark = usePreferredDarkMode();
   const [svg, setSvg] = useState('');
   const [error, setError] = useState('');
-  const [isRendering, setIsRendering] = useState(false);
+  const [isRendering, setIsRendering] = useState(() => Boolean(chart));
   const renderSequence = useRef(0);
   const renderId = `ks-mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const [prevChart, setPrevChart] = useState(chart);
+  if (prevChart !== chart) {
+    setPrevChart(chart);
+    setSvg('');
+    setError('');
+    setIsRendering(Boolean(chart));
+  }
 
   useEffect(() => {
     let cancelled = false;
 
-    setSvg('');
-    setError('');
+    if (!chart) return;
 
-    if (!chart) {
-      setIsRendering(false);
-      return;
-    }
-
-    setIsRendering(true);
     const currentRenderId = `${renderId}-${++renderSequence.current}`;
     const timer = window.setTimeout(async () => {
       try {

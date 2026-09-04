@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
+import { ArrowLeft } from 'lucide-react';
 
 interface BackInfo {
   href: string;
@@ -25,17 +26,33 @@ function getBackInfoFromPath(path: string): BackInfo {
   return { href: '/', label: '返回首页' };
 }
 
-export function BackButton() {
-  const [backInfo, setBackInfo] = useState<BackInfo>({ href: '/', label: '返回首页' });
+function subscribeBackInfo() {
+  return () => {};
+}
 
-  useEffect(() => {
-    // 从 sessionStorage 读取上一页路径
+function getBackInfoSnapshot(): BackInfo {
+  if (typeof window === 'undefined') return { href: '/', label: '返回首页' };
+  try {
     const previousPath = sessionStorage.getItem('blog_previous_path');
-
     if (previousPath) {
-      setBackInfo(getBackInfoFromPath(previousPath));
+      return getBackInfoFromPath(previousPath);
     }
-  }, []);
+  } catch {
+    // sessionStorage unavailable
+  }
+  return { href: '/', label: '返回首页' };
+}
+
+function getServerBackInfoSnapshot(): BackInfo {
+  return { href: '/', label: '返回首页' };
+}
+
+export function BackButton() {
+  const backInfo = useSyncExternalStore(
+    subscribeBackInfo,
+    getBackInfoSnapshot,
+    getServerBackInfoSnapshot
+  );
 
   return (
     <a
@@ -43,21 +60,7 @@ export function BackButton() {
       className="group mb-4 flex items-center text-lg font-bold text-foreground hover:text-primary transition-colors"
     >
       <span className="mr-2 inline-flex items-center transition-transform group-hover:-translate-x-1">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="lucide lucide-arrow-left"
-        >
-          <path d="m12 19-7-7 7-7" />
-          <path d="M19 12H5" />
-        </svg>
+        <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
       </span>
       {backInfo.label}
     </a>

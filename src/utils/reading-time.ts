@@ -54,7 +54,6 @@ export function calculateReadingTime(content: string): ReadingTimeResult {
     };
   }
 
-  let totalSeconds = 0;
   let processedContent = content;
 
   // 1. 统计并移除 Mermaid 图表
@@ -168,7 +167,7 @@ export function calculateReadingTime(content: string): ReadingTimeResult {
   const videoSeconds = videoCount * VIDEO_SECONDS;
 
   // 总秒数
-  totalSeconds =
+  const totalSeconds =
     chineseSeconds + englishSeconds + codeSeconds + imageSeconds + mermaidSeconds + videoSeconds;
 
   // 转换为分钟，最少 1 分钟

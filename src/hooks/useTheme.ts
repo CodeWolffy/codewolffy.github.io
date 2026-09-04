@@ -1,37 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 export type Theme = 'light' | 'dark';
 
-export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof document === 'undefined') return 'light';
-    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+function subscribeTheme(callback: () => void) {
+  if (typeof document === 'undefined') return () => {};
+
+  document.addEventListener('astro:after-swap', callback);
+
+  const observer = new MutationObserver((mutations) => {
+    if (mutations.some((m) => m.attributeName === 'class')) {
+      callback();
+    }
   });
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-  useEffect(() => {
-    const syncTheme = () => {
-      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-    };
+  return () => {
+    document.removeEventListener('astro:after-swap', callback);
+    observer.disconnect();
+  };
+}
 
-    // Initial sync
-    syncTheme();
+function getThemeSnapshot(): Theme {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    ? 'dark'
+    : 'light';
+}
 
-    // Listen for View Transitions navigation
-    document.addEventListener('astro:after-swap', syncTheme);
+function getServerThemeSnapshot(): Theme {
+  return 'light';
+}
 
-    // Listen for class changes on documentElement (for external theme changes)
-    const observer = new MutationObserver((mutations) => {
-      if (mutations.some((m) => m.attributeName === 'class')) {
-        syncTheme();
-      }
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-    return () => {
-      document.removeEventListener('astro:after-swap', syncTheme);
-      observer.disconnect();
-    };
-  }, []);
-
-  return theme;
+export function useTheme() {
+  return useSyncExternalStore(subscribeTheme, getThemeSnapshot, getServerThemeSnapshot);
 }

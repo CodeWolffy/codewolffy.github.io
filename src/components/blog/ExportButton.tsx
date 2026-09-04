@@ -84,50 +84,56 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     };
   }, []);
 
-  const generateFrontmatter = (customCoverImage?: string) => {
-    const originalCover = frontmatter.coverImage || frontmatter.heroImage;
-    const exportFrontmatter: Record<string, unknown> = {
-      title: frontmatter.title,
-    };
+  const generateFrontmatter = useCallback(
+    (customCoverImage?: string) => {
+      const originalCover = frontmatter.coverImage || frontmatter.heroImage;
+      const exportFrontmatter: Record<string, unknown> = {
+        title: frontmatter.title,
+      };
 
-    if (frontmatter.description) exportFrontmatter.description = frontmatter.description;
-    if (frontmatter.pubDate)
-      exportFrontmatter.pubDate = frontmatter.pubDate.toISOString().split('T')[0];
-    if (frontmatter.updatedDate)
-      exportFrontmatter.updatedDate = frontmatter.updatedDate.toISOString().split('T')[0];
-    if (customCoverImage) exportFrontmatter.coverImage = customCoverImage;
-    else if (originalCover && !originalCover.trim().startsWith('data:'))
-      exportFrontmatter.coverImage = originalCover;
-    if (frontmatter.draft !== undefined) exportFrontmatter.draft = frontmatter.draft;
-    if (frontmatter.category) exportFrontmatter.category = frontmatter.category;
-    if (frontmatter.tags?.length) exportFrontmatter.tags = frontmatter.tags;
+      if (frontmatter.description) exportFrontmatter.description = frontmatter.description;
+      if (frontmatter.pubDate)
+        exportFrontmatter.pubDate = frontmatter.pubDate.toISOString().split('T')[0];
+      if (frontmatter.updatedDate)
+        exportFrontmatter.updatedDate = frontmatter.updatedDate.toISOString().split('T')[0];
+      if (customCoverImage) exportFrontmatter.coverImage = customCoverImage;
+      else if (originalCover && !originalCover.trim().startsWith('data:'))
+        exportFrontmatter.coverImage = originalCover;
+      if (frontmatter.draft !== undefined) exportFrontmatter.draft = frontmatter.draft;
+      if (frontmatter.category) exportFrontmatter.category = frontmatter.category;
+      if (frontmatter.tags?.length) exportFrontmatter.tags = frontmatter.tags;
 
-    return `---\n${stringifyYaml(exportFrontmatter, { lineWidth: 0 }).trimEnd()}\n---`;
-  };
+      return `---\n${stringifyYaml(exportFrontmatter, { lineWidth: 0 }).trimEnd()}\n---`;
+    },
+    [frontmatter]
+  );
 
-  const generateMarkdownHeader = (coverImageSrc?: string, isBase64Mode = false) => {
-    const parts = [`# ${title}`];
+  const generateMarkdownHeader = useCallback(
+    (coverImageSrc?: string, isBase64Mode = false) => {
+      const parts = [`# ${title}`];
 
-    const metaParts: string[] = [];
-    if (frontmatter.pubDate) {
-      metaParts.push(`发布于 ${new Date(frontmatter.pubDate).toLocaleDateString('zh-CN')}`);
-    }
-    if (frontmatter.category) metaParts.push(`分类: ${frontmatter.category}`);
-    if (frontmatter.tags?.length) metaParts.push(`标签: ${frontmatter.tags.join(', ')}`);
-    if (metaParts.length > 0) parts.push(`> ${metaParts.join(' | ')}`);
-
-    if (coverImageSrc) {
-      if (isBase64Mode) {
-        parts.push(`![封面图](${coverImageSrc})`);
-      } else {
-        parts.push(
-          `<img src="${coverImageSrc}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;" />`
-        );
+      const metaParts: string[] = [];
+      if (frontmatter.pubDate) {
+        metaParts.push(`发布于 ${new Date(frontmatter.pubDate).toLocaleDateString('zh-CN')}`);
       }
-    }
+      if (frontmatter.category) metaParts.push(`分类: ${frontmatter.category}`);
+      if (frontmatter.tags?.length) metaParts.push(`标签: ${frontmatter.tags.join(', ')}`);
+      if (metaParts.length > 0) parts.push(`> ${metaParts.join(' | ')}`);
 
-    return parts.join('\n\n');
-  };
+      if (coverImageSrc) {
+        if (isBase64Mode) {
+          parts.push(`![封面图](${coverImageSrc})`);
+        } else {
+          parts.push(
+            `<img src="${coverImageSrc}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;" />`
+          );
+        }
+      }
+
+      return parts.join('\n\n');
+    },
+    [frontmatter, title]
+  );
 
   const exportMarkdown = async () => {
     const coverImage = frontmatter.coverImage || frontmatter.heroImage;
@@ -248,7 +254,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     FileSaver.saveAs(blob, getFileName(title, 'html'));
   };
 
-  const exportZip = async () => {
+  const exportZip = useCallback(async () => {
     const zip = new JSZip();
     const assetsFolder = zip.folder('assets');
 
@@ -308,7 +314,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
 
     const contentBlob = await zip.generateAsync({ type: 'blob' });
     FileSaver.saveAs(contentBlob, getFileName(title, 'zip'));
-  };
+  }, [content, frontmatter, generateFrontmatter, generateMarkdownHeader, title]);
 
   const handleExport = (format: ExportFormat) => {
     if (isPending) return;
