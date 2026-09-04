@@ -404,6 +404,20 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
         typeof event.composedPath === 'function' ? event.composedPath() : undefined;
 
       if (!isPointerInsidePlayer(surface, target, composedPath)) {
+        // 在移动端，防止用户操作底部控制栏时因轻微偏移或点在卡片下边缘而导致误折叠
+        if (isMobile && surface) {
+          const rect = surface.getBoundingClientRect();
+          // 若触控点在卡片水平投影宽度及两侧容差范围内（左右各留 24px），且在控制区及下方（Y >= rect.top + 60）
+          const isNearOrBelowControls =
+            event.clientX >= rect.left - 24 &&
+            event.clientX <= rect.right + 24 &&
+            event.clientY >= rect.top + 60;
+
+          if (isNearOrBelowControls) {
+            return;
+          }
+        }
+
         event.preventDefault();
         event.stopPropagation();
 
@@ -437,7 +451,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     document.addEventListener('pointerdown', handleDocumentPointerDown, { capture: true });
     return () =>
       document.removeEventListener('pointerdown', handleDocumentPointerDown, { capture: true });
-  }, [isCollapsed, setCollapsedWithAnchor]);
+  }, [isCollapsed, setCollapsedWithAnchor, isMobile]);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -944,11 +958,18 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
           className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] transition-opacity duration-200 sm:hidden"
           style={{ touchAction: 'none' }}
           aria-hidden="true"
-          onPointerDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
           onClick={(e) => {
+            const surface = playerSurfaceRef.current;
+            if (surface) {
+              const rect = surface.getBoundingClientRect();
+              if (
+                e.clientX >= rect.left - 24 &&
+                e.clientX <= rect.right + 24 &&
+                e.clientY >= rect.top + 60
+              ) {
+                return;
+              }
+            }
             e.preventDefault();
             e.stopPropagation();
             setCollapsedWithAnchor(true);
@@ -1064,7 +1085,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
           ) : (
             <section
               data-player-surface="true"
-              className="w-[min(calc(100vw-2rem),22rem)] max-h-[min(38rem,calc(100dvh-3.5rem))] flex flex-col overflow-y-auto rounded-2xl border border-border/70 bg-card/95 p-3 pb-4 sm:p-3 sm:pb-3 shadow-2xl shadow-black/15 backdrop-blur dark:bg-card/90"
+              className="w-[min(calc(100vw-2rem),22rem)] max-h-[min(38rem,calc(100dvh-3.5rem))] flex flex-col overflow-y-auto rounded-2xl border border-border/70 bg-card/95 p-3.5 pb-6 sm:p-3 sm:pb-3 shadow-2xl shadow-black/15 backdrop-blur dark:bg-card/90"
             >
               <div className="flex items-start gap-3">
                 <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted ring-1 ring-border/70">
@@ -1092,14 +1113,61 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                         {displayAlbum ? ` · ${displayAlbum}` : ''}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setCollapsedWithAnchor(true)}
-                      className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 touch-manipulation"
-                      aria-label="折叠音乐播放器"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
+                    <div className="relative flex items-center gap-1 shrink-0">
+                      <button
+                        ref={volumeBtnRef}
+                        type="button"
+                        data-player-interactive="true"
+                        data-volume-trigger="true"
+                        onClick={() => setIsVolumeOpen((value) => !value)}
+                        className={cn(
+                          "relative flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 touch-manipulation before:absolute before:-inset-2 before:content-['']",
+                          isVolumeOpen && 'bg-accent text-foreground'
+                        )}
+                        aria-label="调整音乐播放音量"
+                        aria-expanded={isVolumeOpen}
+                        title={`音量：${volumePercent}%`}
+                      >
+                        <VolumeIcon className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedWithAnchor(true)}
+                        className="relative flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 touch-manipulation before:absolute before:-inset-2 before:content-[\'\']"
+                        aria-label="折叠音乐播放器"
+                        title="收起播放器"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+
+                      {isVolumeOpen && (
+                        <div
+                          ref={volumePanelRef}
+                          data-player-interactive="true"
+                          className="absolute right-0 top-10 z-20 flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card/95 px-3 py-3 shadow-xl shadow-black/15 backdrop-blur dark:bg-card/90"
+                          style={{ touchAction: 'none' }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-[11px] tabular-nums text-muted-foreground">
+                            {volumePercent}%
+                          </span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step="0.01"
+                            value={volume}
+                            onChange={(event) => handleVolumeChange(Number(event.target.value))}
+                            className="h-24 w-1.5 cursor-pointer appearance-none rounded-full bg-muted accent-primary [direction:rtl] [writing-mode:vertical-lr]"
+                            style={{
+                              background: `linear-gradient(to top, var(--primary) 0%, var(--primary) ${volumePercent}%, var(--muted) ${volumePercent}%, var(--muted) 100%)`,
+                            }}
+                            aria-label="音乐播放音量"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {metadataLoading && (
@@ -1250,116 +1318,78 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
               <div
                 data-player-interactive="true"
                 data-player-controls="true"
-                className="mt-2.5 relative flex items-center justify-center select-none"
+                className="mt-3.5 mb-1 sm:mt-3 sm:mb-0 relative flex items-center justify-between px-2 sm:px-3 select-none"
               >
-                <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                  <button
-                    type="button"
-                    data-player-interactive="true"
-                    onClick={cyclePlayMode}
-                    className="flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 touch-manipulation"
-                    aria-label={`切换播放模式，当前：${activePlayMode.label}`}
-                    title={activePlayMode.label}
-                  >
-                    <ActivePlayModeIcon className="h-4 w-4" />
-                  </button>
+                {/* 播放模式切换 */}
+                <button
+                  type="button"
+                  data-player-interactive="true"
+                  onClick={cyclePlayMode}
+                  className="relative flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 touch-manipulation before:absolute before:-inset-2 before:content-['']"
+                  aria-label={`切换播放模式，当前：${activePlayMode.label}`}
+                  title={activePlayMode.label}
+                >
+                  <ActivePlayModeIcon className="h-4.5 w-4.5 sm:h-4 sm:w-4" />
+                </button>
 
+                {/* 核心播放控制：上一首、播放/暂停、下一首 */}
+                <div className="flex items-center gap-2.5 sm:gap-3">
                   <button
                     type="button"
                     data-player-interactive="true"
                     onClick={selectPreviousTrack}
                     disabled={!hasMultipleTracks && playMode !== 'single'}
-                    className="flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 touch-manipulation"
+                    className="relative flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 touch-manipulation before:absolute before:-inset-2 before:content-['']"
                     aria-label="上一首"
                   >
-                    <SkipBack className="h-4 w-4" />
+                    <SkipBack className="h-4.5 w-4.5 sm:h-4 sm:w-4" />
                   </button>
+
                   <button
                     type="button"
                     data-player-interactive="true"
                     onClick={togglePlayback}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-105 active:scale-95 touch-manipulation"
+                    className="relative inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-105 active:scale-95 touch-manipulation before:absolute before:-inset-2 before:content-['']"
                     aria-label={isPlaying ? '暂停音乐' : '播放音乐'}
                   >
                     {isPlaying ? (
-                      <Pause className="h-4 w-4" />
+                      <Pause className="h-5 w-5 sm:h-4.5 sm:w-4.5" />
                     ) : (
-                      <Play className="ml-0.5 h-4 w-4" />
+                      <Play className="ml-0.5 h-5 w-5 sm:h-4.5 sm:w-4.5" />
                     )}
                   </button>
+
                   <button
                     type="button"
                     data-player-interactive="true"
                     onClick={selectNextTrack}
                     disabled={!hasMultipleTracks && playMode !== 'single'}
-                    className="flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 touch-manipulation"
+                    className="relative flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 touch-manipulation before:absolute before:-inset-2 before:content-['']"
                     aria-label="下一首"
                   >
-                    <SkipForward className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    data-player-interactive="true"
-                    onClick={() => {
-                      setIsPlaylistOpen((value) => !value);
-                      setIsVolumeOpen(false);
-                    }}
-                    disabled={!hasMultipleTracks}
-                    className={cn(
-                      'flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 touch-manipulation',
-                      isPlaylistOpen && 'bg-accent text-foreground'
-                    )}
-                    aria-label={isPlaylistOpen ? '收起播放列表' : '展开播放列表'}
-                    aria-expanded={isPlaylistOpen}
-                  >
-                    <Menu className="h-4 w-4" />
+                    <SkipForward className="h-4.5 w-4.5 sm:h-4 sm:w-4" />
                   </button>
                 </div>
 
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center">
-                  <button
-                    ref={volumeBtnRef}
-                    type="button"
-                    data-player-interactive="true"
-                    data-volume-trigger="true"
-                    onClick={() => setIsVolumeOpen((value) => !value)}
-                    className={cn(
-                      'flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 touch-manipulation',
-                      isVolumeOpen && 'bg-accent text-foreground'
-                    )}
-                    aria-label="调整音乐播放音量"
-                    aria-expanded={isVolumeOpen}
-                  >
-                    <VolumeIcon className="h-4 w-4" />
-                  </button>
-
-                  {isVolumeOpen && (
-                    <div
-                      ref={volumePanelRef}
-                      data-player-interactive="true"
-                      className="absolute right-0 bottom-11 flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card/95 px-3 py-3 shadow-xl shadow-black/15 backdrop-blur dark:bg-card/90"
-                      style={{ touchAction: 'none' }}
-                      onPointerDown={(e) => e.stopPropagation()}
-                    >
-                      <span className="text-[11px] tabular-nums text-muted-foreground">
-                        {volumePercent}%
-                      </span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step="0.01"
-                        value={volume}
-                        onChange={(event) => handleVolumeChange(Number(event.target.value))}
-                        className="h-24 w-1.5 cursor-pointer appearance-none rounded-full bg-muted accent-primary [direction:rtl] [writing-mode:vertical-lr]"
-                        style={{
-                          background: `linear-gradient(to top, var(--primary) 0%, var(--primary) ${volumePercent}%, var(--muted) ${volumePercent}%, var(--muted) 100%)`,
-                        }}
-                        aria-label="音乐播放音量"
-                      />
-                    </div>
+                {/* 播放列表 */}
+                <button
+                  type="button"
+                  data-player-interactive="true"
+                  onClick={() => {
+                    setIsPlaylistOpen((value) => !value);
+                    setIsVolumeOpen(false);
+                  }}
+                  disabled={!hasMultipleTracks}
+                  className={cn(
+                    "relative flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 touch-manipulation before:absolute before:-inset-2 before:content-['']",
+                    isPlaylistOpen && 'bg-accent text-foreground'
                   )}
-                </div>
+                  aria-label={isPlaylistOpen ? '收起播放列表' : '展开播放列表'}
+                  aria-expanded={isPlaylistOpen}
+                  title="播放列表"
+                >
+                  <Menu className="h-4.5 w-4.5 sm:h-4 sm:w-4" />
+                </button>
               </div>
 
               {error && <p className="mt-2 text-center text-xs text-destructive">{error}</p>}

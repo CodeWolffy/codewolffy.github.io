@@ -1061,24 +1061,6 @@ export default config({
     }),
   },
   collections: {
-    categories: collection({
-      label: '🏷️ 分类管理',
-      slugField: 'name',
-      path: 'src/content/categories/*',
-      format: { data: 'json' },
-      schema: {
-        name: fields.slug({ name: { label: '分类名称' } }),
-      },
-    }),
-    tags: collection({
-      label: '🔖 标签管理',
-      slugField: 'name',
-      path: 'src/content/tags/*',
-      format: { data: 'json' },
-      schema: {
-        name: fields.slug({ name: { label: '标签名称' } }),
-      },
-    }),
     series: collection({
       label: '📚 专栏管理',
       slugField: 'name',
@@ -1188,86 +1170,15 @@ export default config({
           description: '勾选后，文章将不会在生产环境中显示',
           defaultValue: false,
         }),
-        category: fields.conditional(
-          fields.select({
-            label: '分类模式',
-            options: [
-              { label: '选择现有分类', value: 'existing' },
-              { label: '输入新分类', value: 'custom' },
-            ],
-            defaultValue: 'existing',
-          }),
-          {
-            existing: fields.relationship({
-              label: '选择分类',
-              collection: 'categories',
-            }),
-            custom: fields.text({
-              label: '输入分类名称',
-              description: '输入一个新的分类名称',
-            }),
-          }
-        ),
-        series: fields.relationship({
-          label: '旧版专栏归属（兼容字段）',
-          collection: 'series',
-          validation: { isRequired: false },
-          description: '请勿用于新的专栏编排；请前往“专栏管理”统一添加、移除和排序文章。',
+        category: fields.text({
+          label: '文章分类',
+          description: '输入文章所属分类，例如：分布式系统、微服务工程。',
         }),
-        seriesOrder: fields.integer({
-          label: '旧版篇章序号（兼容字段）',
-          validation: { isRequired: false, min: 1, max: 999 },
-          description: '仅为兼容既有文章保留；新顺序以“专栏管理”中的拖拽顺序为准。',
+        tags: fields.array(fields.text({ label: '标签' }), {
+          label: '标签列表',
+          itemLabel: (props) => props.value || '标签',
+          description: '点击“添加”输入文章标签。',
         }),
-        tags: fields.array(
-          fields.conditional(
-            fields.select({
-              label: '标签模式',
-              options: [
-                { label: '选择现有标签', value: 'existing' },
-                { label: '输入新标签', value: 'custom' },
-              ],
-              defaultValue: 'existing',
-            }),
-            {
-              existing: fields.relationship({
-                label: '选择标签',
-                collection: 'tags',
-              }),
-              custom: fields.text({
-                label: '输入标签名称',
-              }),
-            }
-          ),
-          {
-            label: '标签列表',
-            itemLabel: (props) => {
-              const value = props.value as unknown;
-
-              if (typeof value === 'string' && value.trim()) {
-                return value;
-              }
-
-              if (value && typeof value === 'object') {
-                const item = value as {
-                  value?: unknown;
-                  label?: unknown;
-                };
-
-                if (typeof item.value === 'string' && item.value.trim()) {
-                  return item.value;
-                }
-
-                if (typeof item.label === 'string' && item.label.trim()) {
-                  return item.label;
-                }
-              }
-
-              return '标签';
-            },
-            description: '点击 "添加" 按钮增加多个标签',
-          }
-        ),
         content: fields.mdx({
           label: '正文内容',
           options: {

@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, useDeferredValue, type ChangeEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -119,21 +125,28 @@ function getInitialSearchQuery() {
   return new URLSearchParams(window.location.search).get('q') || '';
 }
 
+function getShortcutLabel() {
+  if (typeof navigator !== 'undefined' && /macintosh|mac os x/i.test(navigator.userAgent)) {
+    return '⌘K';
+  }
+  return 'Ctrl K';
+}
+
 export function Search() {
   const [searchValue, setSearchValue] = useState(getInitialSearchQuery);
   const [isExpanded, setIsExpanded] = useState(() => Boolean(getInitialSearchQuery()));
-  const deferredSearchValue = useDeferredValue(searchValue);
   const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>(
     'idle'
   );
   const [retryCount, setRetryCount] = useState(0);
+  const [shortcutLabel] = useState(getShortcutLabel);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const pagefindContainerRef = useRef<HTMLDivElement>(null);
   const pagefindInstanceRef = useRef<PagefindInstance | null>(null);
 
-  // Handle Cmd+K / Ctrl+K keyboard shortcut
+  // Handle Cmd+K / Ctrl+K keyboard shortcut and Escape
   const closeSearch = (restoreFocus = true) => {
     setIsExpanded(false);
     setSearchValue('');
@@ -148,11 +161,27 @@ export function Search() {
         setTimeout(() => inputRef.current?.focus(), SEARCH_FOCUS_DELAY_MS);
       }
       if (e.key === 'Escape' && isExpanded) {
-        closeSearch();
+        if (searchValue) {
+          setSearchValue('');
+          inputRef.current?.focus();
+        } else {
+          closeSearch();
+        }
       }
     };
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
+  }, [isExpanded, searchValue]);
+
+  // Lock body scroll on mobile when expanded
+  useEffect(() => {
+    if (isExpanded && typeof window !== 'undefined' && window.innerWidth < 768) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
   }, [isExpanded]);
 
   // 支持 ?q= 深链（结构化数据 SearchAction / 外部直达搜索时自动聚焦）
@@ -216,22 +245,27 @@ export function Search() {
     };
   }, [isExpanded, retryCount]);
 
-  // Sync search value to pagefind whenever value OR status changes.
-  // Using deferredSearchValue ensures user typing is 100% smooth, while Pagefind
-  // query triggers as a low-priority transition without blocking keyboard input.
+  // Debounced search query trigger: 150ms debounce eliminates burst queries
+  // while typing fast, while 0ms debounce when clearing keeps resets instantaneous.
   useEffect(() => {
     if (!isExpanded || searchStatus !== 'ready') return;
     const instance = pagefindInstanceRef.current;
     if (!instance) return;
 
-    if (deferredSearchValue) {
-      instance.triggerSearch(deferredSearchValue);
-    } else {
+    const query = searchValue.trim();
+    if (!query) {
       instance.triggerSearch('');
+      return;
     }
-  }, [deferredSearchValue, isExpanded, searchStatus]);
 
-  // Click outside to close
+    const timer = setTimeout(() => {
+      instance.triggerSearch(query);
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [searchValue, isExpanded, searchStatus]);
+
+  // Click outside to close (desktop)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
@@ -244,8 +278,69 @@ export function Search() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isExpanded]);
 
+  // Click any result link inside pagefind to close the search panel
+  useEffect(() => {
+    const container = pagefindContainerRef.current;
+    if (!container) return;
+
+    const handleResultClick = (e: MouseEvent) => {
+      const link = (e.target as HTMLElement).closest('a');
+      if (link) {
+        closeSearch(false);
+      }
+    };
+
+    container.addEventListener('click', handleResultClick);
+    return () => container.removeEventListener('click', handleResultClick);
+  }, []);
+
+  // Keyboard navigation within pagefind results (ArrowDown/ArrowUp)
+  useEffect(() => {
+    const container = pagefindContainerRef.current;
+    if (!container) return;
+
+    const handleResultsKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (!activeEl || !container.contains(activeEl)) return;
+
+      const links = Array.from(
+        container.querySelectorAll<HTMLAnchorElement>('.pagefind-ui__result-link, a[href]')
+      );
+      if (links.length === 0) return;
+
+      const currentIndex = links.indexOf(activeEl as HTMLAnchorElement);
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (currentIndex < links.length - 1) {
+          links[currentIndex + 1]?.focus();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (currentIndex > 0) {
+          links[currentIndex - 1]?.focus();
+        } else {
+          inputRef.current?.focus();
+        }
+      }
+    };
+
+    container.addEventListener('keydown', handleResultsKeyDown);
+    return () => container.removeEventListener('keydown', handleResultsKeyDown);
+  }, []);
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchValue(e.target.value);
+  };
+
+  const handleInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const firstLink = pagefindContainerRef.current?.querySelector<HTMLAnchorElement>(
+        '.pagefind-ui__result-link, a[href]'
+      );
+      firstLink?.focus();
+    }
   };
 
   const handleClear = () => {
@@ -263,126 +358,151 @@ export function Search() {
   const hasSearchQuery = searchValue.trim().length > 0;
 
   return (
-    <div
-      ref={searchContainerRef}
-      className={cn(
-        'relative flex max-w-full justify-end transition-[width] duration-200 ease-out',
-        isExpanded
-          ? 'fixed left-2 right-2 top-1 z-[60] w-auto md:relative md:left-auto md:right-auto md:top-auto md:z-auto md:w-full'
-          : 'w-[7.5rem] sm:w-[8.5rem] max-[374px]:w-9 md:w-[14rem]'
-      )}
-    >
-      {/* Search Input */}
-      <div
-        className={cn(
-          'flex h-9 w-full items-center rounded-md border border-input bg-background text-sm shadow-sm transition-all duration-200 ease-out',
-          isExpanded
-            ? 'h-10 rounded-xl px-3 justify-start shadow-lg md:h-9 md:rounded-md md:shadow-none'
-            : 'px-3 justify-start cursor-pointer hover:bg-accent hover:text-accent-foreground max-[374px]:justify-center max-[374px]:px-0'
-        )}
-      >
-        <SearchIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-        {isExpanded ? (
-          <input
-            ref={inputRef}
-            type="search"
-            role="combobox"
-            placeholder="搜索文章..."
-            aria-label="搜索文章"
-            aria-expanded="true"
-            aria-controls="pagefind-results-panel"
-            aria-autocomplete="list"
-            value={searchValue}
-            onChange={handleInputChange}
-            className="ml-2 min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-          />
-        ) : (
-          <button
-            ref={triggerRef}
-            type="button"
-            onClick={handleSearchClick}
-            className="absolute inset-0 flex items-center rounded-md pl-9 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-[374px]:pl-0"
-            aria-label="展开搜索"
-            aria-haspopup="dialog"
-            aria-expanded="false"
-          >
-            <span className="max-[374px]:sr-only">搜索文章...</span>
-          </button>
-        )}
-        {isExpanded &&
-          (searchValue ? (
-            <button
-              onClick={handleClear}
-              className="p-1 hover:bg-accent rounded"
-              aria-label="清空搜索"
-            >
-              <X className="h-3 w-3 text-muted-foreground" />
-            </button>
-          ) : (
-            <button
-              onClick={handleSearchClose}
-              className="-mr-1 p-1.5 hover:bg-accent rounded md:hidden"
-              aria-label="关闭搜索"
-            >
-              <X className="h-4 w-4 text-muted-foreground" />
-            </button>
-          ))}
-      </div>
-
-      {/* Results Dropdown */}
+    <>
+      {/* Mobile Backdrop */}
       {isExpanded && (
         <div
-          className={cn(
-            'fixed left-2 right-2 top-12 z-[60] mt-1 rounded-xl border border-border bg-background shadow-xl max-h-[calc(100vh-4rem)] overflow-hidden md:absolute md:top-full md:left-0 md:right-0 md:mt-2 md:rounded-lg md:shadow-lg md:max-h-[70vh]',
-            hasSearchQuery && 'min-h-[12rem]'
-          )}
-          role="dialog"
-          aria-modal="false"
-          aria-label="搜索结果"
-          id="pagefind-results-panel"
-        >
-          {searchStatus === 'loading' && (
-            <div className="p-2 py-8 text-center text-sm text-muted-foreground">
-              正在加载搜索...
-            </div>
-          )}
-          {searchStatus === 'unavailable' && (
-            <div className="p-2 flex flex-col items-center justify-center py-8 text-center text-muted-foreground space-y-2">
-              {import.meta.env.DEV ? (
-                <>
-                  <p>开发模式下未生成搜索索引。</p>
-                  <p className="text-xs">使用生产构建预览即可测试全文搜索。</p>
-                </>
-              ) : (
-                <>
-                  <p role="alert">搜索服务加载失败，请检查网络后重试。</p>
-                  <button
-                    type="button"
-                    className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
-                    onClick={() => setRetryCount((count) => count + 1)}
-                  >
-                    重新加载搜索
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-          {searchStatus === 'ready' && !hasSearchQuery && (
-            <div className="flex min-h-[6rem] items-center justify-center p-4 text-sm text-muted-foreground">
-              输入关键词后显示搜索结果
-            </div>
-          )}
-          {/* Pagefind mounts here; always kept in DOM so it can initialize */}
-          <div
-            ref={pagefindContainerRef}
-            id="pagefind-results"
-            className={cn(
-              'max-h-[calc(100vh-5rem)] overflow-y-auto p-2 md:max-h-[70vh]',
-              searchStatus === 'ready' && hasSearchQuery ? 'block' : 'hidden'
-            )}
-          />
-        </div>
+          className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm md:hidden"
+          onClick={() => closeSearch(false)}
+          aria-hidden="true"
+        />
       )}
-    </div>
+
+      <div
+        ref={searchContainerRef}
+        className={cn(
+          'relative flex max-w-full justify-end transition-[width] duration-200 ease-out',
+          isExpanded
+            ? 'fixed left-2 right-2 top-1 z-[60] w-auto md:relative md:left-auto md:right-auto md:top-auto md:z-auto md:w-full'
+            : 'w-[7.5rem] sm:w-[8.5rem] max-[374px]:w-9 md:w-[14rem]'
+        )}
+      >
+        {/* Search Input Box */}
+        <div
+          className={cn(
+            'flex h-9 w-full items-center rounded-md border border-input bg-background text-sm shadow-sm transition-all duration-200 ease-out',
+            isExpanded
+              ? 'h-10 rounded-xl px-3 justify-start shadow-lg md:h-9 md:rounded-md md:shadow-none'
+              : 'px-3 justify-start cursor-pointer hover:bg-accent hover:text-accent-foreground max-[374px]:justify-center max-[374px]:px-0'
+          )}
+        >
+          <SearchIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+          {isExpanded ? (
+            <>
+              <input
+                ref={inputRef}
+                type="search"
+                role="combobox"
+                placeholder="搜索文章..."
+                aria-label="搜索文章"
+                aria-expanded="true"
+                aria-controls="pagefind-results-panel"
+                aria-autocomplete="list"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck="false"
+                enterKeyHint="search"
+                value={searchValue}
+                onChange={handleInputChange}
+                onKeyDown={handleInputKeyDown}
+                className="ml-2 min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden [&::-webkit-search-results-button]:hidden [&::-webkit-search-results-decoration]:hidden [&::-ms-clear]:hidden"
+              />
+              {searchValue ? (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  aria-label="清空搜索"
+                  title="清空搜索"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              <kbd className="hidden md:inline-flex ml-1.5 items-center px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/80 bg-muted border border-border rounded pointer-events-none select-none">
+                ESC
+              </kbd>
+              <button
+                type="button"
+                onClick={handleSearchClose}
+                className="ml-1 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground rounded hover:bg-accent transition-colors md:hidden shrink-0"
+                aria-label="取消搜索"
+              >
+                取消
+              </button>
+            </>
+          ) : (
+            <button
+              ref={triggerRef}
+              type="button"
+              onClick={handleSearchClick}
+              className="absolute inset-0 flex items-center justify-between rounded-md pl-9 pr-2.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-[374px]:pl-0"
+              aria-label="展开搜索"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+            >
+              <span className="max-[374px]:sr-only text-muted-foreground">搜索文章...</span>
+              <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-border bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+                {shortcutLabel}
+              </kbd>
+            </button>
+          )}
+        </div>
+
+        {/* Results Dropdown */}
+        {isExpanded && (
+          <div
+            className={cn(
+              'fixed left-2 right-2 top-12 z-[60] mt-1 rounded-xl border border-border bg-background shadow-xl max-h-[calc(100vh-4rem)] overflow-hidden md:absolute md:top-full md:left-0 md:right-0 md:mt-2 md:rounded-lg md:shadow-lg md:max-h-[70vh]',
+              hasSearchQuery && 'min-h-[12rem]'
+            )}
+            role="dialog"
+            aria-modal="false"
+            aria-label="搜索结果"
+            id="pagefind-results-panel"
+          >
+            {searchStatus === 'loading' && (
+              <div className="p-2 py-8 text-center text-sm text-muted-foreground">
+                正在加载搜索...
+              </div>
+            )}
+            {searchStatus === 'unavailable' && (
+              <div className="p-2 flex flex-col items-center justify-center py-8 text-center text-muted-foreground space-y-2">
+                {import.meta.env.DEV ? (
+                  <>
+                    <p>开发模式下未生成搜索索引。</p>
+                    <p className="text-xs">使用生产构建预览即可测试全文搜索。</p>
+                  </>
+                ) : (
+                  <>
+                    <p role="alert">搜索服务加载失败，请检查网络后重试。</p>
+                    <button
+                      type="button"
+                      className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+                      onClick={() => setRetryCount((count) => count + 1)}
+                    >
+                      重新加载搜索
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            {searchStatus === 'ready' && !hasSearchQuery && (
+              <div className="flex min-h-[6rem] items-center justify-center p-4 text-sm text-muted-foreground">
+                输入关键词后显示搜索结果
+              </div>
+            )}
+            {/* Pagefind mounts here; always kept in DOM so it can initialize */}
+            <div
+              ref={pagefindContainerRef}
+              id="pagefind-results"
+              className={cn(
+                'max-h-[calc(100vh-5rem)] overflow-y-auto p-2 md:max-h-[70vh]',
+                searchStatus === 'ready' && hasSearchQuery ? 'block' : 'hidden'
+              )}
+            />
+          </div>
+        )}
+      </div>
+    </>
   );
 }

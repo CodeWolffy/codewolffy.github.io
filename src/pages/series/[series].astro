@@ -14,7 +14,6 @@ import {
   getPostActivityDate,
   getPublicBlogPosts,
   getSeriesPostNumber,
-  hasManagedSeriesPosts,
   type BlogPost,
 } from '@/utils/posts';
 import { getSiteSettings } from '@/utils/site-settings';
@@ -43,10 +42,7 @@ export async function getStaticPaths() {
 const { seriesEntry, posts, latestUpdate } = Astro.props as Props;
 const settings = await getSiteSettings();
 const isCompleted = seriesEntry.data.status === 'completed';
-const usesManagedPostOrder = hasManagedSeriesPosts(seriesEntry);
-const orderedPostCount = usesManagedPostOrder
-  ? posts.length
-  : posts.filter((post) => typeof post.data.seriesOrder === 'number').length;
+const orderedPostCount = posts.length;
 
 const formatDate = (date: Date) =>
   date.toLocaleDateString('zh-CN', {

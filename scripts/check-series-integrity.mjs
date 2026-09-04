@@ -32,8 +32,6 @@ for (const file of postFiles) {
     id,
     file,
     title: typeof data.title === 'string' ? data.title : id,
-    legacySeries: typeof data.series === 'string' ? data.series.trim() : '',
-    legacyOrder: data.seriesOrder,
   });
 }
 
@@ -77,31 +75,6 @@ for (const file of seriesFiles) {
 }
 
 const seriesIds = new Set(seriesById.keys());
-for (const [postId, post] of postsById) {
-  const { legacySeries, legacyOrder } = post;
-  const managed = managedPostOwners.get(postId);
-
-  if (!legacySeries && legacyOrder != null) {
-    issues.push(`${post.file}: 填写了旧版 seriesOrder，但没有旧版 series。`);
-    continue;
-  }
-  if (legacySeries && !seriesIds.has(legacySeries)) {
-    issues.push(`${post.file}: 旧版字段引用了不存在的专栏 “${legacySeries}”。`);
-  }
-  if (legacyOrder != null && (!Number.isInteger(legacyOrder) || legacyOrder < 1)) {
-    issues.push(`${post.file}: 旧版 seriesOrder 必须是大于等于 1 的整数。`);
-  }
-  if (!managed || !legacySeries) continue;
-  if (legacySeries !== managed.seriesId) {
-    issues.push(
-      `${post.file}: 统一编排归属于 “${managed.seriesId}”，但旧版 series 为 “${legacySeries}”。`
-    );
-  } else if (legacyOrder != null && legacyOrder !== managed.order) {
-    issues.push(
-      `${post.file}: 在统一编排中是第 ${managed.order} 篇，但旧版 seriesOrder 为 ${legacyOrder}。`
-    );
-  }
-}
 
 if (issues.length > 0) {
   console.error('专栏内容完整性检查失败：');
@@ -122,16 +95,4 @@ for (const [id, series] of seriesById) {
     console.log(`  ${index + 1}  ${post?.title || postId}  [${post?.file || postId}]`);
   });
   console.log(`  下一建议序号：${series.posts.length + 1}`);
-}
-
-const legacyOnlyPosts = [...postsById.values()].filter(
-  (post) => post.legacySeries && !managedPostOwners.has(post.id)
-);
-if (legacyOnlyPosts.length > 0) {
-  console.log('\n仅使用旧版文章字段（建议迁移到专栏统一编排）：');
-  legacyOnlyPosts.forEach((post) => {
-    console.log(
-      `  ${post.legacySeries} / ${post.legacyOrder ?? '未编号'}  ${post.title}  [${post.file}]`
-    );
-  });
 }

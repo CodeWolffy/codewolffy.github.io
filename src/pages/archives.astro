@@ -526,6 +526,13 @@ const archiveSummary = [
 {/* 客户端交互脚本：即时筛选、正倒序翻转、年份折叠 */}
 <script>
   function setupArchiveInteractions() {
+    const timelineContainer = document.getElementById('archive-timeline-list');
+    if (!timelineContainer) return;
+
+    // 防止在同一 DOM 容器上重复绑定监听器
+    if (timelineContainer.dataset.archiveInitialized === 'true') return;
+    timelineContainer.dataset.archiveInitialized = 'true';
+
     const filterInput = document.getElementById('archive-filter-input') as HTMLInputElement | null;
     const filterClear = document.getElementById('archive-filter-clear');
     const filterStats = document.getElementById('archive-filter-stats');
@@ -539,10 +546,9 @@ const archiveSummary = [
     const collapseAllBtn = document.getElementById('archive-collapse-all-btn');
     const collapseLabel = document.getElementById('archive-collapse-label');
 
-    const timelineContainer = document.getElementById('archive-timeline-list');
-    const yearGroups = document.querySelectorAll<HTMLElement>('.archive-year-group');
-    const monthGroups = document.querySelectorAll<HTMLElement>('.archive-month-group');
-    const postRows = document.querySelectorAll<HTMLElement>('.archive-post-row');
+    const yearGroups = timelineContainer.querySelectorAll<HTMLElement>('.archive-year-group');
+    const monthGroups = timelineContainer.querySelectorAll<HTMLElement>('.archive-month-group');
+    const postRows = timelineContainer.querySelectorAll<HTMLElement>('.archive-post-row');
 
     // 1. 标题即时过滤功能
     const handleFilter = () => {
@@ -589,6 +595,21 @@ const archiveSummary = [
       yearGroups.forEach((yg) => {
         const visibleMonths = yg.querySelectorAll('.archive-month-group:not(.hidden)');
         yg.classList.toggle('hidden', visibleMonths.length === 0);
+
+        // 如果年份内有匹配结果，自动展开该年份以展示结果
+        const monthContainer = yg.querySelector<HTMLElement>('.archive-month-container');
+        if (
+          monthContainer &&
+          visibleMonths.length > 0 &&
+          monthContainer.classList.contains('hidden')
+        ) {
+          monthContainer.classList.remove('hidden');
+          const toggleBtn = yg.querySelector<HTMLButtonElement>('.archive-year-toggle');
+          const icon = toggleBtn?.querySelector<HTMLElement>('.year-toggle-icon');
+          const text = toggleBtn?.querySelector<HTMLElement>('.year-toggle-text');
+          icon?.classList.remove('-rotate-90');
+          if (text) text.textContent = '折叠';
+        }
       });
 
       // 更新统计条与空状态
@@ -619,7 +640,6 @@ const archiveSummary = [
     // 2. 正序 / 倒序切换功能 (时间顺叙 / 倒叙)
     let isAscending = false;
     sortBtn?.addEventListener('click', () => {
-      if (!timelineContainer) return;
       isAscending = !isAscending;
 
       if (sortLabel) {
@@ -654,63 +674,65 @@ const archiveSummary = [
       });
     });
 
-    // 3. 单年份折叠 / 展开
-    const yearToggleButtons = document.querySelectorAll<HTMLButtonElement>('.archive-year-toggle');
-    yearToggleButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const yearGroup = btn.closest('.archive-year-group');
-        if (!yearGroup) return;
+    // 3. 单年份折叠 / 展开 (使用事件委托，稳定且不受节点反转/更新影响)
+    timelineContainer.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      const toggleBtn = target?.closest<HTMLButtonElement>('.archive-year-toggle');
+      if (!toggleBtn) return;
 
-        const monthContainer = yearGroup.querySelector<HTMLElement>('.archive-month-container');
-        const icon = btn.querySelector<HTMLElement>('.year-toggle-icon');
-        const text = btn.querySelector<HTMLElement>('.year-toggle-text');
+      const yearGroup = toggleBtn.closest('.archive-year-group');
+      if (!yearGroup) return;
 
-        if (!monthContainer) return;
+      const monthContainer = yearGroup.querySelector<HTMLElement>('.archive-month-container');
+      const icon = toggleBtn.querySelector<HTMLElement>('.year-toggle-icon');
+      const text = toggleBtn.querySelector<HTMLElement>('.year-toggle-text');
 
-        const isCurrentlyHidden = monthContainer.classList.contains('hidden');
-        if (isCurrentlyHidden) {
-          monthContainer.classList.remove('hidden');
-          icon?.classList.remove('-rotate-90');
-          if (text) text.textContent = '折叠';
-        } else {
-          monthContainer.classList.add('hidden');
-          icon?.classList.add('-rotate-90');
-          if (text) text.textContent = '展开';
-        }
-      });
+      if (!monthContainer) return;
+
+      const isCurrentlyHidden = monthContainer.classList.contains('hidden');
+      if (isCurrentlyHidden) {
+        monthContainer.classList.remove('hidden');
+        icon?.classList.remove('-rotate-90');
+        if (text) text.textContent = '折叠';
+      } else {
+        monthContainer.classList.add('hidden');
+        icon?.classList.add('-rotate-90');
+        if (text) text.textContent = '展开';
+      }
     });
 
     // 4. 全部年份折叠 / 展开
-    let allCollapsed = false;
     collapseAllBtn?.addEventListener('click', () => {
-      allCollapsed = !allCollapsed;
+      const allMonthContainers = Array.from(
+        timelineContainer.querySelectorAll<HTMLElement>('.archive-month-container')
+      );
+      // 如果当前至少有一个年份处于展开状态，则本次点击执行“折叠全部”；否则执行“展开全部”
+      const shouldCollapse = allMonthContainers.some((mc) => !mc.classList.contains('hidden'));
 
-      if (collapseLabel) {
-        collapseLabel.textContent = allCollapsed ? '展开全部' : '折叠全部';
-      }
+      allMonthContainers.forEach((mc) => {
+        mc.classList.toggle('hidden', shouldCollapse);
+      });
 
-      yearGroups.forEach((yg) => {
-        const monthContainer = yg.querySelector<HTMLElement>('.archive-month-container');
+      const allYearGroups = timelineContainer.querySelectorAll<HTMLElement>('.archive-year-group');
+      allYearGroups.forEach((yg) => {
         const toggleBtn = yg.querySelector<HTMLButtonElement>('.archive-year-toggle');
         const icon = toggleBtn?.querySelector<HTMLElement>('.year-toggle-icon');
         const text = toggleBtn?.querySelector<HTMLElement>('.year-toggle-text');
-
-        if (monthContainer) {
-          if (allCollapsed) {
-            monthContainer.classList.add('hidden');
-            icon?.classList.add('-rotate-90');
-            if (text) text.textContent = '展开';
-          } else {
-            monthContainer.classList.remove('hidden');
-            icon?.classList.remove('-rotate-90');
-            if (text) text.textContent = '折叠';
-          }
+        if (shouldCollapse) {
+          icon?.classList.add('-rotate-90');
+          if (text) text.textContent = '展开';
+        } else {
+          icon?.classList.remove('-rotate-90');
+          if (text) text.textContent = '折叠';
         }
       });
+
+      if (collapseLabel) {
+        collapseLabel.textContent = shouldCollapse ? '展开全部' : '折叠全部';
+      }
     });
   }
 
-  // 支持 Astro View Transitions / ClientRouter
-  setupArchiveInteractions();
+  // 仅在 astro:page-load 时初始化（初次加载及 ClientRouter 切页均会触发，且受 initialized 防重保护）
   document.addEventListener('astro:page-load', setupArchiveInteractions);
 </script>

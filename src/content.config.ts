@@ -17,11 +17,6 @@ const dataLoader = (collection: string) =>
     generateId: ({ entry }) => stripFileExtension(entry),
   });
 
-const conditionalRelationship = z.object({
-  discriminant: z.enum(['existing', 'custom']),
-  value: z.string().nullable(),
-});
-
 const categories = defineCollection({
   loader: dataLoader('categories'),
   schema: z.object({
@@ -61,32 +56,8 @@ const blog = defineCollection({
     updatedDate: z.coerce.date().optional(),
     heroImage: z.string().optional(),
     coverImage: z.string().optional(),
-    category: z
-      .union([z.string(), conditionalRelationship])
-      .optional()
-      .transform((val) => {
-        if (!val) return undefined;
-        if (typeof val === 'string') return val;
-        return val.value || undefined;
-      }),
-    tags: z
-      .array(z.union([z.string(), conditionalRelationship]))
-      .default([])
-      .transform((tags) => {
-        return tags
-          .map((tag) => (typeof tag === 'string' ? tag : tag.value || ''))
-          .filter((tag) => tag.length > 0);
-      }),
-    series: z
-      .string()
-      .nullable()
-      .optional()
-      .transform((value) => value || undefined),
-    seriesOrder: z
-      .number()
-      .nullable()
-      .optional()
-      .transform((value) => value ?? undefined),
+    category: z.string().optional(),
+    tags: z.array(z.string()).default([]),
     draft: z.boolean().default(false),
   }),
 });
