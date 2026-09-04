@@ -1,7 +1,7 @@
 ---
 title: 从源码理解 AQS：Java 并发工具的基础设施
 description: 从 state、CLH 变体队列和 park/unpark 出发，理解 AQS 如何支撑锁、信号量与倒计时器。
-pubDate: 2025-11-11
+pubDate: 2025-11-18
 category: 并发编程
 tags:
   - AQS
@@ -102,6 +102,9 @@ final class Mutex implements java.util.concurrent.locks.Lock {
             setExclusiveOwnerThread(null);
             setState(0);
             return true;
+        }
+        protected boolean isHeldExclusively() {
+            return getExclusiveOwnerThread() == Thread.currentThread();
         }
         Condition newCondition() { return new ConditionObject(); }
     }

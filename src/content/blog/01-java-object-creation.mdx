@@ -117,6 +117,11 @@ class Child extends Parent {
 class Listener {
     private final int threshold;
 
+    Listener() {
+        this.threshold = 100;
+    }
+
+    // 错误示范：构造器中直接发布 this
     Listener(EventBus bus) {
         bus.register(this); // this 已被其他线程看见
         threshold = 100;
@@ -139,9 +144,8 @@ eventBus.register(listener);
 
 从 Java 语义看，对象由 JVM 管理；从优化后的机器执行看，却未必真的出现一次堆分配。若 JIT 的逃逸分析证明对象不会逃出方法或线程，可能进行：
 
-- 标量替换：把对象拆成若干局部变量；
-- 锁消除：移除只被当前线程使用的对象锁；
-- 分配消除：完全省掉实际对象分配。
+- 标量替换（消除堆分配）：证明对象未逃逸出方法时，将其拆解为若干局部标量并直接保存在栈帧或寄存器上，完全省去堆分配；
+- 锁消除：证明对象只被当前线程访问时，移除无竞争的对象锁。
 
 因此不要用“源码里有几个 `new`”推断堆分配次数，应结合 JFR、GC 分配速率和基准测试判断。
 

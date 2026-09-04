@@ -1,7 +1,7 @@
 ---
 title: volatile 为什么保证可见性，却不能保证原子性？
 description: 从 Java 内存模型、happens-before、读改写竞态和内存屏障解释 volatile 的能力边界。
-pubDate: 2025-12-30
+pubDate: 2026-02-16
 category: Java并发
 tags:
   - Java
@@ -93,7 +93,7 @@ synchronized void transfer() {
 
 原子类适合单变量 CAS 更新；锁更适合跨字段、带条件判断的复合状态变更。
 
-补充一个常见旧知识点：自 Java 5 起，普通 `long`、`double` 的单次读写也要求原子，不需要为了防止“撕裂读取”机械地加 `volatile`。但普通读写仍不建立跨线程可见性与有序性；需要发布关系时依然要使用 `volatile`、锁或其他同步机制。
+补充一个常见细节：在现代 64 位 HotSpot 虚拟机及常见 64 位 CPU 架构（如 x86-64、AArch64）下，普通 `long`、`double` 的读写在实现层面已基本保证单次原子性；但在 Java 语言规范（JLS §17.7）中，对非 volatile 的 64 位值写入仍允许拆分为两次 32 位操作。普通读写更关键的问题是不建立跨线程可见性与有序性；需要发布关系时依然要使用 `volatile`、锁或其他同步机制。
 
 ## 4. 内存屏障与硬件实现
 

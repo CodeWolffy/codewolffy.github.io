@@ -1,7 +1,7 @@
 ---
 title: 缓存穿透、击穿、雪崩背后的本质区别与治理方案
 description: 从请求集中度和失效规模区分三类缓存故障，并给出空值、布隆过滤器、互斥重建和随机过期方案。
-pubDate: 2025-12-05
+pubDate: 2025-12-15
 category: Redis
 tags:
   - Redis
@@ -33,7 +33,7 @@ Redis 实例宕机也会造成类似雪崩，但它属于基础设施整体不�
 ```java
 Product product = repository.findById(id);
 if (product == null) {
-redis.set(key, "__NULL__", SetArgs.Builder.ex(60));
+    redis.set(key, "__NULL__", SetArgs.Builder.ex(60));
     return null;
 }
 redis.set(key, serialize(product), SetArgs.Builder.ex(1800));

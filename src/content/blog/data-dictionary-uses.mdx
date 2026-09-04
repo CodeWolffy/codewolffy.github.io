@@ -3,7 +3,7 @@ title: 数据字典的作用是什么？
 description: |-
   在 Java 项目开发中使用数据字典（Data Dictionary），主要目的是统一管理、规范和解释系统中的数据含义，在实际开发和维护中非常重要。
   这不仅仅是“存个键值对”那么简单，在大型企业级项目（如ERP、CRM、SaaS平台）中，数据字典的设计直接决定了开发的效率和系统的上限。
-pubDate: 2026-01-13
+pubDate: 2026-01-10
 updatedDate: 2026-01-24
 coverImage: /images/posts/data-dictionary-uses/coverImage.jpg
 draft: false
@@ -26,7 +26,7 @@ tags:
 
 ## 一、 数据库设计的进阶：两表模式
 
-在简单的系统中，一张表可能够用了。但在成熟的Java框架（如RuoYi, JeecgBoot等）中，通常采用\*\*“主子表（两表）模式”\*\*。
+在简单的系统中，一张表可能够用了。但在成熟的Java框架（如RuoYi, JeecgBoot等）中，通常采用**“主子表（两表）模式”**。
 
 这样做是为了将“字典类型的定义”与“具体的字典数据”分开，方便管理和扩展。
 
@@ -113,7 +113,7 @@ if (OrderStatus.PAID.getValue().equals(order.getStatus())) {
 
 ## 三、 性能优化：多级缓存策略
 
-数据字典是典型的\*\*“读多写少”\*\*数据（Read-Heavy）。如果每次页面渲染下拉框都要查库，数据库压力会很大。
+数据字典是典型的**“读多写少”**数据（Read-Heavy）。如果每次页面渲染下拉框都要查库，数据库压力会很大。
 
 ### 缓存加载流程
 
