@@ -90,22 +90,18 @@ const musicTracks = await getMusicTracks();
       title={settings.rss.title}
       href={settings.links.rss}
     />
-    {
-      busuanzi.enabled && (
-        <>
-          {/* 不蒜子预连接优化 */}
-          <link rel="dns-prefetch" href={busuanzi.origin} />
-          <link rel="preconnect" href={busuanzi.origin} crossorigin />
-        </>
-      )
-    }
+    {busuanzi.enabled && (
+      <>
+        {/* 不蒜子预连接优化 */}
+        <link rel="dns-prefetch" href={busuanzi.origin} />
+        <link rel="preconnect" href={busuanzi.origin} crossorigin />
+      </>
+    )}
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
-    {
-      settings.verification.google.map((token) => (
-        <meta name="google-site-verification" content={token} />
-      ))
-    }
+    {settings.verification.google.map((token) => (
+      <meta name="google-site-verification" content={token} />
+    ))}
 
     <!-- Canonical URL -->
     {canonical && <link rel="canonical" href={canonicalUrl} />}
@@ -120,16 +116,12 @@ const musicTracks = await getMusicTracks();
     <meta property="og:locale" content={settings.og.locale} />
 
     {/* Article 扩展标签 - 仅用于文章页 */}
-    {
-      type === 'article' && publishedTime && (
-        <meta property="article:published_time" content={publishedTime.toISOString()} />
-      )
-    }
-    {
-      type === 'article' && modifiedTime && (
-        <meta property="article:modified_time" content={modifiedTime.toISOString()} />
-      )
-    }
+    {type === 'article' && publishedTime && (
+      <meta property="article:published_time" content={publishedTime.toISOString()} />
+    )}
+    {type === 'article' && modifiedTime && (
+      <meta property="article:modified_time" content={modifiedTime.toISOString()} />
+    )}
     {type === 'article' && author && <meta property="article:author" content={author} />}
 
     <!-- Twitter -->
@@ -143,11 +135,10 @@ const musicTracks = await getMusicTracks();
 
     {/* Theme Initialization Script to prevent FOUC */}
     <script is:inline type="module" src="/theme.js"></script>
-    {
-      busuanzi.enabled && (
-        <script
-          is:inline
-          set:html={`
+    {busuanzi.enabled && (
+      <script
+        is:inline
+        set:html={`
 (() => {
   const config = ${busuanziClientConfig};
   const stateKey = '__busuanziPageviewLoader';
@@ -211,9 +202,8 @@ const musicTracks = await getMusicTracks();
   }
 })();
           `}
-        />
-      )
-    }
+      />
+    )}
   </head>
   <body class="min-h-screen bg-background font-sans antialiased">
     <!-- 跳过导航链接 - 改进可访问性 -->
@@ -247,24 +237,22 @@ const musicTracks = await getMusicTracks();
       >
         <div class="container mx-auto flex flex-col items-center justify-center gap-0.5">
           <div class="flex items-center gap-4">
-            {
-              footerSocials.map((item) => {
-                const Icon = getIconComponent(item.icon);
-                const external = !item.href.startsWith('/');
+            {footerSocials.map((item) => {
+              const Icon = getIconComponent(item.icon);
+              const external = !item.href.startsWith('/');
 
-                return (
-                  <a
-                    href={item.href}
-                    target={external ? '_blank' : undefined}
-                    rel={external ? 'noopener noreferrer' : undefined}
-                    class="text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <span class="sr-only">{item.label}</span>
-                    <Icon aria-hidden="true" width={24} height={24} />
-                  </a>
-                );
-              })
-            }
+              return (
+                <a
+                  href={item.href}
+                  target={external ? '_blank' : undefined}
+                  rel={external ? 'noopener noreferrer' : undefined}
+                  class="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <span class="sr-only">{item.label}</span>
+                  <Icon aria-hidden="true" width={24} height={24} />
+                </a>
+              );
+            })}
           </div>
 
           <p class="text-balance text-center text-sm leading-none text-muted-foreground mt-1">
@@ -276,11 +264,9 @@ const musicTracks = await getMusicTracks();
 
       <!-- 滚动到顶部按钮 -->
       <ScrollToTop />
-      {
-        musicTracks.length > 0 && (
-          <FloatingMusicPlayer client:load transition:persist tracks={musicTracks} />
-        )
-      }
+      {musicTracks.length > 0 && (
+        <FloatingMusicPlayer client:load transition:persist tracks={musicTracks} />
+      )}
     </div>
   </body>
 </html>

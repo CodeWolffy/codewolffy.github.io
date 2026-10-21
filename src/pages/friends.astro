@@ -46,14 +46,8 @@ const pageConfig = {
 <BaseLayout title={`${pageConfig.title} | ${settings.name}`} description={pageConfig.description}>
   {/* 装饰背景 */}
   <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-    <div
-      class="absolute top-1/4 -left-20 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]"
-    >
-    </div>
-    <div
-      class="absolute bottom-1/4 -right-20 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[100px]"
-    >
-    </div>
+    <div class="absolute top-1/4 -left-20 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]"></div>
+    <div class="absolute bottom-1/4 -right-20 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[100px]"></div>
   </div>
 
   <section class="container mx-auto pt-0 pb-8">
@@ -75,143 +69,134 @@ const pageConfig = {
         </section>
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {
-            friends.length === 0 ? (
-              <div class="sm:col-span-2 lg:col-span-3">
-                <EmptyState type="friend" />
-              </div>
-            ) : (
-              friends.map((friend, index) => (
-                <a
-                  href={friend.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="group relative flex flex-col items-center p-5 rounded-2xl bg-card border border-border/60 shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up"
-                  style={`animation-delay: ${index * 100}ms;`}
-                >
-                  <div class="absolute inset-0 rounded-2xl bg-card z-[-1]" />
+          {friends.length === 0 ? (
+            <div class="sm:col-span-2 lg:col-span-3">
+              <EmptyState type="friend" />
+            </div>
+          ) : (
+            friends.map((friend, index) => (
+              <a
+                href={friend.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="group relative flex flex-col items-center p-5 rounded-2xl bg-card border border-border/60 shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up"
+                style={`animation-delay: ${index * 100}ms;`}
+              >
+                <div class="absolute inset-0 rounded-2xl bg-card z-[-1]" />
 
-                  {/* 悬停背景渐变 */}
-                  <div class="absolute inset-0 bg-muted/35 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0" />
+                {/* 悬停背景渐变 */}
+                <div class="absolute inset-0 bg-muted/35 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0" />
 
-                  {/* 头像带旋转边框 */}
-                  <div class="relative mb-3 z-10">
-                    <div class="absolute -inset-1 rounded-full bg-primary/20 opacity-0 group-hover:opacity-70 blur-sm transition-opacity duration-300" />
-                    <div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-all duration-300">
-                      <img
-                        src={friend.displayAvatar}
-                        alt={friend.name}
-                        class="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </div>
+                {/* 头像带旋转边框 */}
+                <div class="relative mb-3 z-10">
+                  <div class="absolute -inset-1 rounded-full bg-primary/20 opacity-0 group-hover:opacity-70 blur-sm transition-opacity duration-300" />
+                  <div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-all duration-300">
+                    <img
+                      src={friend.displayAvatar}
+                      alt={friend.name}
+                      class="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
+                </div>
 
-                  <h3 class="font-semibold text-base group-hover:text-primary transition-colors duration-300 relative z-10">
-                    {friend.name}
-                  </h3>
-                  <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2 relative z-10">
-                    {friend.description}
-                  </p>
+                <h3 class="font-semibold text-base group-hover:text-primary transition-colors duration-300 relative z-10">
+                  {friend.name}
+                </h3>
+                <p class="text-sm text-muted-foreground text-center mt-2 line-clamp-2 relative z-10">
+                  {friend.description}
+                </p>
 
-                  {/* 外链图标 */}
-                  <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      class="text-primary"
-                    >
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                  </div>
-                </a>
-              ))
-            )
-          }
+                {/* 外链图标 */}
+                <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="text-primary"
+                  >
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </div>
+              </a>
+            ))
+          )}
         </div>
 
         {/* 申请友链区域 */}
         <div class="mt-16 p-8 rounded-2xl glass-effect text-center relative overflow-hidden">
           {/* 装饰元素 */}
-          <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-primary/50 rounded-full">
-          </div>
+          <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-primary/50 rounded-full"></div>
 
           <h2 class="text-2xl font-bold mb-4 text-foreground">{pageConfig.applyTitle}</h2>
-          <p class="text-muted-foreground mb-6">
-            {pageConfig.applyDescription}
-          </p>
+          <p class="text-muted-foreground mb-6">{pageConfig.applyDescription}</p>
           <div class="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
-            {
-              pageConfig.contactMethods.map((contact) => {
-                const IconComponent = getIconComponent(contact.icon);
-                const isWechat = (contact.icon || '').toLowerCase() === 'wechat';
+            {pageConfig.contactMethods.map((contact) => {
+              const IconComponent = getIconComponent(contact.icon);
+              const isWechat = (contact.icon || '').toLowerCase() === 'wechat';
 
-                if (isWechat) {
-                  return (
-                    <Button
-                      type="button"
-                      size="lg"
-                      variant="outline"
-                      data-copy-wechat
-                      data-wechat-id={contact.url}
-                      data-copy-default-label={contact.name}
-                      aria-label={`复制微信号 ${contact.url}`}
-                      className="rounded-full px-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
-                    >
-                      <IconComponent className="mr-2 h-5 w-5" />
-                      <span data-copy-label>{contact.name}</span>
-                    </Button>
-                  );
-                }
-
+              if (isWechat) {
                 return (
-                  <a
-                    href={contact.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class:list={[
-                      buttonVariants({ size: 'lg', variant: 'outline' }),
-                      'rounded-full px-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300',
-                    ]}
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant="outline"
+                    data-copy-wechat
+                    data-wechat-id={contact.url}
+                    data-copy-default-label={contact.name}
+                    aria-label={`复制微信号 ${contact.url}`}
+                    className="rounded-full px-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
                   >
                     <IconComponent className="mr-2 h-5 w-5" />
-                    {contact.name}
-                  </a>
+                    <span data-copy-label>{contact.name}</span>
+                  </Button>
                 );
-              })
-            }
+              }
+
+              return (
+                <a
+                  href={contact.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class:list={[
+                    buttonVariants({ size: 'lg', variant: 'outline' }),
+                    'rounded-full px-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300',
+                  ]}
+                >
+                  <IconComponent className="mr-2 h-5 w-5" />
+                  {contact.name}
+                </a>
+              );
+            })}
           </div>
         </div>
 
         <p id="wechat-copy-status" class="sr-only" role="status" aria-live="polite"></p>
 
-        {
-          settings.comments.giscus.enabled && (
-            <section class="mt-16 rounded-2xl border border-border/70 bg-card/80 p-6 shadow-sm sm:p-8">
-              <div class="mb-6 text-left">
-                <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Comments
-                </p>
-                <h2 class="mt-2 text-2xl font-bold text-foreground">友链留言</h2>
-                <p class="mt-2 text-sm leading-6 text-muted-foreground">
-                  想交换友链、更新信息或打个招呼，都可以在这里留言。
-                </p>
-              </div>
-              <hr class="mb-6" />
-              <Comments client:visible giscus={settings.comments.giscus} />
-            </section>
-          )
-        }
+        {settings.comments.giscus.enabled && (
+          <section class="mt-16 rounded-2xl border border-border/70 bg-card/80 p-6 shadow-sm sm:p-8">
+            <div class="mb-6 text-left">
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Comments
+              </p>
+              <h2 class="mt-2 text-2xl font-bold text-foreground">友链留言</h2>
+              <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                想交换友链、更新信息或打个招呼，都可以在这里留言。
+              </p>
+            </div>
+            <hr class="mb-6" />
+            <Comments client:visible giscus={settings.comments.giscus} />
+          </section>
+        )}
       </div>
     </div>
   </section>

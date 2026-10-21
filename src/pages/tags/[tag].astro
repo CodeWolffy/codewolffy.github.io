@@ -51,19 +51,17 @@ const tagMap = createTaxonomyNameMap(allTags);
         </section>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {
-            posts.map((post, index) => (
-              <PostCard
-                post={post}
-                index={index}
-                mainTagLabel={
-                  post.data.tags && post.data.tags.length > 0
-                    ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
-                    : undefined
-                }
-              />
-            ))
-          }
+          {posts.map((post, index) => (
+            <PostCard
+              post={post}
+              index={index}
+              mainTagLabel={
+                post.data.tags && post.data.tags.length > 0
+                  ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
+                  : undefined
+              }
+            />
+          ))}
         </div>
       </div>
     </div>

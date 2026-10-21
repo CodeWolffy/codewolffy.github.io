@@ -96,19 +96,13 @@ const websiteJsonLd = {
         <!-- Hero Text Block -->
         <div class="space-y-3 text-center md:text-left max-w-3xl mb-4 pt-1">
           <div class="space-y-2">
-            <div
-              class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20"
-            >
+            <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20">
               {homeUi.badge}
             </div>
-            <h1
-              class="text-3xl font-extrabold tracking-tight sm:text-4xl xl:text-5xl pb-1 bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/75"
-            >
+            <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl xl:text-5xl pb-1 bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/75">
               {homeUi.taglineFallback}
             </h1>
-            <p
-              class="mx-auto md:mx-0 max-w-[620px] text-muted-foreground text-base md:text-lg leading-relaxed"
-            >
+            <p class="mx-auto md:mx-0 max-w-[620px] text-muted-foreground text-base md:text-lg leading-relaxed">
               {homeUi.subtitleFallback}
             </p>
           </div>
@@ -152,26 +146,24 @@ const websiteJsonLd = {
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
-          {
-            latestPosts.map((post, index) => (
-              <PostCard
-                post={post}
-                index={index}
-                featured={index === 0}
-                categoryLabel={
-                  post.data.category
-                    ? categoryMap.get(post.data.category) || post.data.category
-                    : undefined
-                }
-                mainTagLabel={
-                  post.data.tags && post.data.tags.length > 0
-                    ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
-                    : undefined
-                }
-                readingTime={getReadingTimeMinutes(post.body || '')}
-              />
-            ))
-          }
+          {latestPosts.map((post, index) => (
+            <PostCard
+              post={post}
+              index={index}
+              featured={index === 0}
+              categoryLabel={
+                post.data.category
+                  ? categoryMap.get(post.data.category) || post.data.category
+                  : undefined
+              }
+              mainTagLabel={
+                post.data.tags && post.data.tags.length > 0
+                  ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
+                  : undefined
+              }
+              readingTime={getReadingTimeMinutes(post.body || '')}
+            />
+          ))}
         </div>
 
         {posts.length === 0 && <EmptyState type="post" class="w-full" />}
@@ -189,9 +181,7 @@ const websiteJsonLd = {
 
       <!-- Right Column: Sidebar (独立分开滑动) -->
       <div class="hidden lg:block lg:col-span-4 pl-4">
-        <div
-          class="sticky top-20 max-h-[calc(100vh-5.5rem)] overflow-y-auto overscroll-contain pr-1 pb-8 sidebar-scrollbar"
-        >
+        <div class="sticky top-20 max-h-[calc(100vh-5.5rem)] overflow-y-auto overscroll-contain pr-1 pb-8 sidebar-scrollbar">
           <Sidebar tags={topTags} categories={topCategories} featuredSeries={featuredSeries} />
         </div>
       </div>

@@ -55,33 +55,31 @@ const sortedTags = countPostTags(allPosts, tagMap);
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {
-                sortedCategories.length === 0 ? (
-                  <div class="col-span-full">
-                    <EmptyState type="category" />
-                  </div>
-                ) : (
-                  sortedCategories.map((category, index) => (
-                    <a
-                      href={getCategoryPath(category.id)}
-                      class="group relative flex min-w-0 flex-col justify-between space-y-2 rounded-xl border bg-card p-5 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300 animate-slide-up"
-                      style={`animation-delay: ${index * 100}ms;`}
-                    >
-                      <div class="flex min-w-0 items-center justify-between gap-3">
-                        <h3 class="min-w-0 break-words font-semibold text-xl group-hover:text-primary transition-colors">
-                          {category.name}
-                        </h3>
-                        <span class="shrink-0 text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                          {category.count} 篇
-                        </span>
-                      </div>
-                      <p class="text-sm text-muted-foreground group-hover:text-muted-foreground/80">
-                        查看所有 "{category.name}" 相关的文章
-                      </p>
-                    </a>
-                  ))
-                )
-              }
+              {sortedCategories.length === 0 ? (
+                <div class="col-span-full">
+                  <EmptyState type="category" />
+                </div>
+              ) : (
+                sortedCategories.map((category, index) => (
+                  <a
+                    href={getCategoryPath(category.id)}
+                    class="group relative flex min-w-0 flex-col justify-between space-y-2 rounded-xl border bg-card p-5 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-300 animate-slide-up"
+                    style={`animation-delay: ${index * 100}ms;`}
+                  >
+                    <div class="flex min-w-0 items-center justify-between gap-3">
+                      <h3 class="min-w-0 break-words font-semibold text-xl group-hover:text-primary transition-colors">
+                        {category.name}
+                      </h3>
+                      <span class="shrink-0 text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        {category.count} 篇
+                      </span>
+                    </div>
+                    <p class="text-sm text-muted-foreground group-hover:text-muted-foreground/80">
+                      查看所有 "{category.name}" 相关的文章
+                    </p>
+                  </a>
+                ))
+              )}
             </div>
           </section>
 
@@ -93,27 +91,25 @@ const sortedTags = countPostTags(allPosts, tagMap);
             </div>
 
             <div class="flex flex-wrap gap-3">
-              {
-                sortedTags.length === 0 ? (
-                  <div class="w-full">
-                    <EmptyState type="tag" />
-                  </div>
-                ) : (
-                  sortedTags.map((tag, index) => (
-                    <a
-                      href={getTagPath(tag.id)}
-                      class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm animate-slide-up"
-                      style={`animation-delay: ${index * 50}ms;`}
-                    >
-                      <span class="text-muted-foreground group-hover:text-primary/70">#</span>
-                      <span class="min-w-0 break-words">{tag.name}</span>
-                      <span class="ml-1 text-xs text-muted-foreground/50 group-hover:text-primary/50">
-                        {tag.count}
-                      </span>
-                    </a>
-                  ))
-                )
-              }
+              {sortedTags.length === 0 ? (
+                <div class="w-full">
+                  <EmptyState type="tag" />
+                </div>
+              ) : (
+                sortedTags.map((tag, index) => (
+                  <a
+                    href={getTagPath(tag.id)}
+                    class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm animate-slide-up"
+                    style={`animation-delay: ${index * 50}ms;`}
+                  >
+                    <span class="text-muted-foreground group-hover:text-primary/70">#</span>
+                    <span class="min-w-0 break-words">{tag.name}</span>
+                    <span class="ml-1 text-xs text-muted-foreground/50 group-hover:text-primary/50">
+                      {tag.count}
+                    </span>
+                  </a>
+                ))
+              )}
             </div>
           </section>
         </div>

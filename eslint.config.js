@@ -44,7 +44,6 @@ export default [
   {
     files: ['**/*.astro'],
     languageOptions: {
-      parser: astro.parser,
       parserOptions: {
         parser: tseslint.parser,
         extraFileExtensions: ['.astro'],

@@ -38,40 +38,38 @@ const sortedTags = countPostTags(allPosts, tagMap);
 
         <div class="rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-6">
           <div class="flex flex-wrap justify-start gap-3 sm:gap-4">
-            {
-              sortedTags.length === 0 ? (
-                <div class="w-full">
-                  <EmptyState type="tag" />
-                </div>
-              ) : (
-                sortedTags.map((tag, index) => {
-                  // 根据文章数量计算标签大小
-                  const maxCount = sortedTags[0].count;
-                  const minSize = 0.875; // 最小 text-sm
-                  const maxSize = 1.5; // 最大 text-2xl
-                  const size = minSize + (tag.count / maxCount) * (maxSize - minSize);
+            {sortedTags.length === 0 ? (
+              <div class="w-full">
+                <EmptyState type="tag" />
+              </div>
+            ) : (
+              sortedTags.map((tag, index) => {
+                // 根据文章数量计算标签大小
+                const maxCount = sortedTags[0].count;
+                const minSize = 0.875; // 最小 text-sm
+                const maxSize = 1.5; // 最大 text-2xl
+                const size = minSize + (tag.count / maxCount) * (maxSize - minSize);
 
-                  return (
-                    <a
-                      href={getTagPath(tag.id)}
-                      class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-slide-up"
-                      style={`animation-delay: ${index * 30}ms;`}
+                return (
+                  <a
+                    href={getTagPath(tag.id)}
+                    class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-slide-up"
+                    style={`animation-delay: ${index * 30}ms;`}
+                  >
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <span
+                      class="min-w-0 break-words font-medium relative z-10 group-hover:text-primary transition-colors"
+                      style={`font-size: ${size}rem;`}
                     >
-                      <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <span
-                        class="min-w-0 break-words font-medium relative z-10 group-hover:text-primary transition-colors"
-                        style={`font-size: ${size}rem;`}
-                      >
-                        #{tag.name}
-                      </span>
-                      <span class="ml-2 text-xs text-muted-foreground relative z-10 bg-secondary px-2 py-0.5 rounded-full">
-                        {tag.count}
-                      </span>
-                    </a>
-                  );
-                })
-              )
-            }
+                      #{tag.name}
+                    </span>
+                    <span class="ml-2 text-xs text-muted-foreground relative z-10 bg-secondary px-2 py-0.5 rounded-full">
+                      {tag.count}
+                    </span>
+                  </a>
+                );
+              })
+            )}
           </div>
 
           <!-- 返回按钮 -->

@@ -2,7 +2,7 @@
 
 > **探索技术、编程与设计的边界**
 
-一个基于 [Astro 7](https://astro.build/) 构建的现代个人技术博客，完美融合了极速性能与卓越的用户体验。本项目采用最新的前沿 Web 技术栈（React 18.3、Tailwind CSS 4.1、Keystatic 0.5），旨在提供一个开箱即用、功能强大且设计精美的高性能博客解决方案。
+一个基于 [Astro 7](https://astro.build/) 构建的现代个人技术博客，完美融合了极速性能与卓越的用户体验。本项目采用 React 19.3、Tailwind CSS 4.3、Keystatic 0.6，旨在提供一个开箱即用、功能强大且设计精美的高性能博客解决方案。
 
 [![Built with Astro](https://img.shields.io/badge/Built%20with-Astro-FF5D01?logo=astro&logoColor=white)](https://astro.build)
 [![Deployed on Cloudflare Pages](https://img.shields.io/badge/Deployed%20on-Cloudflare%20Pages-orange?logo=cloudflare)](https://pages.cloudflare.com/)
@@ -61,19 +61,24 @@
 
 ## 🛠️ 技术栈全景 (Tech Stack)
 
-| 领域         | 核心库                                                      | 版本     | 作用说明                              |
-| :----------- | :---------------------------------------------------------- | :------- | :------------------------------------ |
-| **Core**     | [Astro](https://astro.build/)                               | v7.0.3   | 静态站点生成器，路由管理              |
-| **Build**    | [Vite](https://vitejs.dev/)                                 | v8.1.0   | 极速构建引擎与开发服务器              |
-| **UI**       | [React](https://react.dev/)                                 | v18.3.1  | 构建交互式岛屿组件 (Search, Comments) |
-| **Language** | [TypeScript](https://www.typescriptlang.org/)               | v5.9.3   | 类型安全的 JavaScript 超集            |
-| **Style**    | [Tailwind CSS](https://tailwindcss.com/)                    | v4.1.18  | CSS 框架 (配合 Vite 插件)             |
-| **CMS**      | [Keystatic](https://keystatic.com/)                         | v0.5.50  | 可视化内容编辑器                      |
-| **Search**   | [Pagefind](https://pagefind.app/)                           | v1.4.0   | 静态搜索索引生成器                    |
-| **Icons**    | [Lucide React](https://lucide.dev/)                         | v0.562.0 | 统一的 SVG 图标库                     |
-| **Utility**  | [clsx](https://github.com/lukeed/clsx)                      | v2.1.1   | 动态类名拼接                          |
-| **Utility**  | [tailwind-merge](https://github.com/dcastil/tailwind-merge) | v3.4.0   | Tailwind 类名冲突合并                 |
-| **Deploy**   | [Cloudflare Pages](https://pages.cloudflare.com/)           | -        | 全球边缘节点托管                      |
+| 领域         | 核心库                                                      | 版本    | 作用说明                              |
+| :----------- | :---------------------------------------------------------- | :------ | :------------------------------------ |
+| **Core**     | [Astro](https://astro.build/)                               | v7.4.1  | 静态站点生成器，路由管理              |
+| **Build**    | [Vite](https://vite.dev/)                                   | v8.3.5  | 极速构建引擎与开发服务器              |
+| **UI**       | [React](https://react.dev/)                                 | v19.3.1 | 构建交互式岛屿组件 (Search, Comments) |
+| **Language** | [TypeScript](https://www.typescriptlang.org/)               | v5.9.3  | 类型安全的 JavaScript 超集            |
+| **Style**    | [Tailwind CSS](https://tailwindcss.com/)                    | v4.3.3  | CSS 框架 (配合 Vite 插件)             |
+| **CMS**      | [Keystatic](https://keystatic.com/)                         | v0.6.9  | 可视化内容编辑器                      |
+| **Search**   | [Pagefind](https://pagefind.app/)                           | v1.5.2  | 静态搜索索引生成器                    |
+| **Icons**    | [Lucide React](https://lucide.dev/)                         | v1.61.0 | 统一的 SVG 图标库                     |
+| **Diagrams** | [Mermaid](https://mermaid.js.org/)                          | v12.2.0 | 文章中的流程图与 E-R 图               |
+| **Utility**  | [clsx](https://github.com/lukeed/clsx)                      | v2.1.1  | 动态类名拼接                          |
+| **Utility**  | [tailwind-merge](https://github.com/dcastil/tailwind-merge) | v3.7.0  | Tailwind 类名冲突合并                 |
+| **Deploy**   | [Cloudflare Pages](https://pages.cloudflare.com/)           | -       | 全球边缘节点托管                      |
+
+版本以 `package-lock.json` 为准（更新于 2026-10-21）。TypeScript 保留在 5.9.3：当前 `@astrojs/check` 和 `typescript-eslint` 尚未支持 TypeScript 7。Keystatic Core 固定为 0.6.9，以匹配 `patches/` 中的编辑器修复补丁。
+
+Mermaid 12 要求 Safari 17.4+ 等支持 ES2024 的浏览器。前台和后台预览显式使用 dagre 布局与 classic 外观。
 
 ---
 
@@ -138,8 +143,8 @@
 
 ### 环境准备 (Prerequisites)
 
-- **Node.js**: `v22.x` LTS（建议与 [.node-version](.node-version) 保持一致，当前为 `22.16.0`）
-- **Package Manager**: 推荐使用 `pnpm` 或 `npm`
+- **Node.js**: 使用 [.node-version](.node-version) 中的 `22.23.3` LTS；最低版本要求见 `package.json` 的 `engines.node`。
+- **Package Manager**: 使用 `npm ci` 安装 `package-lock.json` 中的依赖，保持本地与 CI 一致。
 
 ### 常用命令
 
@@ -282,7 +287,7 @@
      - `KEYSTATIC_GITHUB_CLIENT_SECRET`
      - `KEYSTATIC_SECRET` (生成方式: `openssl rand -base64 32`)
      - `PUBLIC_KEYSTATIC_GITHUB_APP_SLUG`
-   - 建议额外设置 `NODE_VERSION=22.16.0`，与 `.node-version` 保持一致。
+   - 设置 `NODE_VERSION=22.23.3`，与 `.node-version` 保持一致；更新已有环境变量中的旧版本。
 
 ### GitHub Pages 部署步骤
 
@@ -293,7 +298,7 @@
 
 ### 常见问题
 
-- **构建失败？** 检查 Node.js 版本设置，建议在 Cloudflare 环境变量中添加 `NODE_VERSION: 22.16.0`。
+- **构建失败？** 检查 Node.js 版本设置，在 Cloudflare 环境变量中添加或更新 `NODE_VERSION: 22.23.3`，然后运行 `npm ci`。
 - **样式丢失？** 确保 `src/styles/global.css` 中的 `@source` 路径覆盖了所有模板文件。
 
 ---

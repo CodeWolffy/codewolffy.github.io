@@ -81,8 +81,10 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         stroke-linecap="round"
         stroke-linejoin="round"
       >
-        <path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
-        <path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+        <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+        <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
+        <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
+        <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
       </svg>
     </button>
     <!-- 查看代码 -->
@@ -180,7 +182,9 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
           <line x1="8" y1="11" x2="14" y2="11"></line>
         </svg>
       </button>
-      <span class="mermaid-zoom-label" data-zoom-label>100%</span>
+      <span class="mermaid-zoom-label" data-zoom-label>
+        100%
+      </span>
       <button class="mermaid-btn" data-action="modal-zoom-in" title="放大">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -227,7 +231,8 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
           stroke-linecap="round"
           stroke-linejoin="round"
         >
-          <path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>
+          <path d="M18 6 6 18"></path>
+          <path d="m6 6 12 12"></path>
         </svg>
       </button>
     </div>
@@ -262,6 +267,9 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
 
       mermaid.initialize({
         startOnLoad: false,
+        // Mermaid 12 默认使用 ELK 和 neo；保留现有文章的布局与外观。
+        layout: 'dagre',
+        look: 'classic',
         theme: isDark ? 'dark' : 'default',
         securityLevel: 'strict',
         htmlLabels: false,

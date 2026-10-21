@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+### 依赖
+
+- 升级 Astro 7.4.1、Cloudflare 适配器 14.4.1、MDX 8.1.0、React 集成 7.1.0 和 React / React DOM 19.3.1。
+- 升级 Mermaid 12.2.0、Lucide React 1.61.0、Radix UI、ESLint 和 Prettier 等依赖，同步 Pagefind 1.5.2 的版本声明，并刷新锁文件中的间接依赖。
+- 将构建 Node.js 统一为 22.23.3 LTS，并按照新版 Astro ESLint 插件的要求更新 `engines.node`。
+- 保留 TypeScript 5.9.3，等待 Astro 检查工具与 TypeScript ESLint 支持 TypeScript 7；固定 Keystatic Core 0.6.9 以匹配现有编辑器补丁。
+
 ### 文档
 
 - 同步 README 与当前项目结构、脚本、功能（新增音乐播放器说明、补充 `src/content/music/` 与 `src/components/music/`、更新 Node.js 版本说明等）
@@ -13,6 +20,10 @@
 
 ### 修复
 
+- 显式声明 Markdown 处理器和自定义 rehype 插件的依赖，适配新版 Astro 的可选 Markdown 处理器安装方式。
+- 将 Tailwind Typography 的 `postcss-selector-parser` 覆盖为安全版本 7.1.7。
+- 保留 Mermaid 12 的 dagre / classic 图表风格，并为 Keystatic SVG 预览显式关闭顶层 HTML 标签，修复带 `<br>` 换行的图表预览失败。
+- 适配新版 Astro ESLint 和 Prettier 配置，更新 Astro 模板格式，并让格式检查兼容本地与 CI 的换行符。
 - 修正 1.0.0 中关于 projects Schema 字段合并的描述：当前代码与数据仍保留 `image` 字段作为 `coverImage` 的兼容回退
 
 ---

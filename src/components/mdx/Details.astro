@@ -11,9 +11,7 @@ const { title, open = false } = Astro.props;
 ---
 
 <details class="my-4 rounded-lg border border-border bg-card overflow-hidden group" open={open}>
-  <summary
-    class="px-4 py-3 font-medium cursor-pointer list-none flex items-center justify-between hover:bg-muted/50 transition-colors"
-  >
+  <summary class="px-4 py-3 font-medium cursor-pointer list-none flex items-center justify-between hover:bg-muted/50 transition-colors">
     <span>{title}</span>
     <span class="transform transition-transform group-open:rotate-180">
       <svg

@@ -783,6 +783,10 @@ export function MermaidContentView(props: { value: { code?: { value?: string } }
         const { default: mermaid } = await import('mermaid');
         mermaid.initialize({
           flowchart: { htmlLabels: false, useMaxWidth: true },
+          // Mermaid 12 的顶层默认值会覆盖 flowchart 设置；SVG 预览使用纯文本标签。
+          htmlLabels: false,
+          layout: 'dagre',
+          look: 'classic',
           securityLevel: 'strict',
           startOnLoad: false,
           suppressErrorRendering: true,
