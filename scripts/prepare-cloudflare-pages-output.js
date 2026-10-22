@@ -88,7 +88,7 @@ const patchServerWranglerConfig = () => {
     name: 'blog',
     // wrangler.json 位于 dist/server/，pages_build_output_dir 是相对于该文件的路径。
     pages_build_output_dir: '..',
-    compatibility_date: '2026-04-15',
+    compatibility_date: '2026-10-12',
     compatibility_flags: ['nodejs_compat'],
   };
 

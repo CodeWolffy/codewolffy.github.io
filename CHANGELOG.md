@@ -8,10 +8,13 @@
 
 ### 依赖
 
-- 升级 Astro 7.4.1、Cloudflare 适配器 14.4.1、MDX 8.1.0、React 集成 7.1.0 和 React / React DOM 19.3.1。
+- 升级 Astro 7.4.2、Cloudflare 适配器 14.4.2、Markdown Remark 7.3.4、MDX 8.1.1、React 集成 7.1.1 和 React / React DOM 19.3.1。
 - 升级 Mermaid 12.2.0、Lucide React 1.61.0、Radix UI、ESLint 和 Prettier 等依赖，同步 Pagefind 1.5.2 的版本声明，并刷新锁文件中的间接依赖。
-- 将构建 Node.js 统一为 22.23.3 LTS，并按照新版 Astro ESLint 插件的要求更新 `engines.node`。
-- 保留 TypeScript 5.9.3，等待 Astro 检查工具与 TypeScript ESLint 支持 TypeScript 7；固定 Keystatic Core 0.6.9 以匹配现有编辑器补丁。
+- 将构建 Node.js 统一为 24.22.1 LTS，更新 `engines.node` 至包含 2026 年 10 月安全补丁的版本，并显式声明 Node 24 类型定义。
+- 将包管理器基线升级为 npm 12.2.1，CI 显式安装同版 npm，并为 esbuild / workerd 配置版本限定的 `allowScripts`，适配新版依赖安装脚本策略。
+- 使用 npm 别名引入 TypeScript 7.0.2 原生编译器检查 TypeScript / TSX，将 Astro Check 与 ESLint 依赖的 JavaScript 编译器升级为 TypeScript 6.0.3；固定 Keystatic Core 0.6.9 以匹配现有编辑器补丁。
+- 将旧版 `tailwindcss-animate` 替换为面向 Tailwind v4 的 `tw-animate-css` 1.4.0。
+- 升级 GitHub Actions Checkout / Setup Node 至 v7，Pages 上传 / 部署至 v5，并将 Cloudflare 兼容日期推进至 2026-10-12。
 
 ### 文档
 
@@ -22,6 +25,7 @@
 
 - 显式声明 Markdown 处理器和自定义 rehype 插件的依赖，适配新版 Astro 的可选 Markdown 处理器安装方式。
 - 将 Tailwind Typography 的 `postcss-selector-parser` 覆盖为安全版本 7.1.7。
+- 使用基于 `diff` 9 的专用安装脚本应用 Keystatic 补丁，验证版本、目标文件和重复安装状态，移除 `patch-package` 及其包含 4 项审计问题的依赖链。
 - 保留 Mermaid 12 的 dagre / classic 图表风格，并为 Keystatic SVG 预览显式关闭顶层 HTML 标签，修复带 `<br>` 换行的图表预览失败。
 - 适配新版 Astro ESLint 和 Prettier 配置，更新 Astro 模板格式，并让格式检查兼容本地与 CI 的换行符。
 - 修正 1.0.0 中关于 projects Schema 字段合并的描述：当前代码与数据仍保留 `image` 字段作为 `coverImage` 的兼容回退
