@@ -11,6 +11,8 @@ export interface ImageMatch {
   alt: string;
   src: string;
   index: number;
+  prefix: string;
+  suffix: string;
 }
 
 export const escapeHtml = (value: string) =>
@@ -24,16 +26,6 @@ export const escapeHtml = (value: string) =>
 export const getFileName = (title: string, ext: string) => {
   const safeName = title.replace(/[<>:"/\\|?*]/g, '_').trim() || 'untitled';
   return `${safeName.slice(0, MAX_FILENAME_LENGTH)}.${ext}`;
-};
-
-const fetchWithTimeout = async (url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> => {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
 };
 
 export const isSafeImageUrl = (url: string): boolean => {
@@ -54,13 +46,13 @@ export const isSafeImageUrl = (url: string): boolean => {
 
 export const resolveImageUrl = (src: string): string => {
   const value = src.trim();
-  if (!isSafeImageUrl(value)) return '';
+  if (!isSafeImageUrl(value)) throw new Error('图片地址无效，已取消导出');
   if (IMAGE_DATA_URL_PATTERN.test(value)) return value;
 
   try {
     return new URL(value, window.location.href).href;
-  } catch {
-    return '';
+  } catch (error) {
+    throw new Error('无法解析图片地址，已取消导出', { cause: error });
   }
 };
 
@@ -76,121 +68,307 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
 const compressImageBlob = async (blob: Blob): Promise<Blob> => {
   if (blob.type === 'image/svg+xml') return blob;
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(blob);
 
     img.onload = () => {
-      let width = img.width;
-      let height = img.height;
-      const ratio = width / height;
+      try {
+        let width = img.width;
+        let height = img.height;
+        const ratio = width / height;
 
-      if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
-        if (width > height) {
-          width = MAX_IMAGE_DIMENSION;
-          height = width / ratio;
-        } else {
-          height = MAX_IMAGE_DIMENSION;
-          width = height * ratio;
+        if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+          if (width > height) {
+            width = MAX_IMAGE_DIMENSION;
+            height = width / ratio;
+          } else {
+            height = MAX_IMAGE_DIMENSION;
+            width = height * ratio;
+          }
         }
-      }
 
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        resolve(blob);
-        return;
-      }
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (compressedBlob) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
           URL.revokeObjectURL(url);
-          resolve(compressedBlob ?? blob);
-        },
-        'image/jpeg',
-        JPEG_QUALITY
-      );
+          resolve(blob);
+          return;
+        }
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (compressedBlob) => {
+            URL.revokeObjectURL(url);
+            resolve(compressedBlob ?? blob);
+          },
+          'image/jpeg',
+          JPEG_QUALITY
+        );
+      } catch (error) {
+        URL.revokeObjectURL(url);
+        reject(new Error('图片转换失败，已取消导出', { cause: error }));
+      }
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      resolve(blob);
+      reject(new Error('图片无法解码，已取消导出'));
     };
 
     img.src = url;
   });
 };
 
-export const fetchImageBlob = async (url: string): Promise<Blob | null> => {
+export const fetchImageBlob = async (url: string): Promise<Blob> => {
   if (!isSafeImageUrl(url)) {
-    console.warn('Unsafe image URL skipped:', url);
-    return null;
+    throw new Error('图片地址无效，已取消导出');
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetchWithTimeout(url);
+    // Decode embedded images locally: fetch(data:) may itself be blocked by
+    // connect-src, even though the page is allowed to display data images.
+    if (IMAGE_DATA_URL_PATTERN.test(url)) {
+      const comma = url.indexOf(',');
+      const header = url.slice(5, comma);
+      const payload = url.slice(comma + 1);
+      const bytes = /;base64(?:;|$)/i.test(header)
+        ? Uint8Array.from(atob(decodeURIComponent(payload)), (char) => char.charCodeAt(0))
+        : new TextEncoder().encode(decodeURIComponent(payload));
+      if (!bytes.length) throw new Error('图片数据为空');
+      return new Blob([bytes], { type: header.split(';')[0] });
+    }
+    const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.blob();
+    const blob = await response.blob();
+    if (!blob.size || !blob.type.startsWith('image/')) {
+      throw new Error('响应不是有效图片');
+    }
+    return blob;
   } catch (error) {
-    console.warn('Image fetch failed:', url, error);
-    return null;
+    throw new Error('图片下载失败，已取消导出；请检查网络或图片访问权限后重试', { cause: error });
+  } finally {
+    clearTimeout(timer);
   }
 };
 
 export const urlToBase64 = async (url: string, shouldCompress = false): Promise<string> => {
-  try {
-    if (IMAGE_DATA_URL_PATTERN.test(url)) return url;
-    if (!isSafeImageUrl(url)) {
-      console.warn('Unsafe image URL skipped:', url);
-      return url;
+  const blob = await fetchImageBlob(url);
+  const finalBlob = shouldCompress ? await compressImageBlob(blob) : blob;
+  return blobToBase64(finalBlob);
+};
+
+type SourceRange = { start: number; end: number };
+
+const isEscaped = (content: string, index: number) => {
+  let slashes = 0;
+  while (index > 0 && content[--index] === '\\') slashes++;
+  return slashes % 2 === 1;
+};
+
+// Fences may use tildes or any run of at least three backticks. Code spans must
+// close with the same number of backticks, and can contain line breaks.
+const getCodeRanges = (content: string): SourceRange[] => {
+  const ranges: SourceRange[] = [];
+  let fence: { marker: string; length: number; start: number } | undefined;
+  for (const line of content.matchAll(/[^\n]*(?:\n|$)/g)) {
+    const match = line[0].match(/^(?: {0,3}> ?)* {0,3}(`{3,}|~{3,})([^\n]*)/);
+    if (!match) continue;
+    if (!fence) {
+      if (match[1][0] === '`' && match[2].includes('`')) continue;
+      fence = { marker: match[1][0], length: match[1].length, start: line.index };
+    } else if (
+      match[1][0] === fence.marker &&
+      match[1].length >= fence.length &&
+      !match[2].trim()
+    ) {
+      ranges.push({ start: fence.start, end: line.index + line[0].length });
+      fence = undefined;
     }
-
-    const blob = await fetchImageBlob(url);
-    if (!blob) return url;
-
-    const finalBlob = shouldCompress ? await compressImageBlob(blob) : blob;
-    return await blobToBase64(finalBlob);
-  } catch {
-    return url;
   }
+  if (fence) ranges.push({ start: fence.start, end: content.length });
+
+  const ticks = /`+/g;
+  let run: RegExpExecArray | null;
+  while ((run = ticks.exec(content))) {
+    if (isEscaped(content, run.index)) continue;
+    const blocked = ranges.find((range) => run!.index >= range.start && run!.index < range.end);
+    if (blocked) {
+      ticks.lastIndex = blocked.end;
+      continue;
+    }
+    const start = run.index;
+    const delimiter = run[0];
+    const afterOpening = ticks.lastIndex;
+    let closing: RegExpExecArray | null;
+    while ((closing = ticks.exec(content))) {
+      if (ranges.some((range) => closing!.index >= range.start && closing!.index < range.end)) {
+        break;
+      }
+      if (closing[0] === delimiter) {
+        ranges.push({ start, end: ticks.lastIndex });
+        break;
+      }
+    }
+    if (!closing || closing[0] !== delimiter) ticks.lastIndex = afterOpening;
+  }
+  return ranges;
+};
+
+const decodeImageDestination = (value: string) =>
+  value.replace(/\\([\\()[\]<>])/g, '$1').replace(/&amp;/g, '&');
+
+const parseImageDestination = (content: string, start: number) => {
+  let cursor = start;
+  while (/\s/.test(content[cursor] || '') && cursor < content.length) cursor++;
+  const angled = content[cursor] === '<';
+  if (angled) cursor++;
+  const sourceStart = cursor;
+  let depth = 0;
+  while (cursor < content.length) {
+    const char = content[cursor];
+    if (char === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (angled) {
+      if (char === '>') break;
+      if (char === '\n' || char === '<') return;
+    } else {
+      if (char === '(') depth++;
+      if (char === ')') {
+        if (depth === 0) break;
+        depth--;
+      }
+      if (/\s/.test(char)) break;
+    }
+    cursor++;
+  }
+  const sourceEnd = cursor;
+  if (depth || (angled && content[cursor] !== '>')) return;
+  if (angled) cursor++;
+  const destinationEnd = cursor;
+  while (/\s/.test(content[cursor] || '') && cursor < content.length) cursor++;
+  if (cursor > destinationEnd && ['"', "'", '('].includes(content[cursor])) {
+    const closing = content[cursor] === '(' ? ')' : content[cursor];
+    cursor++;
+    while (cursor < content.length && (content[cursor] !== closing || isEscaped(content, cursor))) {
+      cursor++;
+    }
+    if (content[cursor] !== closing) return;
+    cursor++;
+    while (/\s/.test(content[cursor] || '') && cursor < content.length) cursor++;
+  }
+  if (content[cursor] !== ')') return;
+  return { sourceStart, sourceEnd, end: cursor + 1 };
 };
 
 export const findMarkdownImages = (content: string): ImageMatch[] => {
-  const regex = /!\[(.*?)\]\((.*?)\)/g;
-  const matches: ImageMatch[] = [];
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(content)) !== null) {
-    matches.push({
-      full: match[0],
-      alt: match[1],
-      src: match[2],
-      index: match.index,
-    });
+  const codeRanges = getCodeRanges(content);
+  const isCode = (index: number) =>
+    codeRanges.some((range) => index >= range.start && index < range.end);
+  const normalizeLabel = (label: string) => label.trim().replace(/\s+/g, ' ').toLowerCase();
+  const definitions = new Map<string, { src: string; suffix: string }>();
+  for (const definition of content.matchAll(/^ {0,3}\[([^\]\n]+)\]:[ \t]*(.+)$/gm)) {
+    if (isCode(definition.index)) continue;
+    const destination = `(${definition[2].trim()})`;
+    const parsed = parseImageDestination(destination, 1);
+    const label = normalizeLabel(definition[1]);
+    if (parsed && !definitions.has(label)) {
+      definitions.set(label, {
+        src: decodeImageDestination(destination.slice(parsed.sourceStart, parsed.sourceEnd)),
+        suffix: destination.slice(parsed.sourceEnd, parsed.end),
+      });
+    }
   }
 
+  const matches: ImageMatch[] = [];
+  for (let index = 0; index < content.length - 1; index++) {
+    if (content.slice(index, index + 2) !== '![' || isEscaped(content, index) || isCode(index))
+      continue;
+    let cursor = index + 2;
+    let depth = 1;
+    while (cursor < content.length && depth) {
+      if (content[cursor] === '\\') cursor++;
+      else if (content[cursor] === '[') depth++;
+      else if (content[cursor] === ']') depth--;
+      cursor++;
+    }
+    if (depth) continue;
+    const alt = content.slice(index + 2, cursor - 1);
+    const altEnd = cursor;
+    const parsed = content[cursor] === '(' ? parseImageDestination(content, cursor + 1) : undefined;
+    if (parsed) {
+      matches.push({
+        full: content.slice(index, parsed.end),
+        alt,
+        index,
+        src: decodeImageDestination(content.slice(parsed.sourceStart, parsed.sourceEnd)),
+        prefix: content.slice(index, parsed.sourceStart),
+        suffix: content.slice(parsed.sourceEnd, parsed.end),
+      });
+      index = parsed.end - 1;
+      continue;
+    }
+    let reference = alt;
+    if (content[cursor] === '[') {
+      const end = content.indexOf(']', cursor + 1);
+      if (end < 0) continue;
+      reference = content.slice(cursor + 1, end) || alt;
+      cursor = end + 1;
+    }
+    const definition = definitions.get(normalizeLabel(reference));
+    if (definition) {
+      matches.push({
+        full: content.slice(index, cursor),
+        alt,
+        index,
+        src: definition.src,
+        prefix: content.slice(index, altEnd) + (definition.suffix.startsWith('>') ? '(<' : '('),
+        suffix: definition.suffix,
+      });
+      index = cursor - 1;
+    }
+  }
   return matches;
 };
+
+export const replaceMarkdownImageSources = (
+  content: string,
+  images: Array<ImageMatch & { newSrc: string }>
+) => {
+  for (let index = images.length - 1; index >= 0; index--) {
+    const image = images[index];
+    content =
+      content.slice(0, image.index) +
+      image.prefix +
+      image.newSrc +
+      image.suffix +
+      content.slice(image.index + image.full.length);
+  }
+  return content;
+};
+
+// Export only the actual drawing, never its hidden interactive view. When a
+// lazy diagram has not rendered, preserve readable source instead of a blank.
+export const createMermaidExportMarkup = (svg: string | undefined, code: string) =>
+  svg
+    ? `<div class="mermaid">${svg}</div>`
+    : `<p>图表尚未渲染，以下保留完整源码：</p><pre class="mermaid-source"><code>${escapeHtml(code)}</code></pre>`;
 
 export const replaceOutsideCodeBlocks = (
   content: string,
   regex: RegExp,
   replacer: (match: string, ...args: string[]) => string
 ): string => {
-  const fenceRegex = /(```[\s\S]*?```|`[^`\n]*`)/g;
-  const fences: Array<{ start: number; end: number }> = [];
-  let fenceMatch: RegExpExecArray | null;
-
-  while ((fenceMatch = fenceRegex.exec(content)) !== null) {
-    fences.push({ start: fenceMatch.index, end: fenceMatch.index + fenceMatch[0].length });
-  }
+  const fences = getCodeRanges(content);
 
   const flags = regex.flags.includes('g') ? regex.flags : `${regex.flags}g`;
   const matcher = new RegExp(regex.source, flags);
@@ -230,7 +408,8 @@ export const fixIframesOutsideCodeBlocks = (content: string): string =>
   );
 
 export const restoreMermaidBlocks = (content: string): string =>
-  content.replace(
+  replaceOutsideCodeBlocks(
+    content,
     /<Mermaid\s+code=\{\{\s*value\s*:\s*(['"])([\s\S]*?)\1\s*,?\s*\}\}\s*\/>/g,
     (_match, _quote: string, codeValue: string) => {
       const decoded = codeValue
@@ -293,6 +472,7 @@ h3 { font-size: 1.25em; margin-top: 1.5em; margin-bottom: 0.75em; color: #1f2937
 .mermaid-container { margin: 1.5em 0; background: transparent !important; border: none !important; }
 .mermaid-content { padding: 0 !important; display: flex; justify-content: center; }
 .mermaid svg { max-width: 100% !important; height: auto !important; background-color: white; }
+.mermaid-source code { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Callout Tailwind Shim */
 .flex { display: flex; }

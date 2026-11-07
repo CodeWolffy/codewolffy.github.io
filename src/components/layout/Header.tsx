@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
+import { useState, useEffect, useRef, useSyncExternalStore, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import {
@@ -15,6 +15,7 @@ import {
   User,
 } from 'lucide-react';
 import { Search } from '@/components/blog/Search';
+import { lockPageScroll } from '@/lib/scroll-lock';
 
 const getNavIcon = (href: string) => {
   const cleanHref = href.replace(/\/$/, '') || '/';
@@ -60,7 +61,11 @@ interface HeaderProps {
 }
 
 export function Header({ name, navigation, githubUrl }: HeaderProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<'menu' | 'search' | null>(null);
+  const isMenuOpen = activePanel === 'menu';
+  const setSearchExpanded = useCallback((expanded: boolean) => {
+    setActivePanel((current) => (expanded ? 'search' : current === 'search' ? null : current));
+  }, []);
   const pathname = useSyncExternalStore(
     subscribePathname,
     getPathnameSnapshot,
@@ -70,63 +75,60 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
   const mobileNavRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handlePageLoad = () => {
-      setIsMenuOpen(false);
+    const closePanels = () => {
+      setActivePanel(null);
     };
-    document.addEventListener('astro:page-load', handlePageLoad);
-    return () => document.removeEventListener('astro:page-load', handlePageLoad);
+    document.addEventListener('astro:before-swap', closePanels);
+    return () => document.removeEventListener('astro:before-swap', closePanels);
   }, []);
 
   useEffect(() => {
     if (!isMenuOpen) return;
 
-    // 彻底锁定移动端和桌面端的滚动（必须同时锁定 html 与 body，并拦截 touchmove）
-    const originalHtmlOverflow = document.documentElement.style.overflow;
-    const originalBodyOverflow = document.body.style.overflow;
-    const originalBodyTouchAction = document.body.style.touchAction;
-
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
+    const releaseScroll = lockPageScroll();
 
     const handleTouchMove = (event: TouchEvent) => {
       if (mobileNavRef.current && mobileNavRef.current.contains(event.target as Node)) {
         const el = mobileNavRef.current;
         if (el.scrollHeight <= el.clientHeight) {
-          event.preventDefault();
+          if (event.cancelable) event.preventDefault();
         }
         return;
       }
-      event.preventDefault();
+      if (event.cancelable) event.preventDefault();
     };
 
     const firstLink = mobileNavRef.current?.querySelector<HTMLAnchorElement>('a');
-    requestAnimationFrame(() => firstLink?.focus());
+    const focusFrame = requestAnimationFrame(() => firstLink?.focus({ preventScroll: true }));
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      setIsMenuOpen(false);
-      requestAnimationFrame(() => menuButtonRef.current?.focus());
+      setActivePanel(null);
+      requestAnimationFrame(() => menuButtonRef.current?.focus({ preventScroll: true }));
     };
 
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
-        setIsMenuOpen(false);
+        setActivePanel(null);
       }
     };
 
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      document.documentElement.style.overflow = originalHtmlOverflow;
-      document.body.style.overflow = originalBodyOverflow;
-      document.body.style.touchAction = originalBodyTouchAction;
+    const release = () => {
+      releaseScroll();
+      cancelAnimationFrame(focusFrame);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', handleResize);
+    };
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleResize);
+    document.addEventListener('astro:before-swap', release);
+
+    return () => {
+      release();
+      document.removeEventListener('astro:before-swap', release);
     };
   }, [isMenuOpen]);
 
@@ -140,7 +142,11 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
 
   const toggleTheme = () => {
     const isDark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    try {
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    } catch {
+      // The current page can still switch themes when storage is unavailable.
+    }
   };
 
   return (
@@ -175,8 +181,8 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
                   ref={menuButtonRef}
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 md:h-10 md:w-10"
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="h-11 w-11"
+                  onClick={() => setActivePanel((current) => (current === 'menu' ? null : 'menu'))}
                   aria-expanded={isMenuOpen}
                   aria-controls="mobile-nav"
                   aria-label={isMenuOpen ? '关闭菜单' : '打开菜单'}
@@ -202,7 +208,10 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
                 <ErrorBoundary
                   fallback={<div className="h-9 w-[8.5rem] max-[374px]:w-9 md:w-full" />}
                 >
-                  <Search />
+                  <Search
+                    isExpanded={activePanel === 'search'}
+                    onExpandedChange={setSearchExpanded}
+                  />
                 </ErrorBoundary>
               </div>
 
@@ -212,9 +221,9 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
                   href={githubUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 w-9 md:h-10 md:w-10 py-2 px-0">
+                  <div className="inline-flex items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="26"
@@ -230,7 +239,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 md:h-10 md:w-10"
+                  className="relative h-11 w-11"
                   onClick={toggleTheme}
                 >
                   <Sun className="h-[26px] w-[26px] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -249,7 +258,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
           {/* Backdrop */}
           <div
             className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] touch-none lg:hidden animate-in fade-in-0 duration-200"
-            onClick={() => setIsMenuOpen(false)}
+            onClick={() => setActivePanel(null)}
             aria-hidden="true"
           />
 
@@ -257,7 +266,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
           <div
             ref={mobileNavRef}
             id="mobile-nav"
-            className="absolute top-[calc(100%+0.5rem)] left-3 sm:left-4 z-50 w-[9.25rem] sm:w-[9.75rem] rounded-2xl border border-border/70 bg-card/95 p-1 shadow-2xl shadow-black/15 backdrop-blur-md lg:hidden animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-150"
+            className="absolute top-[calc(100%+0.5rem)] left-3 sm:left-4 z-50 w-[9.25rem] sm:w-[9.75rem] max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain touch-pan-y rounded-2xl border border-border/70 bg-card/95 p-1 shadow-2xl shadow-black/15 backdrop-blur-md lg:hidden animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-150"
           >
             <nav className="flex flex-col space-y-0.5" aria-label="移动端导航">
               {navigation.map((item) => {
@@ -266,13 +275,13 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
                 return (
                   <a
                     key={item.href}
-                    className={`flex items-center gap-2 py-2 px-2.5 text-sm font-medium rounded-xl whitespace-nowrap transition-colors ${
+                    className={`flex min-h-11 items-center gap-2 py-2 px-2.5 text-sm font-medium rounded-xl whitespace-nowrap transition-colors ${
                       active
                         ? 'bg-accent text-accent-foreground font-semibold'
                         : 'text-foreground/80 hover:bg-accent/60 hover:text-foreground active:bg-accent/80'
                     }`}
                     href={item.href}
-                    onClick={() => setIsMenuOpen(false)}
+                    onClick={() => setActivePanel(null)}
                     aria-current={active ? 'page' : undefined}
                   >
                     {icon && (

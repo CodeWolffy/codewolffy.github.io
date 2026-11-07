@@ -328,25 +328,39 @@ const applyFrameToMetadata = (
   }
 };
 
-const readPrefixBytes = async (response: Response, limit: number): Promise<Uint8Array> => {
+const readPrefixBytes = async (
+  response: Response,
+  limit: number,
+  signal?: AbortSignal
+): Promise<Uint8Array> => {
+  signal?.throwIfAborted();
   const reader = response.body?.getReader();
   if (!reader) {
     const buffer = await response.arrayBuffer();
+    signal?.throwIfAborted();
     return new Uint8Array(buffer).subarray(0, limit);
   }
 
   const chunks: Uint8Array[] = [];
   let receivedLength = 0;
+  const cancelReader = () => {
+    void reader.cancel().catch(() => {});
+  };
+  signal?.addEventListener('abort', cancelReader, { once: true });
   try {
     while (receivedLength < limit) {
+      signal?.throwIfAborted();
       const { done, value } = await reader.read();
+      signal?.throwIfAborted();
       if (done) break;
       if (value) {
-        chunks.push(value);
-        receivedLength += value.length;
+        const prefix = value.subarray(0, limit - receivedLength);
+        chunks.push(prefix);
+        receivedLength += prefix.length;
       }
     }
   } finally {
+    signal?.removeEventListener('abort', cancelReader);
     try {
       await reader.cancel();
     } catch {
@@ -363,10 +377,13 @@ const readPrefixBytes = async (response: Response, limit: number): Promise<Uint8
   return result.subarray(0, limit);
 };
 
-const fetchBytes = async (src: string, range?: string) => {
-  const response = await fetch(src, range ? { headers: { Range: range } } : undefined);
+const fetchBytes = async (src: string, range?: string, signal?: AbortSignal) => {
+  signal?.throwIfAborted();
+  const response = await fetch(src, { headers: range ? { Range: range } : undefined, signal });
+  signal?.throwIfAborted();
 
   if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
     throw new Error(`无法读取 MP3 文件：${response.status}`);
   }
 
@@ -378,12 +395,13 @@ const fetchBytes = async (src: string, range?: string) => {
         const end = match[2] ? parseInt(match[2], 10) : null;
         if (start === 0 && end !== null) {
           const limit = end + 1;
-          return await readPrefixBytes(response, limit);
+          return await readPrefixBytes(response, limit, signal);
         }
       }
 
       if (range.includes('=-') || range.startsWith('bytes=-')) {
         await response.body?.cancel().catch(() => {});
+        signal?.throwIfAborted();
         return new Uint8Array(0);
       }
     }
@@ -392,11 +410,13 @@ const fetchBytes = async (src: string, range?: string) => {
     throw new Error(`服务器未按 Range 返回 MP3 片段，且状态码非 200：${response.status}`);
   }
 
-  return new Uint8Array(await response.arrayBuffer());
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  signal?.throwIfAborted();
+  return bytes;
 };
 
-const fetchId3Tag = async (src: string) => {
-  const headerBytes = await fetchBytes(src, `bytes=0-${ID3_HEADER_SIZE - 1}`);
+const fetchId3Tag = async (src: string, signal?: AbortSignal) => {
+  const headerBytes = await fetchBytes(src, `bytes=0-${ID3_HEADER_SIZE - 1}`, signal);
   if (headerBytes.length < ID3_HEADER_SIZE) return undefined;
 
   const marker = decodeLatin1(headerBytes.subarray(0, 3));
@@ -405,28 +425,24 @@ const fetchId3Tag = async (src: string) => {
   const tagSize = decodeSyncSafeInteger(headerBytes.subarray(6, 10));
   if (tagSize <= 0 || tagSize > MAX_ID3_TAG_SIZE) return undefined;
 
-  const fullTag = await fetchBytes(src, `bytes=0-${ID3_HEADER_SIZE + tagSize - 1}`);
+  const fullTag = await fetchBytes(src, `bytes=0-${ID3_HEADER_SIZE + tagSize - 1}`, signal);
   return fullTag.length >= ID3_HEADER_SIZE + tagSize
     ? fullTag
     : fullTag.subarray(0, ID3_HEADER_SIZE + tagSize);
 };
 
-const fetchId3v1Metadata = async (src: string): Promise<Mp3Metadata> => {
-  try {
-    const bytes = await fetchBytes(src, `bytes=-${ID3V1_TAG_SIZE}`);
-    if (bytes.length < ID3V1_TAG_SIZE) return {};
+const fetchId3v1Metadata = async (src: string, signal?: AbortSignal): Promise<Mp3Metadata> => {
+  const bytes = await fetchBytes(src, `bytes=-${ID3V1_TAG_SIZE}`, signal);
+  if (bytes.length < ID3V1_TAG_SIZE) return {};
 
-    const tag = bytes.subarray(bytes.length - ID3V1_TAG_SIZE);
-    if (decodeLatin1(tag.subarray(0, 3)) !== 'TAG') return {};
+  const tag = bytes.subarray(bytes.length - ID3V1_TAG_SIZE);
+  if (decodeLatin1(tag.subarray(0, 3)) !== 'TAG') return {};
 
-    return {
-      title: normalizeText(decodeLatin1(tag.subarray(3, 33))),
-      artist: normalizeText(decodeLatin1(tag.subarray(33, 63))),
-      album: normalizeText(decodeLatin1(tag.subarray(63, 93))),
-    };
-  } catch {
-    return {};
-  }
+  return {
+    title: normalizeText(decodeLatin1(tag.subarray(3, 33))),
+    artist: normalizeText(decodeLatin1(tag.subarray(33, 63))),
+    album: normalizeText(decodeLatin1(tag.subarray(63, 93))),
+  };
 };
 
 const mergeMetadata = (primary: Mp3Metadata, fallback: Mp3Metadata): Mp3Metadata => ({
@@ -464,11 +480,12 @@ export const getFallbackMetadata = (
   };
 };
 
-export const loadMp3Metadata = async (src: string): Promise<Mp3Metadata> => {
+export const loadMp3Metadata = async (src: string, signal?: AbortSignal): Promise<Mp3Metadata> => {
+  const metadata: Mp3Metadata = {};
   try {
-    const tag = await fetchId3Tag(src).catch(() => undefined);
+    const tag = await fetchId3Tag(src, signal);
     if (!tag) {
-      return await fetchId3v1Metadata(src).catch(() => ({}));
+      return await fetchId3v1Metadata(src, signal);
     }
 
     const majorVersion = tag[3];
@@ -495,7 +512,6 @@ export const loadMp3Metadata = async (src: string): Promise<Mp3Metadata> => {
       cursor += majorVersion === 4 ? 4 + extendedHeaderSize : extendedHeaderSize + 4;
     }
 
-    const metadata: Mp3Metadata = {};
     const syncedLyrics: SyncedLyricLine[] = [];
 
     while (cursor < frameSourceEnd) {
@@ -511,9 +527,18 @@ export const loadMp3Metadata = async (src: string): Promise<Mp3Metadata> => {
 
     if (metadata.title && metadata.artist) return metadata;
 
-    const fallbackV1 = await fetchId3v1Metadata(src).catch(() => ({}));
-    return mergeMetadata(metadata, fallbackV1);
-  } catch {
-    return {};
+    try {
+      const fallbackV1 = await fetchId3v1Metadata(src, signal);
+      return mergeMetadata(metadata, fallbackV1);
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (error instanceof Error && error.name === 'AbortError') throw error;
+      // ID3v1 is optional once useful ID3v2 data has already been parsed.
+      if (Object.values(metadata).some(Boolean)) return metadata;
+      throw error;
+    }
+  } catch (error) {
+    if (metadata.coverUrl?.startsWith('blob:')) URL.revokeObjectURL(metadata.coverUrl);
+    throw error;
   }
 };

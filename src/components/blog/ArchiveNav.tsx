@@ -38,6 +38,14 @@ export function ArchiveNav({ years, totalPosts, className }: ArchiveNavProps) {
 
   const maxYearCount = Math.max(...years.map((y) => y.count), 1);
   const isUserScrollingRef = useRef(false);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+    },
+    []
+  );
 
   // 1. 视口滚动监听 (ScrollSpy)
   useEffect(() => {
@@ -80,12 +88,7 @@ export function ArchiveNav({ years, totalPosts, className }: ArchiveNavProps) {
       if (el) observer.observe(el);
     });
 
-    return () => {
-      targetIds.forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) observer.unobserve(el);
-      });
-    };
+    return () => observer.disconnect();
   }, [years]);
 
   // 2. 智能联动：当 activeId 改变时，将导航项滚入右侧侧边栏视口（非点击跳转引起时）
@@ -108,20 +111,16 @@ export function ArchiveNav({ years, totalPosts, className }: ArchiveNavProps) {
   };
 
   const scrollToAnchor = (id: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    const target = document.getElementById(id);
-    if (!target) return;
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
     isUserScrollingRef.current = true;
-    target.scrollIntoView({ behavior: 'smooth' });
     setActiveId(id);
 
-    const url = new URL(window.location.href);
-    url.hash = id;
-    window.history.replaceState(null, '', url);
-
-    setTimeout(() => {
+    // The anchor's data-astro-history attribute preserves Astro's route state.
+    if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
       isUserScrollingRef.current = false;
+      scrollTimerRef.current = null;
     }, 600);
   };
 
@@ -163,6 +162,7 @@ export function ArchiveNav({ years, totalPosts, className }: ArchiveNavProps) {
                 >
                   <a
                     href={`#${y.id}`}
+                    data-astro-history="replace"
                     onClick={(e) => scrollToAnchor(y.id, e)}
                     className="flex flex-1 items-center gap-2 min-w-0"
                   >
@@ -207,6 +207,7 @@ export function ArchiveNav({ years, totalPosts, className }: ArchiveNavProps) {
                           id={`nav-item-${m.id}`}
                           key={m.id}
                           href={`#${m.id}`}
+                          data-astro-history="replace"
                           onClick={(e) => scrollToAnchor(m.id, e)}
                           className={cn(
                             'flex items-center justify-between rounded px-2 py-1 text-xs transition-colors',

@@ -291,8 +291,8 @@ const articleImageUrl = new URL(
           )}
         </a>
       )}
-      <div class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-11 md:top-14 z-[60] border border-border/50 w-full">
-        <TableOfContents headings={headings} client:idle />
+      <div class="lg:hidden mb-1 px-4 bg-secondary rounded-xl sticky top-11 md:top-12 z-30 border border-border/50 w-full">
+        <TableOfContents headings={headings} id="article-toc-mobile" client:idle />
       </div>
       {(post.data.coverImage || post.data.heroImage) && (
         <img
@@ -491,7 +491,7 @@ const articleImageUrl = new URL(
     </div>
 
     <aside class="hidden lg:block lg:sticky lg:top-24 lg:self-start pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto">
-      <TableOfContents headings={headings} client:idle />
+      <TableOfContents headings={headings} id="article-toc-desktop" client:idle />
     </aside>
 
     <script>

@@ -63,10 +63,40 @@ export const getPlayerViewportSize = () => {
 
 export const readStoredVolume = () => {
   if (typeof window === 'undefined') return DEFAULT_VOLUME;
-  const storedValue = window.localStorage.getItem(MUSIC_VOLUME_STORAGE_KEY);
-  if (storedValue === null) return DEFAULT_VOLUME;
-  const parsedValue = Number(storedValue);
-  return Number.isFinite(parsedValue) ? clampVolume(parsedValue) : DEFAULT_VOLUME;
+  try {
+    const storedValue = window.localStorage.getItem(MUSIC_VOLUME_STORAGE_KEY);
+    if (storedValue === null) return DEFAULT_VOLUME;
+    const parsedValue = Number(storedValue);
+    return Number.isFinite(parsedValue) ? clampVolume(parsedValue) : DEFAULT_VOLUME;
+  } catch {
+    return DEFAULT_VOLUME;
+  }
+};
+
+export const restorePlaybackState = (
+  tracks: { audio: string }[],
+  stored: StoredPlaybackState | null
+) => {
+  const index = tracks.findIndex((track) => track.audio === stored?.audio);
+  return {
+    index: Math.max(0, index),
+    currentTime: index >= 0 ? (stored?.currentTime ?? 0) : 0,
+    playMode: stored?.playMode ?? 'sequence',
+  };
+};
+
+// Before the audio source loads, currentTime is zero even when a saved seek is pending.
+export const getPlaybackTime = (
+  audio: Pick<HTMLAudioElement, 'currentTime' | 'readyState'> | null,
+  pendingTime: number | null,
+  progress: number
+) => {
+  const value =
+    pendingTime ??
+    (audio && audio.readyState >= 1 && Number.isFinite(audio.currentTime)
+      ? audio.currentTime
+      : progress);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
 };
 
 export const readStoredPlaybackState = (): StoredPlaybackState | null => {
@@ -305,7 +335,7 @@ export const resetPlayerDragStyle = (player: HTMLDivElement) => {
   player.removeAttribute('data-dragging');
 };
 
-export const capturePointer = (target: HTMLDivElement, pointerId: number) => {
+export const capturePointer = (target: HTMLElement, pointerId: number) => {
   try {
     if (!target.hasPointerCapture(pointerId)) {
       target.setPointerCapture(pointerId);

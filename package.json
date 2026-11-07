@@ -31,7 +31,7 @@
     "typecheck:ts": "node node_modules/typescript-native/bin/tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --import tsx --test tests/content-paths.test.ts tests/iframe-url.test.ts tests/reading-time.test.ts tests/music-player.test.ts"
+    "test": "node --import tsx --test tests/content-paths.test.ts tests/iframe-url.test.ts tests/reading-time.test.ts tests/music-player.test.ts tests/music-metadata.test.ts tests/comments.test.ts tests/scroll-lock.test.ts tests/export-utils.test.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.4.2",

@@ -16,12 +16,14 @@ import JSZip from 'jszip';
 import {
   EXPORT_HTML_STYLES,
   IMAGE_FETCH_CONCURRENCY,
+  createMermaidExportMarkup,
   escapeHtml,
   fetchImageBlob,
   findMarkdownImages,
   fixIframesOutsideCodeBlocks,
   getFileName,
   mapWithConcurrency,
+  replaceMarkdownImageSources,
   resolveImageUrl,
   restoreMermaidBlocks,
   urlToBase64,
@@ -125,7 +127,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
           parts.push(`![封面图](${coverImageSrc})`);
         } else {
           parts.push(
-            `<img src="${coverImageSrc}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;" />`
+            `<img src="${escapeHtml(coverImageSrc)}" alt="${escapeHtml(title)}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;" />`
           );
         }
       }
@@ -140,7 +142,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     let base64Cover = '';
     if (coverImage) {
       const coverUrl = resolveImageUrl(coverImage);
-      base64Cover = coverUrl ? await urlToBase64(coverUrl, true) : '';
+      base64Cover = await urlToBase64(coverUrl, true);
     }
 
     let processedContent = fixIframesOutsideCodeBlocks(restoreMermaidBlocks(content));
@@ -150,18 +152,12 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
       IMAGE_FETCH_CONCURRENCY,
       async (item) => {
         const fullSrc = resolveImageUrl(item.src);
-        const base64 = fullSrc ? await urlToBase64(fullSrc, true) : item.src;
+        const base64 = await urlToBase64(fullSrc, true);
         return { ...item, newSrc: base64 };
       }
     );
 
-    for (let i = processedImages.length - 1; i >= 0; i--) {
-      const item = processedImages[i];
-      processedContent =
-        processedContent.slice(0, item.index) +
-        `![${item.alt}](${item.newSrc})` +
-        processedContent.slice(item.index + item.full.length);
-    }
+    processedContent = replaceMarkdownImageSources(processedContent, processedImages);
 
     const frontmatterStr = generateFrontmatter();
     const headerStr = generateMarkdownHeader(base64Cover || undefined, true);
@@ -174,8 +170,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
   const exportHtml = async () => {
     const proseElement = document.querySelector('.prose');
     if (!proseElement) {
-      showToast('无法获取文章内容');
-      return;
+      throw new Error('无法获取文章内容');
     }
 
     const clone = proseElement.cloneNode(true) as HTMLElement;
@@ -186,11 +181,13 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
       if (!src) return;
 
       const fullSrc = resolveImageUrl(src);
-      if (!fullSrc) return;
-
       const base64 = await urlToBase64(fullSrc, true);
       img.src = base64;
       img.removeAttribute('srcset');
+      img
+        .closest('picture')
+        ?.querySelectorAll('source')
+        .forEach((source) => source.remove());
     });
 
     const links = clone.querySelectorAll('a');
@@ -206,27 +203,21 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
     });
 
     clone.querySelectorAll('.mermaid-modal').forEach((el) => el.remove());
+    let sourceFallbacks = 0;
     clone.querySelectorAll('.mermaid-container').forEach((container) => {
-      container
-        .querySelectorAll('.mermaid-toolbar, .mermaid-code-view')
-        .forEach((el) => el.remove());
+      const chart = container.querySelector('.mermaid');
+      const svg = chart?.querySelector('svg')?.outerHTML;
+      if (!svg) sourceFallbacks++;
+      container.innerHTML = createMermaidExportMarkup(svg, chart?.getAttribute('data-chart') || '');
       container.removeAttribute('style');
-      if (container instanceof HTMLElement) {
-        container.style.height = 'auto';
-        container.style.minHeight = '0';
-      }
-      const mermaidContent = container.querySelector('.mermaid-content');
-      if (mermaidContent instanceof HTMLElement) {
-        mermaidContent.removeAttribute('style');
-        mermaidContent.style.transform = 'none';
-      }
     });
+    clone.querySelectorAll('.copy-code-btn').forEach((button) => button.remove());
 
     const coverImage = frontmatter.coverImage || frontmatter.heroImage;
     let coverImageBase64 = '';
     if (coverImage) {
       const coverUrl = resolveImageUrl(coverImage);
-      coverImageBase64 = coverUrl ? await urlToBase64(coverUrl, true) : '';
+      coverImageBase64 = await urlToBase64(coverUrl, true);
     }
     const escapedTitle = escapeHtml(title);
 
@@ -252,6 +243,7 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
 
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     FileSaver.saveAs(blob, getFileName(title, 'html'));
+    return sourceFallbacks;
   };
 
   const exportZip = useCallback(async () => {
@@ -267,38 +259,24 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
       IMAGE_FETCH_CONCURRENCY,
       async (item, index) => {
         const fullSrc = resolveImageUrl(item.src);
-        if (!fullSrc) return undefined;
-
         const blob = await fetchImageBlob(fullSrc);
-        if (!blob) return undefined;
-
-        const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
+        const ext = blob.type.split('/')[1].replace('svg+xml', 'svg').replace('jpeg', 'jpg');
         const fileName = `img-${index}-${timestamp}.${ext}`;
         assetsFolder?.file(fileName, blob);
         return { ...item, newSrc: `assets/${fileName}` };
       }
     );
 
-    for (let i = zipImages.length - 1; i >= 0; i--) {
-      const item = zipImages[i];
-      if (!item) continue;
-
-      processedContent =
-        processedContent.slice(0, item.index) +
-        `![${item.alt}](${item.newSrc})` +
-        processedContent.slice(item.index + item.full.length);
-    }
+    processedContent = replaceMarkdownImageSources(processedContent, zipImages);
 
     let coverImageName = '';
     const coverImage = frontmatter.coverImage || frontmatter.heroImage;
     if (coverImage) {
       const fullSrc = resolveImageUrl(coverImage);
-      const blob = fullSrc ? await fetchImageBlob(fullSrc) : null;
-      if (blob && fullSrc) {
-        const ext = fullSrc.split('.').pop()?.split(/[?#]/)[0] || 'png';
-        coverImageName = `cover-${timestamp}.${ext}`;
-        assetsFolder?.file(coverImageName, blob);
-      }
+      const blob = await fetchImageBlob(fullSrc);
+      const ext = blob.type.split('/')[1].replace('svg+xml', 'svg').replace('jpeg', 'jpg');
+      coverImageName = `cover-${timestamp}.${ext}`;
+      assetsFolder?.file(coverImageName, blob);
     }
 
     const frontmatterStr = coverImageName
@@ -330,10 +308,16 @@ export function ExportButton({ title, content, frontmatter, className }: ExportB
             await exportZip();
             showToast('压缩包导出成功', 'success');
             break;
-          case 'html':
-            await exportHtml();
-            showToast('HTML 导出成功', 'success');
+          case 'html': {
+            const sourceFallbacks = await exportHtml();
+            showToast(
+              sourceFallbacks
+                ? `HTML 已导出，${sourceFallbacks} 个未就绪图表保留为源码`
+                : 'HTML 导出成功',
+              'success'
+            );
             break;
+          }
           case 'pdf':
             window.print();
             break;

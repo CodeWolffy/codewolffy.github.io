@@ -5,9 +5,10 @@ import { ChevronRight } from 'lucide-react';
 
 interface TocProps {
   headings: MarkdownHeading[];
+  id: string;
 }
 
-export function TableOfContents({ headings }: TocProps) {
+export function TableOfContents({ headings, id }: TocProps) {
   const [activeId, setActiveId] = useState<string>('');
   const [isOpen, setIsOpen] = useState(false);
 
@@ -30,23 +31,20 @@ export function TableOfContents({ headings }: TocProps) {
       }
     });
 
-    return () => {
-      headings.forEach((heading) => {
-        const element = document.getElementById(heading.slug);
-        if (element) {
-          observer.unobserve(element);
-        }
-      });
-    };
+    return () => observer.disconnect();
   }, [headings]);
 
   useEffect(() => {
     const syncWithLocation = () => {
-      const id = decodeURIComponent(window.location.hash.slice(1));
-      if (!id || !headings.some((heading) => heading.slug === id)) return;
+      let hashId: string;
+      try {
+        hashId = decodeURIComponent(window.location.hash.slice(1));
+      } catch {
+        return;
+      }
+      if (!hashId || !headings.some((heading) => heading.slug === hashId)) return;
 
-      setActiveId(id);
-      document.getElementById(id)?.scrollIntoView({ behavior: 'auto' });
+      setActiveId(hashId);
     };
 
     syncWithLocation();
@@ -65,12 +63,13 @@ export function TableOfContents({ headings }: TocProps) {
 
   return (
     <nav className="relative">
+      <span className="hidden font-medium text-sm leading-none lg:block">此页内容</span>
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-1 min-h-[36px] text-left lg:pointer-events-none"
+        className="flex w-full items-center justify-between gap-1 min-h-11 text-left lg:hidden"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
-        aria-controls="article-table-of-contents"
+        aria-controls={id}
       >
         <span className="font-medium text-sm leading-none">此页内容</span>
         <ChevronRight
@@ -81,13 +80,13 @@ export function TableOfContents({ headings }: TocProps) {
         />
       </button>
       <ul
-        id="article-table-of-contents"
+        id={id}
         className={cn(
           'space-y-2 text-sm',
           // Mobile: Absolute Overlay
           isOpen ? 'block' : 'hidden',
           isOpen &&
-            'lg:hidden absolute left-[-1rem] right-[-1rem] top-full mt-2 bg-secondary border-t border-b border-border/50 shadow-xl max-h-[60vh] overflow-y-auto z-50 px-4 py-3',
+            'lg:hidden absolute left-[-1rem] right-[-1rem] top-full mt-2 bg-secondary border-t border-b border-border/50 shadow-xl max-h-[min(60dvh,calc(100dvh-7rem))] overflow-y-auto overscroll-contain z-10 px-4 py-3',
           // Desktop: Static Flow
           'lg:block lg:static lg:border-none lg:mt-2 lg:bg-transparent lg:shadow-none lg:max-h-none lg:overflow-visible lg:p-0'
         )}
@@ -102,24 +101,9 @@ export function TableOfContents({ headings }: TocProps) {
                   'font-bold text-primary border-l-2 border-primary pl-2 -ml-2'
               )}
               onClick={(e) => {
-                e.preventDefault();
-                const target = document.getElementById(heading.slug);
-                if (!target) return;
-
-                target.scrollIntoView({
-                  behavior: 'smooth',
-                });
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                 setActiveId(heading.slug);
-
-                const url = new URL(window.location.href);
-                url.hash = heading.slug;
-                if (window.location.hash === url.hash) {
-                  window.history.replaceState(null, '', url);
-                } else {
-                  window.history.pushState(null, '', url);
-                }
-
-                // Close menu on mobile after selection
+                // Let Astro handle the anchor and preserve its navigation history state.
                 setIsOpen(false);
               }}
             >

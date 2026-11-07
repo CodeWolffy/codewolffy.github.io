@@ -1246,6 +1246,30 @@
   animation-play-state: running;
 }
 
+.music-player-shell {
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: max(6rem, env(safe-area-inset-bottom, 0px));
+}
+
+.music-player-shell--compact {
+  right: 0;
+  bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.music-player-panel {
+  width: min(
+    calc(100vw - 2rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)),
+    22rem
+  );
+  max-height: min(
+    38rem,
+    calc(
+      100dvh - max(1rem, env(safe-area-inset-top, 0px)) -
+        max(1rem, env(safe-area-inset-bottom, 0px))
+    )
+  );
+}
+
 .music-player-surface[data-dragging='true'] {
   transition: none !important;
 }

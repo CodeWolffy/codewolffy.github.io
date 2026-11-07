@@ -2,11 +2,14 @@ import {
   useEffect,
   useRef,
   useState,
+  useCallback,
+  useSyncExternalStore,
   type ChangeEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { lockPageScroll } from '@/lib/scroll-lock';
 
 declare global {
   interface Window {
@@ -33,62 +36,59 @@ function loadPagefindAssets() {
     return Promise.reject(new Error('Pagefind cannot load without window.'));
   }
 
-  if (window.PagefindUI) {
-    return Promise.resolve();
-  }
-
   if (import.meta.env.PROD === false) {
     return Promise.reject(new Error('Pagefind is only available after production build.'));
   }
+
+  // Astro removes dynamically added head elements on navigation. The JS constructor
+  // survives, but its stylesheet must be restored before using that cached constructor.
+  if (!document.getElementById(PAGEFIND_CSS_ID)) {
+    const link = document.createElement('link');
+    link.id = PAGEFIND_CSS_ID;
+    link.rel = 'stylesheet';
+    link.href = '/pagefind/pagefind-ui.css';
+    document.head.appendChild(link);
+  }
+
+  if (window.PagefindUI) return Promise.resolve();
 
   if (pagefindAssetPromise) {
     return pagefindAssetPromise;
   }
 
   pagefindAssetPromise = new Promise<void>((resolve, reject) => {
-    if (!document.getElementById(PAGEFIND_CSS_ID)) {
-      const link = document.createElement('link');
-      link.id = PAGEFIND_CSS_ID;
-      link.rel = 'stylesheet';
-      link.href = '/pagefind/pagefind-ui.css';
-      document.head.appendChild(link);
-    }
-
-    const resolveIfReady = () => {
-      if (window.PagefindUI) {
-        resolve();
-      } else {
-        reject(new Error('Pagefind UI failed to initialize.'));
-      }
-    };
-
     const existingScript = document.getElementById(PAGEFIND_SCRIPT_ID) as HTMLScriptElement | null;
-    if (existingScript) {
-      if (window.PagefindUI) {
-        resolve();
-      } else {
-        existingScript.addEventListener('load', resolveIfReady, { once: true });
-        existingScript.addEventListener(
-          'error',
-          () => reject(new Error('Pagefind UI failed to load.')),
-          { once: true }
-        );
-      }
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = PAGEFIND_SCRIPT_ID;
-    script.src = '/pagefind/pagefind-ui.js';
-    script.async = true;
+    const script = existingScript ?? document.createElement('script');
+    const cleanup = () => {
+      clearTimeout(timeout);
+      script.removeEventListener('load', resolveIfReady);
+      script.removeEventListener('error', handleError);
+      document.removeEventListener('astro:before-swap', handleNavigation);
+    };
+    const fail = (message: string) => {
+      cleanup();
+      script.remove();
+      reject(new Error(message));
+    };
+    const resolveIfReady = () => {
+      if (!window.PagefindUI) return fail('Pagefind UI failed to initialize.');
+      cleanup();
+      resolve();
+    };
+    const handleError = () => fail('Pagefind UI failed to load.');
+    const handleNavigation = () => fail('Pagefind loading interrupted by navigation.');
+    const timeout = setTimeout(() => fail('Pagefind UI loading timed out.'), 15000);
     script.addEventListener('load', resolveIfReady, { once: true });
-    script.addEventListener('error', () => reject(new Error('Pagefind UI failed to load.')), {
-      once: true,
-    });
-    document.head.appendChild(script);
+    script.addEventListener('error', handleError, { once: true });
+    document.addEventListener('astro:before-swap', handleNavigation, { once: true });
+    if (!existingScript) {
+      script.id = PAGEFIND_SCRIPT_ID;
+      script.src = '/pagefind/pagefind-ui.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
   }).catch((error) => {
     pagefindAssetPromise = null;
-    document.getElementById(PAGEFIND_SCRIPT_ID)?.remove();
     throw error;
   });
 
@@ -132,38 +132,61 @@ function getShortcutLabel() {
   return 'Ctrl K';
 }
 
-export function Search() {
-  const [searchValue, setSearchValue] = useState(getInitialSearchQuery);
-  const [isExpanded, setIsExpanded] = useState(() => Boolean(getInitialSearchQuery()));
+const subscribeShortcut = () => () => {};
+const getServerShortcutLabel = () => 'Ctrl K';
+
+interface SearchProps {
+  isExpanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
+}
+
+export function Search({ isExpanded, onExpandedChange }: SearchProps) {
+  const [searchValue, setSearchValue] = useState('');
   const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>(
     'idle'
   );
   const [retryCount, setRetryCount] = useState(0);
-  const [shortcutLabel] = useState(getShortcutLabel);
+  const shortcutLabel = useSyncExternalStore(
+    subscribeShortcut,
+    getShortcutLabel,
+    getServerShortcutLabel
+  );
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const pagefindContainerRef = useRef<HTMLDivElement>(null);
   const pagefindInstanceRef = useRef<PagefindInstance | null>(null);
+  const cancelInitializationRef = useRef<(() => void) | null>(null);
+  const restoreFocusFrameRef = useRef<number | null>(null);
 
   // Handle Cmd+K / Ctrl+K keyboard shortcut and Escape
-  const closeSearch = (restoreFocus = true) => {
-    setIsExpanded(false);
-    setSearchValue('');
-    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus());
-  };
+  const closeSearch = useCallback(
+    (restoreFocus = true) => {
+      cancelInitializationRef.current?.();
+      onExpandedChange(false);
+      setSearchValue('');
+      if (restoreFocusFrameRef.current !== null) {
+        cancelAnimationFrame(restoreFocusFrameRef.current);
+      }
+      restoreFocusFrameRef.current = restoreFocus
+        ? requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }))
+        : null;
+    },
+    [onExpandedChange]
+  );
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setIsExpanded(true);
-        setTimeout(() => inputRef.current?.focus(), SEARCH_FOCUS_DELAY_MS);
+        onExpandedChange(true);
+        inputRef.current?.focus({ preventScroll: true });
       }
       if (e.key === 'Escape' && isExpanded) {
+        e.preventDefault();
         if (searchValue) {
           setSearchValue('');
-          inputRef.current?.focus();
+          inputRef.current?.focus({ preventScroll: true });
         } else {
           closeSearch();
         }
@@ -171,25 +194,27 @@ export function Search() {
     };
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
-  }, [isExpanded, searchValue]);
+  }, [isExpanded, searchValue, closeSearch, onExpandedChange]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    const timer = setTimeout(
+      () => inputRef.current?.focus({ preventScroll: true }),
+      SEARCH_FOCUS_DELAY_MS
+    );
+    const cancelFocus = () => clearTimeout(timer);
+    document.addEventListener('astro:before-swap', cancelFocus);
+    return () => {
+      cancelFocus();
+      document.removeEventListener('astro:before-swap', cancelFocus);
+    };
+  }, [isExpanded]);
 
   // Complete scroll locking (desktop + mobile) to prevent background page scroll
   useEffect(() => {
     if (!isExpanded || typeof window === 'undefined') return;
 
-    const docEl = document.documentElement;
-    const body = document.body;
-    const scrollbarWidth = window.innerWidth - docEl.clientWidth;
-
-    const prevDocOverflow = docEl.style.overflow;
-    const prevBodyOverflow = body.style.overflow;
-    const prevBodyPaddingRight = body.style.paddingRight;
-
-    docEl.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-    if (scrollbarWidth > 0) {
-      body.style.paddingRight = `${scrollbarWidth}px`;
-    }
+    const releaseScroll = lockPageScroll();
 
     // Prevent mouse wheel outside results list from scrolling the background
     const handleWheel = (e: WheelEvent) => {
@@ -209,24 +234,48 @@ export function Search() {
       }
     };
 
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-    return () => {
-      docEl.style.overflow = prevDocOverflow;
-      body.style.overflow = prevBodyOverflow;
-      body.style.paddingRight = prevBodyPaddingRight;
+    const release = () => {
+      releaseScroll();
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('touchmove', handleTouchMove);
     };
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('astro:before-swap', release);
+
+    return () => {
+      release();
+      document.removeEventListener('astro:before-swap', release);
+    };
   }, [isExpanded]);
 
-  // 支持 ?q= 深链（结构化数据 SearchAction / 外部直达搜索时自动聚焦）
+  // Read location only after hydration so SSR and the first client render agree.
   useEffect(() => {
-    if (getInitialSearchQuery()) {
-      setTimeout(() => inputRef.current?.focus(), SEARCH_FOCUS_DELAY_MS);
-    }
-  }, []);
+    const syncFromLocation = () => {
+      const query = getInitialSearchQuery();
+      if (!query) return;
+      setSearchValue(query);
+      setRetryCount((count) => count + 1);
+      onExpandedChange(true);
+    };
+    const frame = requestAnimationFrame(syncFromLocation);
+    document.addEventListener('astro:page-load', syncFromLocation);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('astro:page-load', syncFromLocation);
+    };
+  }, [onExpandedChange]);
+
+  useEffect(() => {
+    const closeForNavigation = () => closeSearch(false);
+    document.addEventListener('astro:before-swap', closeForNavigation);
+    return () => {
+      document.removeEventListener('astro:before-swap', closeForNavigation);
+      if (restoreFocusFrameRef.current !== null) {
+        cancelAnimationFrame(restoreFocusFrameRef.current);
+      }
+    };
+  }, [closeSearch]);
 
   // Initialize Pagefind when expanded
   useEffect(() => {
@@ -234,25 +283,22 @@ export function Search() {
 
     const pagefindContainer = pagefindContainerRef.current;
     if (!pagefindContainer) return;
+    let cancelled = false;
+    let instance: PagefindInstance | null = null;
+    let controlsFrame: number | null = null;
 
     const timer = setTimeout(async () => {
-      // Cleanup previous instance
-      if (pagefindInstanceRef.current) {
-        pagefindInstanceRef.current.destroy();
-        pagefindInstanceRef.current = null;
-        pagefindContainer.innerHTML = '';
-      }
-
       try {
         setSearchStatus('loading');
         await loadPagefindAssets();
+        if (cancelled || !pagefindContainer.isConnected) return;
 
         if (!window.PagefindUI) {
           throw new Error('Pagefind UI is unavailable.');
         }
 
         pagefindContainer.innerHTML = '';
-        const instance = new window.PagefindUI({
+        instance = new window.PagefindUI({
           element: pagefindContainer,
           showSubResults: true,
           showImages: false,
@@ -262,23 +308,30 @@ export function Search() {
 
         // Hide pagefind's own search controls (we use our own input)
         hidePagefindSearchControls(pagefindContainer);
-        requestAnimationFrame(() => hidePagefindSearchControls(pagefindContainer));
+        controlsFrame = requestAnimationFrame(() => hidePagefindSearchControls(pagefindContainer));
 
         setSearchStatus('ready');
       } catch (error) {
+        if (cancelled) return;
         console.warn('Pagefind init failed:', error);
         setSearchStatus('unavailable');
       }
     }, PAGEFIND_INIT_DELAY_MS);
 
-    return () => {
+    const cancel = () => {
+      if (cancelled) return;
+      cancelled = true;
       clearTimeout(timer);
-      if (pagefindInstanceRef.current) {
-        pagefindInstanceRef.current.destroy();
-        pagefindInstanceRef.current = null;
-      }
+      if (controlsFrame !== null) cancelAnimationFrame(controlsFrame);
+      instance?.destroy();
+      if (pagefindInstanceRef.current === instance) pagefindInstanceRef.current = null;
       pagefindContainer.innerHTML = '';
       setSearchStatus('idle');
+    };
+    cancelInitializationRef.current = cancel;
+    return () => {
+      cancel();
+      if (cancelInitializationRef.current === cancel) cancelInitializationRef.current = null;
     };
   }, [isExpanded, retryCount]);
 
@@ -296,7 +349,7 @@ export function Search() {
     }
 
     const timer = setTimeout(() => {
-      instance.triggerSearch(query);
+      if (pagefindInstanceRef.current === instance) instance.triggerSearch(query);
     }, 150);
 
     return () => clearTimeout(timer);
@@ -313,26 +366,33 @@ export function Search() {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isExpanded]);
+  }, [isExpanded, closeSearch]);
 
   // Click any result link inside pagefind to close the search panel
   useEffect(() => {
+    if (!isExpanded) return;
     const container = pagefindContainerRef.current;
     if (!container) return;
+    let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const handleResultClick = (e: MouseEvent) => {
       const link = (e.target as HTMLElement).closest('a');
       if (link) {
-        closeSearch(false);
+        // Let Astro and the browser read the clicked anchor before Pagefind destroys it.
+        closeTimer = setTimeout(() => closeSearch(false), 0);
       }
     };
 
     container.addEventListener('click', handleResultClick);
-    return () => container.removeEventListener('click', handleResultClick);
-  }, []);
+    return () => {
+      if (closeTimer !== null) clearTimeout(closeTimer);
+      container.removeEventListener('click', handleResultClick);
+    };
+  }, [isExpanded, closeSearch]);
 
   // Keyboard navigation within pagefind results (ArrowDown/ArrowUp)
   useEffect(() => {
+    if (!isExpanded) return;
     const container = pagefindContainerRef.current;
     if (!container) return;
 
@@ -357,14 +417,14 @@ export function Search() {
         if (currentIndex > 0) {
           links[currentIndex - 1]?.focus();
         } else {
-          inputRef.current?.focus();
+          inputRef.current?.focus({ preventScroll: true });
         }
       }
     };
 
     container.addEventListener('keydown', handleResultsKeyDown);
     return () => container.removeEventListener('keydown', handleResultsKeyDown);
-  }, []);
+  }, [isExpanded]);
 
   // Auto-load more results on scroll (Infinite Scroll)
   useEffect(() => {
@@ -373,14 +433,16 @@ export function Search() {
     if (!container) return;
 
     let isAutoLoading = false;
+    let disposed = false;
+    let autoLoadTimer: ReturnType<typeof setTimeout> | null = null;
     let observer: IntersectionObserver | null = null;
     let currentObservedBtn: HTMLButtonElement | null = null;
 
     const triggerAutoLoad = (btn: HTMLButtonElement) => {
-      if (isAutoLoading) return;
+      if (disposed || isAutoLoading) return;
       isAutoLoading = true;
       btn.click();
-      setTimeout(() => {
+      autoLoadTimer = setTimeout(() => {
         isAutoLoading = false;
       }, 300);
     };
@@ -461,6 +523,8 @@ export function Search() {
     }
 
     return () => {
+      disposed = true;
+      if (autoLoadTimer !== null) clearTimeout(autoLoadTimer);
       mutationObserver.disconnect();
       if (observer) observer.disconnect();
       const area = container.querySelector<HTMLElement>('.pagefind-ui__results-area');
@@ -488,12 +552,11 @@ export function Search() {
 
   const handleClear = () => {
     setSearchValue('');
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   };
 
   const handleSearchClick = () => {
-    setIsExpanded(true);
-    setTimeout(() => inputRef.current?.focus(), 100);
+    onExpandedChange(true);
   };
 
   const handleSearchClose = () => closeSearch();
@@ -518,15 +581,15 @@ export function Search() {
           'relative flex max-w-full justify-end transition-[width] duration-200 ease-out',
           isExpanded
             ? 'fixed left-2 right-2 top-1 z-[60] w-auto md:relative md:left-auto md:right-auto md:top-auto md:z-auto md:w-full'
-            : 'w-[7.5rem] sm:w-[8.5rem] max-[374px]:w-9 md:w-[14rem]'
+            : 'w-[7.5rem] sm:w-[8.5rem] max-[374px]:w-11 md:w-[14rem]'
         )}
       >
         {/* Search Input Box */}
         <div
           className={cn(
-            'flex h-9 w-full items-center rounded-md border border-input bg-background text-sm shadow-sm transition-all duration-200 ease-out',
+            'flex h-11 w-full items-center rounded-md border border-input bg-background text-sm shadow-sm transition-all duration-200 ease-out md:h-9',
             isExpanded
-              ? 'h-10 rounded-xl px-3 justify-start shadow-lg md:h-9 md:rounded-md md:shadow-none'
+              ? 'rounded-xl px-3 justify-start shadow-lg md:rounded-md md:shadow-none'
               : 'px-3 justify-start cursor-pointer hover:bg-accent hover:text-accent-foreground max-[374px]:justify-center max-[374px]:px-0'
           )}
         >
@@ -635,7 +698,7 @@ export function Search() {
                 输入关键词后显示搜索结果
               </div>
             )}
-            {/* Pagefind mounts here; always kept in DOM so it can initialize */}
+            {/* Keep the mount point present throughout loading and error states. */}
             <div
               ref={pagefindContainerRef}
               id="pagefind-results"

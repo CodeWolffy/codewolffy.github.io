@@ -7,10 +7,73 @@ import {
   clampPlayerAnchor,
   clearPlayerAnchorStyle,
   getActiveLyricIndex,
+  getAnchoredPlayerPosition,
+  getPlaybackTime,
   isPointerInsidePlayer,
   persistPlaybackState,
   readStoredPlaybackState,
+  restorePlaybackState,
 } from '../src/components/music/player-utils';
+
+test('saved progress survives leaving before the restored track has loaded', () => {
+  const unloadedAudio = { readyState: 0, currentTime: 0 };
+  assert.equal(getPlaybackTime(unloadedAudio, 125, 125), 125);
+  assert.equal(getPlaybackTime(unloadedAudio, null, 125), 125);
+  assert.equal(getPlaybackTime({ readyState: 4, currentTime: 130 }, null, 125), 130);
+  assert.equal(getPlaybackTime({ readyState: 1, currentTime: 0 }, 125, 125), 125);
+});
+
+test('restoration applies a saved time only to the matching track', () => {
+  const tracks = [{ audio: '/music/first.mp3' }, { audio: '/music/second.mp3' }];
+  assert.deepEqual(
+    restorePlaybackState(tracks, {
+      audio: '/music/second.mp3',
+      currentTime: 125,
+      playMode: 'shuffle',
+    }),
+    { index: 1, currentTime: 125, playMode: 'shuffle' }
+  );
+  assert.deepEqual(
+    restorePlaybackState(tracks, {
+      audio: '/music/removed.mp3',
+      currentTime: 125,
+      playMode: 'single',
+    }),
+    { index: 0, currentTime: 0, playMode: 'single' }
+  );
+});
+
+test('the default bottom anchor keeps an expanded panel inside a short landscape viewport', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { innerWidth: 844, innerHeight: 390 },
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { documentElement: { clientWidth: 844, clientHeight: 390 } },
+  });
+  try {
+    const anchor = clampPlayerAnchor(
+      {
+        horizontal: { edge: 'right', offset: 24 },
+        vertical: { edge: 'bottom', offset: 96 },
+      },
+      352,
+      358
+    );
+    const position = getAnchoredPlayerPosition(anchor, 352, 358);
+    assert.equal(position.y, 16);
+    assert.ok(position.x >= 16);
+    assert.ok(position.y + 358 <= 390 - 16);
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else Reflect.deleteProperty(globalThis, 'document');
+  }
+});
 
 test('getFallbackMetadata extracts title and artist from filename formatted as 歌名-歌手', () => {
   assert.deepEqual(getFallbackMetadata('/music/起风了-买辣椒也用券.mp3'), {
