@@ -98,7 +98,12 @@ export function ArchiveNav({ years, totalPosts, className }: ArchiveNavProps) {
     if (!isUserScrollingRef.current) {
       const activeNavEl = document.getElementById(`nav-item-${activeId}`);
       if (activeNavEl) {
-        activeNavEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        activeNavEl.scrollIntoView({
+          block: 'nearest',
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
+        });
       }
     }
   }, [activeId]);

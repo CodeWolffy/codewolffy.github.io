@@ -7,9 +7,13 @@
     "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
   },
   "scripts": {
-    "dev": "npm run generate:post-options && astro dev --host",
-    "build": "npm run sync-content && npm run generate:post-options && npm run check:series && npm run check:mdx-components && npm run check:mermaid && astro build && npm run prune:legacy-assets && node scripts/run-pagefind.js && node scripts/prepare-cloudflare-pages-output.js",
-    "preview": "astro preview",
+    "dev": "npm run prepare-content && astro dev --host",
+    "build": "node scripts/build.mjs",
+    "build:cloudflare": "node scripts/build.mjs cloudflare",
+    "build:github": "node scripts/build.mjs github",
+    "preview": "node scripts/preview.mjs",
+    "prepare-content": "node --import tsx scripts/prepare-content.mjs",
+    "generate:avatars": "node scripts/generate-avatar-images.mjs",
     "astro": "astro",
     "postinstall": "node scripts/apply-keystatic-patch.mjs",
     "sync-content": "node --import tsx scripts/sync-content.js",
@@ -20,6 +24,7 @@
     "check:mermaid": "node scripts/check-mermaid-regression.mjs",
     "check:series": "node scripts/check-series-integrity.mjs",
     "check:assets": "node scripts/check-asset-budgets.mjs",
+    "check:build-budgets": "node scripts/check-build-budgets.mjs",
     "check:a11y-content": "node scripts/check-content-accessibility.mjs",
     "prune:legacy-assets": "node scripts/prune-legacy-image-masters.mjs",
     "series:report": "node scripts/check-series-integrity.mjs",
@@ -31,10 +36,11 @@
     "typecheck:ts": "node node_modules/typescript-native/bin/tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --import tsx --test tests/content-paths.test.ts tests/iframe-url.test.ts tests/reading-time.test.ts tests/music-player.test.ts tests/music-metadata.test.ts tests/comments.test.ts tests/scroll-lock.test.ts tests/export-utils.test.ts"
+    "test": "node --import tsx --test \"tests/*.test.ts\"",
+    "test:browser": "playwright test"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^14.4.2",
+    "@astrojs/cloudflare": "^14.4.6",
     "@astrojs/markdown-remark": "^7.3.4",
     "@astrojs/mdx": "^8.1.1",
     "@astrojs/react": "^7.1.1",
@@ -67,6 +73,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.0",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
@@ -76,25 +83,30 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
     "diff": "^9.0.0",
+    "es-module-lexer": "^3.0.4",
+    "parse5": "^8.1.0",
     "png-to-ico": "^3.0.2",
     "prettier": "^3.9.10",
     "prettier-plugin-astro": "^1.1.1",
+    "sharp": "^0.35.5",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.0",
-    "typescript-native": "npm:typescript@^7.0.2"
+    "typescript-native": "npm:typescript@^7.0.2",
+    "wrangler": "^4.156.1"
   },
   "overrides": {
     "@tailwindcss/typography": {
       "postcss-selector-parser": "^7.1.7"
     },
     "esbuild": "^0.28.2",
+    "minimatch": "^11.0.5",
     "ws": "^8.22.0",
     "yaml": "^2.9.1"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
-    "workerd@1.20261012.1": true,
-    "workerd@1.20261019.1": true
+    "workerd@1.20261101.1": true,
+    "workerd@1.20261104.1": true
   }
 }

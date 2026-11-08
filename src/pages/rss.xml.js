@@ -2,21 +2,21 @@ import rss from '@astrojs/rss';
 import { getPublicBlogPostsSorted } from '@/utils/posts';
 import { getBlogPostPath } from '@/utils/content-paths';
 import { getSiteSettings } from '@/utils/site-settings';
+import { escapeXml, getLatestContentDate } from '@/utils/seo';
 
-export async function GET(context) {
+export async function GET() {
   const [sortedPosts, settings] = await Promise.all([
     getPublicBlogPostsSorted(),
     getSiteSettings(),
   ]);
 
-  const lastBuildDate = sortedPosts.length
-    ? sortedPosts[0].data.updatedDate || sortedPosts[0].data.pubDate
-    : new Date();
+  const lastBuildDate = getLatestContentDate(sortedPosts);
 
   return rss({
     title: settings.rss.title,
     description: settings.rss.description,
-    site: context.site,
+    site: settings.urls.primary,
+    xmlns: { dc: 'http://purl.org/dc/elements/1.1/' },
     items: sortedPosts.map((post) => {
       const categories = [post.data.category, ...(post.data.tags || [])].filter(Boolean);
       return {
@@ -25,13 +25,13 @@ export async function GET(context) {
         description: post.data.description,
         link: getBlogPostPath(post),
         customData: [
-          `<author>${settings.author.name}</author>`,
-          ...categories.map((category) => `<category>${category}</category>`),
+          `<dc:creator>${escapeXml(settings.author.name)}</dc:creator>`,
+          ...categories.map((category) => `<category>${escapeXml(category)}</category>`),
         ].join(''),
       };
     }),
     customData: [
-      `<language>${settings.rss.language}</language>`,
+      `<language>${escapeXml(settings.rss.language)}</language>`,
       `<lastBuildDate>${lastBuildDate.toUTCString()}</lastBuildDate>`,
     ].join(''),
     stylesheet: settings.rss.stylesheet,

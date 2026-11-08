@@ -6,6 +6,7 @@ import ScrollToTop from '@/components/ui/ScrollToTop.astro';
 import { getIconComponent } from '@/lib/icons';
 import { getMusicTracks } from '@/utils/music-tracks';
 import { getSiteSettings } from '@/utils/site-settings';
+import { getCanonicalUrl, serializeJsonLd } from '@/utils/seo';
 import '@/styles/global.css';
 
 interface Props {
@@ -36,11 +37,11 @@ const {
 
 // 构建完整的 OG 图片 URL
 const ogImage = image
-  ? new URL(image, Astro.site || Astro.url)
-  : new URL(settings.og.defaultImage, Astro.site || Astro.url);
-const canonicalUrl = new URL(Astro.url.pathname, Astro.site || Astro.url);
+  ? new URL(image, settings.urls.primary)
+  : new URL(settings.og.defaultImage, settings.urls.primary);
+const canonicalUrl = getCanonicalUrl(Astro.url.pathname, settings.urls.primary);
 const busuanzi = settings.analytics.busuanzi;
-const busuanziClientConfig = JSON.stringify(busuanzi).replace(/</g, '\\x3c');
+const busuanziClientConfig = serializeJsonLd(busuanzi);
 const socialIconByLabel = {
   Bilibili: 'bilibili',
   Douyin: 'douyin',
@@ -88,7 +89,7 @@ const musicTracks = await getMusicTracks();
       rel="alternate"
       type="application/rss+xml"
       title={settings.rss.title}
-      href={settings.links.rss}
+      href={new URL(settings.links.rss, settings.urls.primary)}
     />
     {busuanzi.enabled && (
       <>

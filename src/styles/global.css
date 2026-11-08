@@ -918,7 +918,7 @@
 /* 卡片悬停发光效果 */
 .card-hover-glow {
   position: relative;
-  border: 1px solid hsl(var(--border) / 0.5);
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 
 .card-hover-glow::before {
@@ -946,11 +946,11 @@
 @keyframes pulse-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 40%, transparent);
   }
 
   50% {
-    box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+    box-shadow: 0 0 0 8px transparent;
   }
 }
 
@@ -1028,13 +1028,13 @@
 
 /* 玻璃态效果 */
 .glass-effect {
-  background: hsl(var(--card) / 0.8);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid hsl(var(--border) / 0.3);
+  border: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
 }
 
 .dark .glass-effect {
-  background: hsl(var(--card) / 0.6);
+  background: color-mix(in srgb, var(--card) 60%, transparent);
 }
 
 /* 渐变文字 */
@@ -1289,7 +1289,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    hsl(var(--primary) / 0.1) 50%,
+    color-mix(in srgb, var(--primary) 10%, transparent) 50%,
     transparent 100%
   );
   background-size: 200% 100%;

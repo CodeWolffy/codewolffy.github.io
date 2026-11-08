@@ -8,7 +8,11 @@ import { unified } from '@astrojs/markdown-remark';
 import sitemap from '@astrojs/sitemap';
 import cloudflare from '@astrojs/cloudflare';
 import keystatic from '@keystatic/astro';
-import { getSiteUrl } from './src/config/site.js';
+import { getSiteUrl, siteConfig } from './src/config/site.js';
+import { getDeployTarget } from './src/config/deploy-target.mjs';
+import { createSitemapPolicy } from './src/utils/sitemap-policy.ts';
+import { generatePostOptions } from './scripts/generate-post-options.mjs';
+import { generateAvatarImages } from './scripts/generate-avatar-images.mjs';
 
 // Import custom plugins
 import { rehypeTableWrapper } from './src/plugins/rehype-table-wrapper.mjs';
@@ -21,52 +25,74 @@ function formatAutoSyncError(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function debounce(fn, delay) {
-  let timer = null;
-  return (...args) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = null;
-      void fn(...args).catch((error) => {
-        console.error(`[AutoSync] ${formatAutoSyncError(error)}`);
-      });
-    }, delay);
-  };
-}
-
 const autoSyncContent = () => {
-  const sync = debounce(async (file, eventType) => {
-    await syncContent(process.cwd());
-    console.log(`[AutoSync] Synced after ${eventType}: ${file}`);
-  }, 300);
-
   return {
     name: 'auto-sync-content',
     configureServer(server) {
-      const handleFileEvent = (eventType) => async (file) => {
-        // Normalize path separators for Windows support
-        const normalizedFile = file.split(path.sep).join('/');
-        if (normalizedFile.includes('src/content/blog') && normalizedFile.endsWith('.mdx')) {
-          sync(file, eventType);
+      let timer;
+      let running = false;
+      let stopped = false;
+      let postsPending = false;
+      let avatarsPending = false;
+      const flush = async () => {
+        if (running || stopped) return;
+        running = true;
+        try {
+          // File saves can arrive during generation. Process the latest state before exiting.
+          while (!stopped && (postsPending || avatarsPending)) {
+            const posts = postsPending;
+            const avatars = avatarsPending;
+            postsPending = false;
+            avatarsPending = false;
+            if (posts) {
+              await syncContent(process.cwd());
+              await generatePostOptions(process.cwd());
+            }
+            if (avatars) await generateAvatarImages(process.cwd());
+          }
+        } catch (error) {
+          server.config.logger.error(`[AutoSync] ${formatAutoSyncError(error)}`);
+        } finally {
+          running = false;
         }
       };
-
-      server.watcher.on('change', handleFileEvent('change'));
-      server.watcher.on('add', handleFileEvent('add'));
-      server.watcher.on('unlink', handleFileEvent('unlink'));
+      const onFile = (file) => {
+        const name = path.relative(process.cwd(), file).split(path.sep).join('/');
+        if (/^src\/content\/blog\/.*\.mdx?$/.test(name)) postsPending = true;
+        if (
+          name === 'src/content/pages/about.mdx' ||
+          /^src\/content\/friends\/.*\.json$/.test(name) ||
+          (name.startsWith('public/images/') &&
+            !name.startsWith('public/images/generated/avatars/'))
+        )
+          avatarsPending = true;
+        if (!postsPending && !avatarsPending) return;
+        clearTimeout(timer);
+        timer = setTimeout(() => void flush(), 300);
+      };
+      for (const event of ['change', 'add', 'unlink']) server.watcher.on(event, onFile);
+      server.httpServer?.once('close', () => {
+        stopped = true;
+        clearTimeout(timer);
+        for (const event of ['change', 'add', 'unlink']) server.watcher.off(event, onFile);
+      });
     },
   };
 };
 
 // https://astro.build/config
-// GitHub Actions 输出纯静态站点；其他构建目标启用 Cloudflare adapter，
-// 保留 Keystatic 后台所需的 SSR 路由能力。
-const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
+// Deployment is explicit so both targets can be checked in any CI provider.
+const deployTarget = getDeployTarget(process.env.DEPLOY_TARGET);
+const isGitHubPages = deployTarget === 'github';
 const isBuild = process.argv.includes('build');
 const isPreview = process.argv.includes('preview');
 const isDev = process.argv.includes('dev');
-const enableCloudflareAdapter = (isBuild || isPreview) && !isGitHubActions;
-const enableKeystatic = !isGitHubActions;
+const enableCloudflareAdapter = (isBuild || isPreview) && !isGitHubPages;
+const enableKeystatic = !isGitHubPages;
+const sitemapPolicy = await createSitemapPolicy({
+  contentDirectory: path.resolve('src/content/blog'),
+  primarySiteUrl: siteConfig.urls.primary,
+});
 
 export default defineConfig({
   session: {
@@ -83,10 +109,10 @@ export default defineConfig({
     mdx(),
     sitemap({
       // 过滤掉不需要索引的页面
-      filter: (page) =>
-        !page.includes('/keystatic') && !page.includes('/api/') && !page.includes('/search'),
+      filter: sitemapPolicy.filter,
       // 自定义 sitemap 条目
       serialize(item) {
+        item.url = sitemapPolicy.canonicalize(item.url);
         const url = item.url;
         // 获取路径部分（去除域名）
         const path = new URL(url).pathname;
@@ -130,7 +156,7 @@ export default defineConfig({
         prerenderEnvironment: 'node',
       })
     : undefined,
-  site: getSiteUrl({ isGitHubActions }),
+  site: getSiteUrl({ isGitHubActions: isGitHubPages }),
 
   // Markdown 代码高亮配置
   markdown: {
@@ -195,4 +221,6 @@ export default defineConfig({
   // Astro 7 中 static 输出会预渲染前台页面；
   // Cloudflare adapter 负责承载 Keystatic 后台的 SSR 路由。
   output: 'static',
+  // Keep adapter internals outside the public Pages directory.
+  outDir: isGitHubPages ? './dist' : './.astro/cloudflare-build',
 });

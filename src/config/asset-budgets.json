@@ -1,0 +1,9 @@
+{
+  "maxImageFileBytes": 1500000,
+  "maxTotalImageBytes": 12000000,
+  "maxAudioFileBytes": 26214400,
+  "maxTotalAudioBytes": 167772160,
+  "maxHtmlFileBytes": 307200,
+  "maxInitialJavaScriptGzipBytes": 184320,
+  "maxStylesheetGzipBytes": 40960
+}

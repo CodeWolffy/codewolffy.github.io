@@ -7,6 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Comments } from '@/components/blog/Comments';
 import { getIconComponent } from '@/lib/icons';
 import { getSiteSettings } from '@/utils/site-settings';
+import ResponsiveAvatar from '@/components/ui/ResponsiveAvatar.astro';
 
 import { getCollection, getEntry } from 'astro:content';
 
@@ -91,9 +92,12 @@ const pageConfig = {
                 <div class="relative mb-3 z-10">
                   <div class="absolute -inset-1 rounded-full bg-primary/20 opacity-0 group-hover:opacity-70 blur-sm transition-opacity duration-300" />
                   <div class="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-all duration-300">
-                    <img
+                    <ResponsiveAvatar
                       src={friend.displayAvatar}
                       alt={friend.name}
+                      sizes="48px"
+                      width={48}
+                      height={48}
                       class="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                       decoding="async"

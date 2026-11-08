@@ -3,3 +3,6 @@ node_modules
 .astro
 *.lock
 package-lock.json
+.wrangler
+playwright-report
+test-results

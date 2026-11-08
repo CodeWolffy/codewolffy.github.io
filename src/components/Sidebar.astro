@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { getEntry } from 'astro:content';
 import { getSiteSettings } from '@/utils/site-settings';
 import { getCategoryPath, getTagPath, getSeriesPath } from '@/utils/content-paths';
+import ResponsiveAvatar from '@/components/ui/ResponsiveAvatar.astro';
 
 interface YearGroup {
   year: number;
@@ -40,9 +41,12 @@ const profileSummary =
     <div class="flex flex-col items-center text-center">
       <div class="relative w-24 h-24 mb-2">
         <div class="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
-        <img
+        <ResponsiveAvatar
           src={about?.avatar || 'https://github.com/CodeWolffy.png'}
           alt={about?.name || 'Wolf'}
+          sizes="96px"
+          width={96}
+          height={96}
           class="relative w-full h-full rounded-full border-2 border-background object-cover shadow-md"
         />
         <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-background rounded-full"></div>

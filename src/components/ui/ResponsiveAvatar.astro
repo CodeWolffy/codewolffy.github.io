@@ -1,0 +1,35 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import imageManifest from '@/generated/avatar-images.json';
+
+interface Props extends HTMLAttributes<'img'> {
+  src: string;
+  alt: string;
+  sizes: string;
+}
+
+const { src, alt, sizes, width = 96, height = 96, ...attributes } = Astro.props;
+type Variant = { src: string; width: number };
+type ImageVariants = { avif: Variant[]; webp: Variant[]; jpeg: Variant[] };
+const variants = (imageManifest as Record<string, ImageVariants>)[src];
+const srcset = (items: Variant[]) => items.map((item) => `${item.src} ${item.width}w`).join(', ');
+---
+
+{variants ? (
+  <picture class="contents">
+    <source type="image/avif" srcset={srcset(variants.avif)} sizes={sizes} />
+    <source type="image/webp" srcset={srcset(variants.webp)} sizes={sizes} />
+    <img
+      src={variants.jpeg.at(-1)?.src || src}
+      srcset={srcset(variants.jpeg)}
+      sizes={sizes}
+      alt={alt}
+      width={width}
+      height={height}
+      decoding="async"
+      {...attributes}
+    />
+  </picture>
+) : (
+  <img src={src} alt={alt} width={width} height={height} decoding="async" {...attributes} />
+)}

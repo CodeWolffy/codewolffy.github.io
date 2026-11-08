@@ -1,239 +1,102 @@
-import { cpSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
-import { join, resolve } from 'path';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { projectRoot } from './lib/commands.mjs';
 
-const distDir = resolve(process.cwd(), 'dist');
-const clientDir = join(distDir, 'client');
-const serverEntry = join(distDir, 'server', 'entry.mjs');
-const pagesWorkerEntry = join(distDir, '_worker.js');
-const assetsIgnorePath = join(distDir, '.assetsignore');
-const routesPath = join(distDir, '_routes.json');
-const privateKeystaticEnvKeys = [
-  'KEYSTATIC_GITHUB_CLIENT_ID',
-  'KEYSTATIC_GITHUB_CLIENT_SECRET',
-  'KEYSTATIC_SECRET',
-];
-const publicKeystaticEnvKeys = ['PUBLIC_KEYSTATIC_GITHUB_APP_SLUG'];
-const keystaticEnvKeys = [...privateKeystaticEnvKeys, ...publicKeystaticEnvKeys];
-const patchKeystaticApiEnvAccess = () => {
-  const chunksDir = join(distDir, 'server', 'chunks');
-
-  if (!existsSync(chunksDir)) return;
-
-  let matchedChunk = false;
-
-  for (const entry of readdirSync(chunksDir)) {
-    if (!entry.startsWith('keystatic-api_') || !entry.endsWith('.mjs')) continue;
-
-    matchedChunk = true;
-
-    const target = join(chunksDir, entry);
-    const source = readFileSync(target, 'utf8');
-
-    // Keystatic 5.2 still reads context.locals.runtime.env, but Astro's
-    // Cloudflare adapter removed that API and deliberately throws from the
-    // getter. Keystatic 6.0 natively switched to standard astro:env/server.
-    if (source.includes('context.locals') && source.includes('envVarsForCf')) {
-      const patched = source.replace(
-        /const envVarsForCf = .*?context\.locals.*?runtime.*?env;/s,
-        'const envVarsForCf = globalThis.process?.env;'
-      );
-
-      if (patched === source) {
-        throw new Error(
-          `[cloudflare-pages] Keystatic env compatibility patch could not find the expected runtime env access in ${entry}.`
-        );
-      }
-
-      writeFileSync(target, patched);
-      console.log(`[cloudflare-pages] Patched Keystatic env access in ${entry}.`);
-    } else {
-      console.log(
-        `[cloudflare-pages] Keystatic 6.0+ uses native astro:env/server in ${entry}; legacy patch skipped.`
-      );
-    }
+export function prepareCloudflarePagesOutput(root = projectRoot) {
+  const distDir = resolve(root, 'dist');
+  const rawBuild = resolve(root, '.astro/cloudflare-build');
+  const clientDir = join(rawBuild, 'client');
+  const serverDir = join(rawBuild, 'server');
+  if (!existsSync(clientDir) || !existsSync(join(serverDir, 'entry.mjs'))) {
+    throw new Error(
+      'Cloudflare build is incomplete: expected .astro/cloudflare-build/client and server/entry.mjs.'
+    );
   }
 
-  if (!matchedChunk) {
-    throw new Error('[cloudflare-pages] Keystatic API server chunk was not generated.');
+  const reserved = new Set([
+    'server',
+    'client',
+    '_worker.js',
+    'wrangler.toml',
+    '.build-target.json',
+  ]);
+  // The adapter emits this Workers-only metadata file into client output.
+  const entries = readdirSync(clientDir).filter((entry) => entry !== '.assetsignore');
+  for (const entry of entries) {
+    if (reserved.has(entry)) throw new Error(`Public asset conflicts with Pages output: ${entry}`);
   }
-};
+  if (relative(resolve(root), distDir) !== 'dist')
+    throw new Error('Invalid Pages output directory.');
+  rmSync(distDir, { recursive: true, force: true });
+  mkdirSync(distDir, { recursive: true });
+  for (const entry of entries) {
+    cpSync(join(clientDir, entry), join(distDir, entry), { recursive: true, force: true });
+  }
 
-if (!existsSync(clientDir)) {
-  console.log('[cloudflare-pages] No dist/client directory found; skipping root asset sync.');
-  process.exit(0);
+  // Keep the adapter's Workers configuration intact. Pages has its own configuration.
+  const originalConfig = readFileSync(join(root, 'wrangler.toml'), 'utf8');
+  if (!/^pages_build_output_dir\s*=.*$/m.test(originalConfig)) {
+    throw new Error('wrangler.toml must define pages_build_output_dir.');
+  }
+  const pagesConfigPath = join(root, '.astro', 'pages-wrangler.toml');
+  writeFileSync(
+    pagesConfigPath,
+    originalConfig.replace(/^pages_build_output_dir\s*=.*$/m, 'pages_build_output_dir = "../dist"')
+  );
+  const redirectPath = join(root, '.wrangler', 'deploy', 'config.json');
+  mkdirSync(dirname(redirectPath), { recursive: true });
+  writeFileSync(
+    redirectPath,
+    `${JSON.stringify({ configPath: relative(dirname(redirectPath), pagesConfigPath), auxiliaryWorkers: [] }, null, 2)}\n`
+  );
+
+  // Pages excludes this reserved directory from static assets. .assetsignore is Workers-only.
+  const workerDir = join(distDir, '_worker.js');
+  mkdirSync(workerDir, { recursive: true });
+  cpSync(serverDir, join(workerDir, 'server'), { recursive: true });
+  for (const module of ['pages-worker.mjs', 'music-assets.mjs']) {
+    cpSync(join(projectRoot, 'scripts', 'lib', module), join(workerDir, module));
+  }
+  writeFileSync(
+    join(workerDir, 'index.js'),
+    [
+      "import astroWorker from './server/entry.mjs';",
+      "import { createPagesWorker } from './pages-worker.mjs';",
+      'export default createPagesWorker(astroWorker);',
+      '',
+    ].join('\n')
+  );
+  writeFileSync(
+    join(distDir, '_routes.json'),
+    `${JSON.stringify(
+      {
+        version: 1,
+        include: [
+          '/music/*',
+          '/keystatic',
+          '/keystatic/*',
+          '/api/keystatic/*',
+          '/_worker.js',
+          '/_worker.js/*',
+        ],
+        exclude: [],
+      },
+      null,
+      2
+    )}\n`
+  );
+  console.log('[cloudflare-pages] Prepared static assets, Pages configuration and worker routes.');
 }
 
-for (const entry of readdirSync(clientDir)) {
-  const source = join(clientDir, entry);
-  const target = join(distDir, entry);
-
-  rmSync(target, { recursive: true, force: true });
-  cpSync(source, target, { recursive: true, force: true });
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  prepareCloudflarePagesOutput();
 }
-
-if (!existsSync(serverEntry)) {
-  console.log('[cloudflare-pages] No dist/server/entry.mjs found; skipping worker entry.');
-  process.exit(0);
-}
-
-patchKeystaticApiEnvAccess();
-
-const patchServerWranglerConfig = () => {
-  const serverWranglerPath = join(distDir, 'server', 'wrangler.json');
-  if (!existsSync(serverWranglerPath)) return;
-
-  // Astro Cloudflare adapter 生成的是 Workers 配置，包含 main/rules 等 Pages 不支持的字段。
-  // Pages 部署只需要一个干净的 Pages 配置，故重写该文件。
-  const pagesConfig = {
-    name: 'blog',
-    // wrangler.json 位于 dist/server/，pages_build_output_dir 是相对于该文件的路径。
-    pages_build_output_dir: '..',
-    compatibility_date: '2026-10-12',
-    compatibility_flags: ['nodejs_compat'],
-  };
-
-  writeFileSync(serverWranglerPath, `${JSON.stringify(pagesConfig, null, 2)}\n`);
-  console.log('[cloudflare-pages] Rewrote dist/server/wrangler.json for Cloudflare Pages.');
-};
-
-patchServerWranglerConfig();
-
-writeFileSync(
-  pagesWorkerEntry,
-  [
-    `import worker from './server/entry.mjs';`,
-    ``,
-    `const keystaticEnvKeys = ${JSON.stringify(keystaticEnvKeys)};`,
-    `const requiredKeystaticEnvKeys = ${JSON.stringify(privateKeystaticEnvKeys)};`,
-    ``,
-    `const syncProcessEnv = (env) => {`,
-    `  globalThis.process ??= {};`,
-    `  globalThis.process.env ??= {};`,
-    ``,
-    `  for (const key of keystaticEnvKeys) {`,
-    `    if (typeof env?.[key] === 'string') {`,
-    `      globalThis.process.env[key] = env[key];`,
-    `    }`,
-    `  }`,
-    `};`,
-    ``,
-    `const warnMissingKeystaticEnv = () => {`,
-    `  const missing = requiredKeystaticEnvKeys.filter((key) => !globalThis.process?.env?.[key]);`,
-    `  if (missing.length > 0) {`,
-    `    console.warn(\`[cloudflare-pages] Missing Keystatic environment variables: \${missing.join(', ')}\`);`,
-    `  }`,
-    `};`,
-    ``,
-    `const parseRangeHeader = (rangeHeader, size) => {`,
-    `  const match = /^bytes=(\\d*)-(\\d*)$/.exec(rangeHeader || '');`,
-    `  if (!match || size <= 0) return null;`,
-    ``,
-    `  const startText = match[1];`,
-    `  const endText = match[2];`,
-    `  if (!startText && !endText) return null;`,
-    ``,
-    `  if (!startText) {`,
-    `    const suffixLength = Number.parseInt(endText, 10);`,
-    `    if (!Number.isFinite(suffixLength) || suffixLength <= 0) return null;`,
-    `    return {`,
-    `      start: Math.max(0, size - suffixLength),`,
-    `      end: size - 1,`,
-    `    };`,
-    `  }`,
-    ``,
-    `  const start = Number.parseInt(startText, 10);`,
-    `  const end = endText ? Number.parseInt(endText, 10) : size - 1;`,
-    `  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {`,
-    `    return null;`,
-    `  }`,
-    ``,
-    `  return {`,
-    `    start,`,
-    `    end: Math.min(end, size - 1),`,
-    `  };`,
-    `};`,
-    ``,
-    `const fetchMusicAsset = async (request, env) => {`,
-    `  // 优先透传 ASSETS 的原生 Range 支持；仅在 ASSETS 返回完整文件时手动切片。`,
-    `  const assetResponse = await env.ASSETS.fetch(request);`,
-    `  const isRangeRequest = request.headers.has('range');`,
-    `  const isRangeResponse =`,
-    `    assetResponse.status === 206 || assetResponse.headers.has('content-range');`,
-    ``,
-    `  if (!isRangeRequest || isRangeResponse || !assetResponse.ok) {`,
-    `    const headers = new Headers(assetResponse.headers);`,
-    `    headers.set('Accept-Ranges', 'bytes');`,
-    `    return new Response(request.method === 'HEAD' ? null : assetResponse.body, {`,
-    `      status: assetResponse.status,`,
-    `      statusText: assetResponse.statusText,`,
-    `      headers,`,
-    `    });`,
-    `  }`,
-    ``,
-    `  const bytes = await assetResponse.arrayBuffer();`,
-    `  const size = bytes.byteLength;`,
-    `  const headers = new Headers(assetResponse.headers);`,
-    `  headers.set('Accept-Ranges', 'bytes');`,
-    ``,
-    `  if (request.method === 'HEAD') {`,
-    `    headers.set('Content-Length', String(size));`,
-    `    return new Response(null, { status: assetResponse.status, headers });`,
-    `  }`,
-    ``,
-    `  const range = parseRangeHeader(request.headers.get('range'), size);`,
-    `  if (!range) {`,
-    `    headers.set('Content-Range', \`bytes */\${size}\`);`,
-    `    return new Response(null, { status: 416, headers });`,
-    `  }`,
-    ``,
-    `  const chunk = bytes.slice(range.start, range.end + 1);`,
-    `  headers.set('Content-Length', String(chunk.byteLength));`,
-    `  headers.set('Content-Range', \`bytes \${range.start}-\${range.end}/\${size}\`);`,
-    ``,
-    `  return new Response(chunk, {`,
-    `    status: 206,`,
-    `    headers,`,
-    `  });`,
-    `};`,
-    ``,
-    `export default {`,
-    `  async fetch(request, env, context) {`,
-    `    syncProcessEnv(env);`,
-    ``,
-    `    const url = new URL(request.url);`,
-    `    if (url.pathname.startsWith('/music/') && ['GET', 'HEAD'].includes(request.method)) {`,
-    `      return fetchMusicAsset(request, env);`,
-    `    }`,
-    ``,
-    `    if (url.pathname.startsWith('/keystatic') || url.pathname.startsWith('/api/keystatic')) {`,
-    `      warnMissingKeystaticEnv();`,
-    `    }`,
-    ``,
-    `    return worker.fetch(request, env, context);`,
-    `  },`,
-    `};`,
-    '',
-  ].join('\n')
-);
-
-writeFileSync(
-  assetsIgnorePath,
-  ['server/', 'client/', 'wrangler.json', '_worker.js', '.dev.vars', ''].join('\n')
-);
-
-writeFileSync(
-  routesPath,
-  `${JSON.stringify(
-    {
-      version: 1,
-      include: ['/music/*', '/keystatic/*', '/api/keystatic/*'],
-      exclude: [],
-    },
-    null,
-    2
-  )}\n`
-);
-
-console.log('[cloudflare-pages] Synced dist/client assets to dist root.');
-console.log('[cloudflare-pages] Generated Pages advanced mode worker entry.');
-console.log('[cloudflare-pages] Generated Pages function routes for all paths.');

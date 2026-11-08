@@ -10,6 +10,8 @@ const circumference = 2 * Math.PI * radius;
   type="button"
   class="fixed bottom-6 right-6 z-50 group transition-all duration-300 opacity-0 translate-y-4 pointer-events-none"
   aria-label="滚动到顶部"
+  tabindex="-1"
+  aria-hidden="true"
   style={`width: ${size}px; height: ${size}px`}
 >
   <svg class="absolute inset-0 -rotate-90" width={size} height={size} aria-hidden="true">
@@ -78,6 +80,9 @@ const circumference = 2 * Math.PI * radius;
 
     const updateState = () => {
       const isVisible = window.scrollY > 300;
+      button.tabIndex = isVisible ? 0 : -1;
+      button.setAttribute('aria-hidden', String(!isVisible));
+      if (!isVisible && document.activeElement === button) button.blur();
       button.classList.toggle('opacity-100', isVisible);
       button.classList.toggle('translate-y-0', isVisible);
       button.classList.toggle('opacity-0', !isVisible);
@@ -95,7 +100,9 @@ const circumference = 2 * Math.PI * radius;
     const scrollToTop = () => {
       window.scrollTo({
         top: 0,
-        behavior: 'smooth',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'instant'
+          : 'smooth',
       });
     };
 

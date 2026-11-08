@@ -19,7 +19,7 @@
 - **极速加载**: 基于 **Astro 7** 的静态生成 (SSG) 架构，默认移除未使用的 JavaScript，仅在需要交互的组件上使用 React Hydration (岛屿架构)。
 - **混合渲染 (Hybrid Rendering)**: 结合静态页面与按需服务器端渲染 (SSR) API，兼顾 SEO 与动态功能。
 - **现代化构建**: 利用 **Vite 8** + **esbuild 0.28** 进行极速构建，并使用 esbuild 压缩产物，最大化构建速度与缓存利用率。
-- **Core Web Vitals**: 在 Mobile/Web 端均能达到 Lighthouse 满分 💯 性能表现。
+- **性能验证**: 构建检查页面 HTML、首批 JavaScript、CSS 和音频预算；桌面/手机浏览器回归记录冷页面资源体积、LCP 和 CLS。指标随设备、网络和第三方服务变化，详见 [性能验证说明](docs/performance.md)。
 
 ### 🎨 UI 与交互 (UI & Interaction)
 
@@ -43,7 +43,7 @@
 - **数据导出**:
   - **单篇导出**: 支持将文章导出为 **Markdown** (保留 Frontmatter) 或 **HTML** (内联样式) 格式。
   - **批量导出**: 管理员后台提供全量文章数据导出功能。
-- **RSS 订阅**: 自动生成标准 RSS 2.0 Feed，通过 `rss.xml.js` 动态适配访问域名。
+- **RSS 订阅**: 构建时生成 RSS 2.0 Feed，文章链接统一指向主域名，使用 `dc:creator` 提供作者名称，并反映旧文章的最新更新时间。
 - **音乐播放器**: 悬浮在页面右下角的音乐播放器，支持顺序/单曲循环/随机播放、音量记忆、歌词显示与拖拽定位；音源通过 Keystatic 后台「音乐管理」维护。
 
 ### 📝 CMS 内容管理 (Content Management)
@@ -79,7 +79,7 @@
 | **Utility**  | [tailwind-merge](https://github.com/dcastil/tailwind-merge)     | v3.7.0   | Tailwind 类名冲突合并                 |
 | **Deploy**   | [Cloudflare Pages](https://pages.cloudflare.com/)               | -        | 全球边缘节点托管                      |
 
-版本以 `package-lock.json` 为准（更新于 2026-10-22）。`typescript-native` 是 `typescript@7.0.2` 的 npm 别名，`npm run typecheck:ts` 显式调用它检查 TypeScript / TSX。`typescript` 保留在 6.0.3，供 `astro check`、Astro 语言服务和 `typescript-eslint` 使用：这些工具依赖旧版 JavaScript 编译器 API，目前尚不支持 TypeScript 7。`npm run typecheck` 依次执行两种检查。
+版本以 `package-lock.json` 为准（更新于 2026-11-07）。`typescript-native` 是 `typescript@7.0.2` 的 npm 别名，`npm run typecheck:ts` 显式调用它检查 TypeScript / TSX。`typescript` 保留在 6.0.3，供 `astro check`、Astro 语言服务和 `typescript-eslint` 使用：这些工具依赖旧版 JavaScript 编译器 API，目前尚不支持 TypeScript 7。`npm run typecheck` 依次执行两种检查。
 
 Keystatic Core 固定为 0.6.9，以匹配 `patches/` 中的编辑器修复补丁。`npm ci` 通过 `scripts/apply-keystatic-patch.mjs` 自动应用补丁，并验证包版本与目标文件；重复执行会跳过已应用的补丁，源码不匹配时安装失败。维护补丁时直接更新该 `.patch` 文件。
 
@@ -154,32 +154,41 @@ Mermaid 12 要求 Safari 17.4+ 等支持 ES2024 的浏览器。前台和后台�
 
 ### 常用命令
 
-| 命令                            | 说明                                                            |
-| :------------------------------ | :-------------------------------------------------------------- |
-| `npm run dev`                   | 启动本地开发服务器 (`localhost:4321`)，**开启内容自动同步监控** |
-| `npm run build`                 | 执行生产构建，并运行 Pagefind 索引生成                          |
-| `npm run preview`               | 预览构建后的生产环境代码                                        |
-| `npm run astro`                 | 运行 Astro CLI 命令                                             |
-| `npm run sync-content`          | 手动强制执行全量内容同步                                        |
-| `npm run sync-content:check`    | 检查内容同步状态，不写入文件                                    |
-| `npm run clean-content`         | 清理未使用（无文章引用）的标签和分类定义                        |
-| `npm run clean-content:dry-run` | 预览将要清理的标签和分类，不执行删除                            |
-| `npm run check:mermaid`         | 检查 Mermaid 图表是否存在回归问题                               |
-| `npm run lint`                  | 运行 ESLint 代码检查                                            |
-| `npm run lint:fix`              | 运行 ESLint 并尝试自动修复问题                                  |
-| `npm run typecheck`             | 运行 Astro Check 与 TypeScript 类型检查                         |
-| `npm run typecheck:ts`          | 单独使用 TypeScript 7 原生编译器检查 TypeScript / TSX           |
-| `npm run format`                | 使用 Prettier 格式化代码                                        |
-| `npm run format:check`          | 检查代码格式是否符合 Prettier 规范                              |
-| `npm run check:all`             | 一键运行格式、类型、Lint、内容同步检查与清理预览                |
+| 命令                            | 说明                                                                   |
+| :------------------------------ | :--------------------------------------------------------------------- |
+| `npm run dev`                   | 启动本地开发服务器 (`localhost:4321`)，**开启内容自动同步监控**        |
+| `npm run build`                 | 按 `DEPLOY_TARGET` 构建，默认 Cloudflare；包含内容生成、搜索和预算检查 |
+| `npm run build:cloudflare`      | 显式生成 Cloudflare Pages 产物到 `dist`                                |
+| `npm run build:github`          | 显式生成 GitHub Pages 静态产物到 `dist`                                |
+| `npm run preview`               | 自动识别最后一次成功构建，使用对应的 Pages 或 Astro 预览               |
+| `npm run prepare-content`       | 生成分类/标签定义、专栏选择项及响应式头像                              |
+| `npm run generate:avatars`      | 根据 CMS 中的头像来源生成按内容去重的小图                              |
+| `npm run check:build-budgets`   | 检查构建产物的页面 HTML、首批 JS 和 CSS 预算                           |
+| `npm run test:browser`          | 对构建产物执行桌面/手机浏览器回归，输出性能附件                        |
+| `npm run astro`                 | 运行 Astro CLI 命令                                                    |
+| `npm run sync-content`          | 手动强制执行全量内容同步                                               |
+| `npm run sync-content:check`    | 检查内容同步状态，不写入文件                                           |
+| `npm run clean-content`         | 清理未使用（无文章引用）的标签和分类定义                               |
+| `npm run clean-content:dry-run` | 预览将要清理的标签和分类，不执行删除                                   |
+| `npm run check:mermaid`         | 检查 Mermaid 图表是否存在回归问题                                      |
+| `npm run lint`                  | 运行 ESLint 代码检查                                                   |
+| `npm run lint:fix`              | 运行 ESLint 并尝试自动修复问题                                         |
+| `npm run typecheck`             | 运行 Astro Check 与 TypeScript 类型检查                                |
+| `npm run typecheck:ts`          | 单独使用 TypeScript 7 原生编译器检查 TypeScript / TSX                  |
+| `npm run format`                | 使用 Prettier 格式化代码                                               |
+| `npm run format:check`          | 检查代码格式是否符合 Prettier 规范                                     |
+| `npm run check:all`             | 一键运行格式、类型、Lint、单测、资产及内容一致性检查                   |
+
+`DEPLOY_TARGET` 仅接受 `cloudflare` 或 `github`，不再通过 `GITHUB_ACTIONS` 推断目标。预览命令读取 `.astro/build-target.json`；可以运行 `node scripts/preview.mjs --host 127.0.0.1 --port 4325` 指定地址。首次执行浏览器回归前运行 `npx playwright install chromium`。
 
 ### 撰写文章流程
 
 1. **启动 CMS**: 运行 `npm run dev`，访问 `http://localhost:4321/keystatic`。
 2. **可视化编辑**: 在后台创建新文章，支持实时预览。
 3. **自动同步**:
-   - 当您在文章中输入全新的 **标签** 或 **分类** 并保存时，后台会自动为您创建对应的定义文件。
-   - 无需手动去“分类管理”或“标签管理”中再创建一遍。
+   - 本地保存文章后，开发监听会生成新标签/分类定义，并刷新专栏中的文章选择项。
+   - 线上 CMS 提交文章后，CI 会先执行 `prepare-content`，再检查和构建，因此新标签不会被提前的一致性检查阻断。
+   - 修改头像配置或本地源图后，小图和引用 manifest 也会自动更新。
 4. **提交代码**: 将生成的 `.mdx` 和自动生成的 `tags/*.json` 文件 commit。
 
 ### 🏷️ 标签与分类管理自动化 (Automation Practice)
@@ -271,6 +280,8 @@ Mermaid 12 要求 Safari 17.4+ 等支持 ES2024 的浏览器。前台和后台�
 
 在 Keystatic 后台「音乐管理」中上传 MP3 文件，保存后会写入 `src/content/music/library.json` 并同步存放到 `public/music/`。前台 [BaseLayout.astro](src/layouts/BaseLayout.astro) 检测到存在曲目时会自动渲染悬浮播放器。空曲目时播放器不会显示。
 
+单个 MP3 最大 25 MiB，上传与构建均执行检查。在同次编辑中移除音乐后，可以重新选择原文件恢复曲目。保存移除操作仍按 Keystatic 原有规则删除该曲目关联的资源。
+
 ---
 
 ## ☁️ 部署详解
@@ -286,7 +297,7 @@ Mermaid 12 要求 Safari 17.4+ 等支持 ES2024 的浏览器。前台和后台�
 2. 创建应用 -> **Connect to Git** -> 选择本仓库。
 3. **构建配置 (Build Settings)**:
    - **Framework Preset**: `Astro`
-   - **Build Command**: `npm run build`
+   - **Build Command**: `npm run build:cloudflare`
    - **Output Directory**: `dist`
 4. **环境变量 (Environment Variables)**:
    - 若需在生产环境启用 Keystatic 的 GitHub 模式，需在 Cloudflare Pages 配置：
@@ -300,9 +311,11 @@ Mermaid 12 要求 Safari 17.4+ 等支持 ES2024 的浏览器。前台和后台�
 ### GitHub Pages 部署步骤
 
 1. 仓库 **Settings -> Pages -> Source** 选择 **GitHub Actions**。
-2. 推送 `main` 分支后，`.github/workflows/deploy.yml` 会自动构建并部署。
+2. PR 和 `main` 推送都会验证 `github`、`cloudflare` 两种构建及桌面/手机浏览器流程。仅 `main` 的非 PR 运行在全部检查成功后部署 GitHub Pages。
 
-> 提示：双部署模式下，Cloudflare Pages 承担主站功能（含 Keystatic 后台），GitHub Pages 作为静态备用节点。Cloudflare 的构建与部署配置使用 `compatibility_date=2026-10-12`，与适配器本地模拟器支持的日期一致；GitHub Actions 使用 Checkout / Setup Node v7 和 Pages 上传 / 部署 v5。
+> 双部署模式下，Cloudflare Pages 承担主站功能（含 Keystatic 后台），GitHub Pages 作为静态备用节点。两站 canonical、RSS 链接和 sitemap 统一使用站点设置中的 primary 主域；仅包含一篇文章的标签页仍可访问，默认不进入搜索引擎索引。Cloudflare 兼容日期固定为 `2026-10-12`，保持部署行为稳定。
+
+Cloudflare 的适配器中间产物位于 `.astro/cloudflare-build`；`dist` 仅包含公开静态资源和 Pages 专用 `_worker.js/` 目录，服务器模块不会作为普通静态文件发布。独立 Pages 配置位于 `.astro/pages-wrangler.toml`，原始 Workers 配置保留在中间产物中。
 
 ### 常见问题
 

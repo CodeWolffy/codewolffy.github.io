@@ -162,7 +162,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
 </div>
 
 <!-- 全屏模态框 -->
-<div class="mermaid-modal" data-modal-for={id}>
+<dialog class="mermaid-modal" data-modal-for={id} aria-label="图表全屏查看">
   <div class="mermaid-modal-content">
     <div class="mermaid-modal-toolbar">
       <button class="mermaid-btn" data-action="modal-zoom-out" title="缩小">
@@ -240,38 +240,38 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
       <div class="mermaid-modal-chart" data-zoom="1"></div>
     </div>
   </div>
-</div>
+</dialog>
 
 <script>
-  let isInitializing = false;
+  import { createMermaidRenderer } from './mermaid-renderer';
+  import { createMermaidDialog } from './mermaid-dialog';
+
   let mermaidPromise: Promise<(typeof import('mermaid'))['default']> | null = null;
-  let mermaidEscapeHandlerInstalled = false;
   let mermaidVisibilityObserver: IntersectionObserver | null = null;
+  const dialogs = new Set<ReturnType<typeof createMermaidDialog>>();
 
   const loadMermaid = () => {
-    mermaidPromise ??= import('mermaid').then((module) => module.default);
+    mermaidPromise ??= import('mermaid')
+      .then((module) => module.default)
+      .catch((error) => {
+        mermaidPromise = null;
+        throw error;
+      });
     return mermaidPromise;
   };
 
-  const initMermaid = async () => {
-    if (isInitializing) return;
-    isInitializing = true;
-    mermaidVisibilityObserver?.disconnect();
-    mermaidVisibilityObserver = null;
-
-    try {
-      // 字体和图表都接近可见后才加载 Mermaid，避免抢占首屏网络与主线程。
-      await document.fonts.ready;
-      const mermaid = await loadMermaid();
-      const isDark = document.documentElement.classList.contains('dark');
-
+  const renderer = createMermaidRenderer({
+    document,
+    loadMermaid,
+    configure: (mermaid, theme) => {
       mermaid.initialize({
         startOnLoad: false,
         // Mermaid 12 默认使用 ELK 和 neo；保留现有文章的布局与外观。
         layout: 'dagre',
         look: 'classic',
-        theme: isDark ? 'dark' : 'default',
+        theme: theme === 'dark' ? 'dark' : 'default',
         securityLevel: 'strict',
+        suppressErrorRendering: true,
         htmlLabels: false,
         fontFamily:
           'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
@@ -291,24 +291,28 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
           nodeSpacing: 30,
         },
       });
+    },
+    normalizeChart: (chart) => normalizeErDiagram(chart),
+    onRendered: (element, svg, chart) => {
+      applyDefaultSvgSize(element, svg, chart.trimStart().toLowerCase().startsWith('erdiagram'));
+    },
+    onError: (error) => console.error('Mermaid rendering error:', error),
+  });
 
-      // 渲染所有图表
-      const elements = document.querySelectorAll('.mermaid:not([data-processed])');
-      for (const element of elements) {
-        await renderMermaid(element);
-      }
-
-      initToolbar();
-      initDraggable();
-    } finally {
-      isInitializing = false;
-    }
+  const initMermaid = () => {
+    mermaidVisibilityObserver?.disconnect();
+    mermaidVisibilityObserver = null;
+    void renderer.request();
   };
 
   const scheduleMermaidInit = () => {
-    const elements = Array.from(
-      document.querySelectorAll('.mermaid:not([data-processed])')
-    ) as HTMLElement[];
+    // Source view and fullscreen controls also work while the renderer is loading.
+    initToolbar();
+    initDraggable();
+    const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('.mermaid')).filter(
+      (element) => !element.dataset.processed || element.dataset.renderTheme !== theme
+    );
     if (elements.length === 0) return;
 
     if (!('IntersectionObserver' in window)) {
@@ -465,33 +469,6 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
     svgElement.style.maxWidth = 'none';
   };
 
-  // 渲染单个 mermaid 图表
-  const renderMermaid = async (element: Element) => {
-    if (element.getAttribute('data-processed')) return;
-
-    try {
-      const chartData = element.getAttribute('data-chart') || '';
-      if (!chartData.trim()) return;
-
-      const elemId = element.id || `mermaid-${Math.random().toString(36).substring(2, 9)}`;
-      const mermaid = await loadMermaid();
-      const renderChartData = normalizeErDiagram(chartData);
-      const { svg } = await mermaid.render(elemId + '-svg', renderChartData);
-      element.innerHTML = svg;
-      element.setAttribute('data-processed', 'true');
-
-      const svgElement = element.querySelector('svg');
-      if (svgElement) {
-        const isErDiagram = renderChartData.trim().toLowerCase().startsWith('erdiagram');
-        applyDefaultSvgSize(element, svgElement, isErDiagram);
-      }
-    } catch (error) {
-      console.error('Mermaid rendering error:', error);
-      element.innerHTML = `<div class="mermaid-error">渲染失败: ${error instanceof Error ? error.message : '未知错误'}</div>`;
-      element.setAttribute('data-processed', 'true');
-    }
-  };
-
   // 拖动功能
   const initDraggable = () => {
     document.querySelectorAll('[data-draggable]:not([data-drag-init])').forEach((container) => {
@@ -553,9 +530,13 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         const content = container.querySelector('.mermaid-content') as HTMLElement;
         const mermaidEl = container.querySelector('.mermaid');
 
-        const modal = document.querySelector(`.mermaid-modal[data-modal-for="${mermaidId}"]`);
+        const modal = document.querySelector<HTMLDialogElement>(
+          `.mermaid-modal[data-modal-for="${mermaidId}"]`
+        );
         const modalChart = modal?.querySelector('.mermaid-modal-chart') as HTMLElement;
         const zoomLabel = modal?.querySelector('[data-zoom-label]');
+        const dialog = modal ? createMermaidDialog(modal) : null;
+        if (dialog) dialogs.add(dialog);
 
         let zoom = 1;
         let modalZoom = 1;
@@ -610,21 +591,20 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
         };
 
         // 全屏
-        const openFullscreen = () => {
-          if (modal && mermaidEl && modalChart) {
+        const openFullscreen = (opener: HTMLElement) => {
+          if (dialog && mermaidEl && modalChart) {
             modalChart.innerHTML = mermaidEl.innerHTML;
+            if (!modalChart.firstElementChild) {
+              const source = document.createElement('pre');
+              source.textContent = mermaidEl.getAttribute('data-chart') || '';
+              modalChart.appendChild(source);
+            }
             modalZoom = 1;
             updateZoom(modalChart, 1);
             if (zoomLabel) zoomLabel.textContent = '100%';
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+            dialog.open(opener);
             initDraggable();
           }
-        };
-
-        const closeFullscreen = () => {
-          modal?.classList.remove('active');
-          document.body.style.overflow = '';
         };
 
         // 绑定按钮事件
@@ -642,7 +622,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
                 updateZoom(content, zoom);
                 break;
               case 'fullscreen':
-                openFullscreen();
+                openFullscreen(btn as HTMLElement);
                 break;
               case 'show-code':
                 showCode();
@@ -686,24 +666,12 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
                 if (zoomLabel) zoomLabel.textContent = '100%';
                 break;
               case 'close-modal':
-                closeFullscreen();
+                dialog?.close();
                 break;
             }
           });
         });
       });
-
-    // ESC 关闭模态框
-    if (mermaidEscapeHandlerInstalled) return;
-    mermaidEscapeHandlerInstalled = true;
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        document.querySelectorAll('.mermaid-modal.active').forEach((modal) => {
-          modal.classList.remove('active');
-          document.body.style.overflow = '';
-        });
-      }
-    });
   };
 
   // 显示提示
@@ -732,15 +700,24 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
   document.addEventListener('astro:page-load', scheduleMermaidInit);
 
   let themeTimeout: ReturnType<typeof setTimeout> | null = null;
+  let lastTheme = document.documentElement.classList.contains('dark');
+  document.addEventListener('astro:before-swap', () => {
+    renderer.invalidate();
+    mermaidVisibilityObserver?.disconnect();
+    mermaidVisibilityObserver = null;
+    if (themeTimeout) clearTimeout(themeTimeout);
+    dialogs.forEach((dialog) => dialog.dispose());
+    dialogs.clear();
+  });
   const observer = new MutationObserver((mutations) => {
-    if (mutations.some((m) => m.attributeName === 'class')) {
+    const theme = document.documentElement.classList.contains('dark');
+    if (theme !== lastTheme && mutations.some((m) => m.attributeName === 'class')) {
+      lastTheme = theme;
+      renderer.invalidate();
       if (themeTimeout) clearTimeout(themeTimeout);
       themeTimeout = setTimeout(() => {
         const hadRenderedChart = document.querySelector('.mermaid[data-processed]') !== null;
-        document.querySelectorAll('.mermaid[data-processed]').forEach((el) => {
-          el.removeAttribute('data-processed');
-          el.innerHTML = '';
-        });
+        // Keep the last usable SVG visible until its replacement is ready.
         if (hadRenderedChart) {
           initMermaid();
         } else {
@@ -1028,12 +1005,23 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
     display: none;
     position: fixed;
     inset: 0;
-    z-index: 9999;
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--foreground);
+  }
+
+  .mermaid-modal::backdrop {
     background: rgba(0, 0, 0, 0.9);
     backdrop-filter: blur(4px);
   }
 
-  .mermaid-modal.active {
+  .mermaid-modal[open] {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1042,7 +1030,7 @@ const decodedChart = decodeHtmlEntities(mermaidCode);
   .mermaid-modal-content {
     position: relative;
     width: 95vw;
-    height: 95vh;
+    height: 95dvh;
     background: #fff;
     border-radius: 0.75rem;
     overflow: hidden;

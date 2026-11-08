@@ -7,6 +7,7 @@ import { Comments } from '@/components/blog/Comments';
 import { getEntry, render } from 'astro:content';
 import { getIconComponent } from '@/lib/icons';
 import { getSiteSettings } from '@/utils/site-settings';
+import ResponsiveAvatar from '@/components/ui/ResponsiveAvatar.astro';
 
 const aboutPage = await getEntry('pages', 'about');
 if (!aboutPage) {
@@ -31,9 +32,12 @@ const settings = await getSiteSettings();
           <div class="absolute -inset-1 rounded-full bg-primary/30 blur-sm"></div>
           <div class="relative h-56 w-56 lg:h-64 lg:w-64 rounded-full bg-card border-4 border-background flex items-center justify-center text-6xl shadow-xl overflow-hidden">
             {aboutPage.data.avatar ? (
-              <img
+              <ResponsiveAvatar
                 src={aboutPage.data.avatar}
                 alt={aboutPage.data.title}
+                sizes="(min-width: 1024px) 256px, 224px"
+                width={256}
+                height={256}
                 class="w-full h-full object-cover"
               />
             ) : (

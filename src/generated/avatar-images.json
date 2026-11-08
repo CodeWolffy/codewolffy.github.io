@@ -1,0 +1,212 @@
+{
+  "/images/friends/codewolffycf/avatar.jpg": {
+    "width": 4096,
+    "height": 4096,
+    "avif": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.avif",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.avif",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.avif",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.avif",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.avif",
+        "width": 512
+      }
+    ],
+    "webp": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.webp",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.webp",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.webp",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.webp",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.webp",
+        "width": 512
+      }
+    ],
+    "jpeg": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.jpg",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.jpg",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.jpg",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.jpg",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.jpg",
+        "width": 512
+      }
+    ]
+  },
+  "/images/friends/codewolffygithub/avatar.jpg": {
+    "width": 4096,
+    "height": 4096,
+    "avif": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.avif",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.avif",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.avif",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.avif",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.avif",
+        "width": 512
+      }
+    ],
+    "webp": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.webp",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.webp",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.webp",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.webp",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.webp",
+        "width": 512
+      }
+    ],
+    "jpeg": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.jpg",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.jpg",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.jpg",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.jpg",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.jpg",
+        "width": 512
+      }
+    ]
+  },
+  "/images/pages/avatar.jpg": {
+    "width": 4096,
+    "height": 4096,
+    "avif": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.avif",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.avif",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.avif",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.avif",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.avif",
+        "width": 512
+      }
+    ],
+    "webp": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.webp",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.webp",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.webp",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.webp",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.webp",
+        "width": 512
+      }
+    ],
+    "jpeg": [
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-48.jpg",
+        "width": 48
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-96.jpg",
+        "width": 96
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-192.jpg",
+        "width": 192
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-256.jpg",
+        "width": 256
+      },
+      {
+        "src": "/images/generated/avatars/a52d445b49e5ea8a-512.jpg",
+        "width": 512
+      }
+    ]
+  }
+}

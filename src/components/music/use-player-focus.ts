@@ -126,8 +126,13 @@ export function usePlayerFocus({
     const restorePage = isModal ? isolatePage(panel) : () => {};
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!active || event.isComposing) return;
+      if (!active || event.defaultPrevented || event.isComposing || panel.closest('[inert]'))
+        return;
+      const activeModal = document.querySelector('dialog[open], [aria-modal="true"]');
+      if (activeModal && !panel.contains(activeModal)) return;
       if (event.key === 'Escape') {
+        // A desktop player can stay open while keyboard search owns the focus.
+        if (!isModal && !panel.contains(document.activeElement)) return;
         event.preventDefault();
         event.stopPropagation();
         closePlayer();

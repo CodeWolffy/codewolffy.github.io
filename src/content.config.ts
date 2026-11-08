@@ -1,6 +1,7 @@
 import { defineCollection } from 'astro/content/config';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import { hasValidContentDates } from './utils/seo';
 
 const contentLoader = (collection: string) =>
   glob({
@@ -49,17 +50,22 @@ const series = defineCollection({
 
 const blog = defineCollection({
   loader: contentLoader('blog'),
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    pubDate: z.coerce.date(),
-    updatedDate: z.coerce.date().optional(),
-    heroImage: z.string().optional(),
-    coverImage: z.string().optional(),
-    category: z.string().optional(),
-    tags: z.array(z.string()).default([]),
-    draft: z.boolean().default(false),
-  }),
+  schema: z
+    .object({
+      title: z.string(),
+      description: z.string(),
+      pubDate: z.coerce.date(),
+      updatedDate: z.coerce.date().optional(),
+      heroImage: z.string().optional(),
+      coverImage: z.string().optional(),
+      category: z.string().optional(),
+      tags: z.array(z.string()).default([]),
+      draft: z.boolean().default(false),
+    })
+    .refine(hasValidContentDates, {
+      message: '更新时间不能早于发布日期',
+      path: ['updatedDate'],
+    }),
 });
 
 const pages = defineCollection({

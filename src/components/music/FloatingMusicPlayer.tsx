@@ -365,7 +365,12 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
 
   useEffect(() => {
     if (isPlaylistOpen) {
-      activeTrackItemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      activeTrackItemRef.current?.scrollIntoView({
+        block: 'nearest',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'instant'
+          : 'smooth',
+      });
     }
   }, [isPlaylistOpen, currentIndex]);
 

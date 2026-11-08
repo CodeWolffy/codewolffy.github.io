@@ -10,6 +10,7 @@ import {
 import { Search as SearchIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lockPageScroll } from '@/lib/scroll-lock';
+import { containOverlayFocus } from '@/components/ui/overlay-focus';
 
 declare global {
   interface Window {
@@ -134,6 +135,14 @@ function getShortcutLabel() {
 
 const subscribeShortcut = () => () => {};
 const getServerShortcutLabel = () => 'Ctrl K';
+const SEARCH_MODAL_QUERY = '(max-width: 767px)';
+const subscribeSearchModal = (callback: () => void) => {
+  const media = window.matchMedia(SEARCH_MODAL_QUERY);
+  media.addEventListener('change', callback);
+  return () => media.removeEventListener('change', callback);
+};
+const getSearchModalSnapshot = () => window.matchMedia(SEARCH_MODAL_QUERY).matches;
+const getServerSearchModalSnapshot = () => false;
 
 interface SearchProps {
   isExpanded: boolean;
@@ -146,6 +155,11 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
     'idle'
   );
   const [retryCount, setRetryCount] = useState(0);
+  const isModal = useSyncExternalStore(
+    subscribeSearchModal,
+    getSearchModalSnapshot,
+    getServerSearchModalSnapshot
+  );
   const shortcutLabel = useSyncExternalStore(
     subscribeShortcut,
     getShortcutLabel,
@@ -177,6 +191,9 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing) return;
+      const activeModal = document.querySelector('dialog[open], [aria-modal="true"]');
+      if (activeModal && !searchContainerRef.current?.contains(activeModal)) return;
       if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         onExpandedChange(true);
@@ -209,6 +226,11 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
       document.removeEventListener('astro:before-swap', cancelFocus);
     };
   }, [isExpanded]);
+
+  useEffect(() => {
+    if (!isExpanded || !isModal || !searchContainerRef.current) return;
+    return containOverlayFocus(searchContainerRef.current, inputRef.current);
+  }, [isExpanded, isModal]);
 
   // Complete scroll locking (desktop + mobile) to prevent background page scroll
   useEffect(() => {
@@ -568,6 +590,7 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
       {/* Mobile Backdrop */}
       {isExpanded && (
         <div
+          data-overlay-backdrop="true"
           className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-sm md:hidden touch-none select-none"
           onClick={() => closeSearch(false)}
           onTouchMove={(e) => e.preventDefault()}
@@ -577,6 +600,9 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
 
       <div
         ref={searchContainerRef}
+        role={isExpanded ? 'dialog' : undefined}
+        aria-modal={isExpanded && isModal ? true : undefined}
+        aria-label={isExpanded ? '搜索文章' : undefined}
         className={cn(
           'relative flex max-w-full justify-end transition-[width] duration-200 ease-out',
           isExpanded
@@ -599,12 +625,9 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
               <input
                 ref={inputRef}
                 type="search"
-                role="combobox"
                 placeholder="搜索文章..."
                 aria-label="搜索文章"
-                aria-expanded="true"
                 aria-controls="pagefind-results-panel"
-                aria-autocomplete="list"
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck="false"
@@ -662,8 +685,7 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
               'fixed left-2 right-2 top-12 z-[60] mt-1 rounded-xl border border-border bg-background shadow-xl overflow-hidden overscroll-contain md:absolute md:top-full md:left-0 md:right-0 md:mt-2 md:rounded-lg md:shadow-lg',
               hasSearchQuery && 'min-h-[12rem]'
             )}
-            role="dialog"
-            aria-modal="false"
+            role="region"
             aria-label="搜索结果"
             id="pagefind-results-panel"
           >

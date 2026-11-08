@@ -14,6 +14,8 @@ export default [
       'public/**',
       '.wrangler/**',
       '.claude/**',
+      'playwright-report/**',
+      'test-results/**',
     ],
   },
   js.configs.recommended,

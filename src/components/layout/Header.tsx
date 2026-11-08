@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Search } from '@/components/blog/Search';
 import { lockPageScroll } from '@/lib/scroll-lock';
+import { containOverlayFocus } from '@/components/ui/overlay-focus';
 
 const getNavIcon = (href: string) => {
   const cleanHref = href.replace(/\/$/, '') || '/';
@@ -99,6 +100,13 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
     };
 
     const firstLink = mobileNavRef.current?.querySelector<HTMLAnchorElement>('a');
+    const releaseFocus = mobileNavRef.current
+      ? containOverlayFocus(
+          mobileNavRef.current,
+          firstLink ?? null,
+          menuButtonRef.current ? [menuButtonRef.current] : []
+        )
+      : () => {};
     const focusFrame = requestAnimationFrame(() => firstLink?.focus({ preventScroll: true }));
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -116,6 +124,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
 
     const release = () => {
       releaseScroll();
+      releaseFocus();
       cancelAnimationFrame(focusFrame);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('keydown', handleKeyDown);
@@ -257,6 +266,7 @@ export function Header({ name, navigation, githubUrl }: HeaderProps) {
         <>
           {/* Backdrop */}
           <div
+            data-overlay-backdrop="true"
             className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] touch-none lg:hidden animate-in fade-in-0 duration-200"
             onClick={() => setActivePanel(null)}
             aria-hidden="true"

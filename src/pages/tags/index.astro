@@ -18,7 +18,10 @@ const tagMap = createTaxonomyNameMap(allTags);
 const sortedTags = countPostTags(allPosts, tagMap);
 ---
 
-<BaseLayout title={`${tagsUi.title} | ${settings.name}`} description="浏览博客的所有标签">
+<BaseLayout
+  title={`${tagsUi.title} | ${settings.name}`}
+  description={`浏览 ${allPosts.length} 篇技术文章中的 ${sortedTags.length} 个标签，按语言、框架、数据库与工程实践关键词查找相关内容。`}
+>
   <section class="container mx-auto pt-0 pb-8">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
       <div class="lg:col-span-12 space-y-4">
@@ -54,7 +57,7 @@ const sortedTags = countPostTags(allPosts, tagMap);
                   <a
                     href={getTagPath(tag.id)}
                     class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden px-5 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-slide-up"
-                    style={`animation-delay: ${index * 30}ms;`}
+                    style={`animation-delay: ${Math.min(index, 5) * 30}ms;`}
                   >
                     <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <span

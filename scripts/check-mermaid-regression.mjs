@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import mermaid from 'mermaid';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const mermaidComponentPath = resolve(rootDir, 'src/components/mdx/Mermaid.astro');
 const component = readFileSync(mermaidComponentPath, 'utf-8');
+const renderer = readFileSync(resolve(rootDir, 'src/components/mdx/mermaid-renderer.ts'), 'utf-8');
 
 const assertions = [
   {
@@ -13,7 +15,12 @@ const assertions = [
   },
   {
     name: 'Mermaid 必须等待字体加载后再渲染，降低宽度计算漂移',
-    pattern: /await\s+document\.fonts\.ready/,
+    pattern: /await\s+doc\.fonts\.ready/,
+    source: renderer,
+  },
+  {
+    name: '全屏必须使用原生模态对话框，提供键盘焦点隔离',
+    pattern: /<dialog\s+class="mermaid-modal"[\s\S]*?aria-label=/,
   },
   {
     name: 'E-R 图必须关闭 useMaxWidth，避免被容器强行压缩',
@@ -45,7 +52,7 @@ const assertions = [
   },
 ];
 
-const failures = assertions.filter(({ pattern }) => !pattern.test(component));
+const failures = assertions.filter(({ pattern, source = component }) => !pattern.test(source));
 
 if (failures.length > 0) {
   console.error('Mermaid 回归检查失败：');
@@ -55,22 +62,47 @@ if (failures.length > 0) {
 
 const fixtures = [
   {
-    name: 'flowchart-default-size',
-    source: `flowchart TD\n  A[开始] --> B{判断}\n  B -->|是| C[结束]`,
+    name: 'flowchart-branch',
+    // Node has no browser DOM for Mermaid's HTML-label sanitizer. Exercise the
+    // actual grammar here; browser smoke tests cover labels, layout and rendering.
+    source: `flowchart TD\n  start --> decision\n  decision --> success\n  decision --> failure`,
+    diagramType: 'flowchart-v2',
   },
   {
     name: 'er-long-comment-wrap',
     source: `erDiagram\n  USER {\n    string id "用户唯一标识，字段说明较长时应当自动换行"\n  }`,
+    diagramType: 'er',
+  },
+  {
+    name: 'sequence-message',
+    source: `sequenceDiagram\n  Alice->>Bob: Hello\n  Bob-->>Alice: Accepted`,
+    diagramType: 'sequence',
   },
 ];
 
-fixtures.forEach(({ name, source }) => {
-  if (!source.trim()) {
-    console.error(`Mermaid 回归样例为空：${name}`);
+mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+for (const { name, source, diagramType } of fixtures) {
+  try {
+    const result = await mermaid.parse(source);
+    if (!result || result.diagramType !== diagramType) {
+      throw new Error(`预期 ${diagramType}，实际 ${result && result.diagramType}`);
+    }
+  } catch (error) {
+    console.error(`Mermaid 回归样例解析失败：${name}`, error);
     process.exit(1);
   }
-});
+}
+
+// Ensure this check is capable of rejecting invalid grammar rather than only
+// detecting a diagram keyword or accepting nonempty fixture strings.
+try {
+  await mermaid.parse('flowchart TD\n  A -->');
+  console.error('Mermaid 解析器未拒绝非法流程图样例');
+  process.exit(1);
+} catch {
+  // Expected parser rejection.
+}
 
 console.log(
-  `Mermaid 回归检查通过：${assertions.length} 条结构约束，${fixtures.length} 个最小样例。`
+  `Mermaid 回归检查通过：${assertions.length} 条结构约束，${fixtures.length} 个样例已真实解析，非法语法已拒绝。`
 );

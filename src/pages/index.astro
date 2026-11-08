@@ -10,6 +10,7 @@ import Sidebar from '@/components/Sidebar.astro';
 import { getCollection } from 'astro:content';
 import { getReadingTimeMinutes } from '@/utils/reading-time';
 import { getSiteSettings } from '@/utils/site-settings';
+import { serializeJsonLd } from '@/utils/seo';
 import {
   countPostCategories,
   countPostTags,
@@ -54,7 +55,7 @@ const topCategories = sortedCategories.slice(0, 4);
 const topTags = sortedTags.slice(0, 8);
 
 // 首页结构化数据：WebSite + 站内搜索（SearchAction 指向 /?q=，由 Search 组件接管）
-const siteUrl = (Astro.site ?? new URL(settings.urls.primary)).href.replace(/\/$/, '');
+const siteUrl = new URL(settings.urls.primary).href.replace(/\/$/, '');
 const externalSocials = settings.socials
   .map((s) => s.href)
   .filter((href) => /^https?:\/\//.test(href));
@@ -83,7 +84,7 @@ const websiteJsonLd = {
 ---
 
 <BaseLayout title={settings.name}>
-  <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteJsonLd)} />
+  <script is:inline type="application/ld+json" set:html={serializeJsonLd(websiteJsonLd)} />
   <!-- Hero Section -->
 
   <!-- Main Content Grid -->

@@ -17,6 +17,13 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+.env.*.local
+.env.local
+.dev.vars*
+
+# browser verification artifacts
+playwright-report/
+test-results/
 
 # macOS-specific files
 .DS_Store

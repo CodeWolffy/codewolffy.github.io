@@ -1,13 +1,12 @@
 import { existsSync } from 'fs';
 import { resolve } from 'path';
-import { execSync } from 'child_process';
+import { packageBinary, runNode } from './lib/commands.mjs';
 
 const distDir = resolve(process.cwd(), 'dist');
 const clientDir = resolve(distDir, 'client');
 
-// Cloudflare adapter outputs static assets to dist/client;
-// static-only builds (GitHub Pages) keep assets directly in dist.
+// Both packaged targets use dist; also accept a raw adapter output for manual diagnostics.
 const siteDir = existsSync(clientDir) ? clientDir : distDir;
 
 console.log(`[pagefind] Indexing ${siteDir}`);
-execSync(`npx pagefind --site "${siteDir}"`, { stdio: 'inherit' });
+runNode([packageBinary('pagefind'), '--site', siteDir]);
