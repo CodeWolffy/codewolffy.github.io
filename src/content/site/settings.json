@@ -78,7 +78,8 @@
       "badge": "✨ 探索 · 记录 · 分享",
       "taglineFallback": "面向异常编程",
       "subtitleFallback": "不是在修 Bug，就是在创造新特性的路上。这里记录踩坑、翻车与避坑日常。",
-      "readButton": "开始阅读",
+      "focusLine": "聚焦 Java · JVM · Spring · 数据库与分布式系统实战",
+      "readButton": "系统专栏",
       "archivesButton": "归档列表",
       "latestTitle": "最新文章",
       "viewAllText": "查看全部"

@@ -12,6 +12,8 @@ import {
 } from 'react';
 import {
   ChevronDown,
+  Eye,
+  EyeOff,
   Menu,
   Pause,
   Play,
@@ -50,8 +52,10 @@ import {
   isSameAnchor,
   persistPlaybackState,
   persistPlayerAnchor,
+  persistQuietMode,
   readStoredPlaybackState,
   readStoredPlayerAnchor,
+  readStoredQuietMode,
   readStoredVolume,
   resetPlayerDragStyle,
   restorePlaybackState,
@@ -119,6 +123,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const [isVolumeOpen, setIsVolumeOpen] = useState(false);
+  const [isQuietMode, setIsQuietMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerAnchor, setPlayerAnchor] = useState<PlayerTransitionAnchor | null>(null);
   const isMobile = useSyncExternalStore(
@@ -179,6 +184,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
     setPlayMode(restored.playMode);
     setVolume(readStoredVolume());
     setPlayerAnchor(readStoredPlayerAnchor());
+    setIsQuietMode(readStoredQuietMode());
     setIsRestored(true);
   }, [isRestored, tracks]);
 
@@ -355,6 +361,13 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
   }, [isMobile, isCollapsed, playerAnchor]);
 
   const closePlayer = useCallback(() => setCollapsedWithAnchor(true), [setCollapsedWithAnchor]);
+  const toggleQuietMode = useCallback(() => {
+    setIsQuietMode((prev) => {
+      const next = !prev;
+      persistQuietMode(next);
+      return next;
+    });
+  }, []);
   usePlayerFocus({
     isOpen: !isCollapsed,
     isModal: isMobile,
@@ -901,7 +914,13 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
               onClick={handleCapsuleClick}
               aria-haspopup="dialog"
               aria-expanded={false}
-              className="group flex max-w-[15rem] touch-none items-center p-1.5 sm:px-2.5 sm:py-2 sm:gap-2 rounded-full border border-border/70 bg-card/95 text-left shadow-lg shadow-black/10 backdrop-blur transition-[border-color,box-shadow,background-color,color] duration-300 hover:border-primary/30 hover:shadow-xl active:cursor-grabbing dark:bg-card/90"
+              className={cn(
+                'group flex touch-none items-center rounded-full border border-border/70 bg-card/95 text-left shadow-lg shadow-black/10 backdrop-blur transition-[border-color,box-shadow,background-color,color,opacity] duration-300 hover:border-primary/30 hover:shadow-xl hover:opacity-100 active:cursor-grabbing dark:bg-card/90',
+                isPlaying && !isQuietMode
+                  ? 'max-w-[15rem] p-1.5 sm:px-2.5 sm:py-2 sm:gap-2'
+                  : 'p-1 opacity-75',
+                isQuietMode && 'opacity-45'
+              )}
               aria-label="展开音乐播放器"
               title={
                 isPlaying
@@ -920,12 +939,14 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                   <span className="absolute inset-0 rounded-full ring-2 ring-primary/30" />
                 )}
               </div>
-              <div className="hidden min-w-0 sm:block">
-                <div className="truncate text-sm font-medium leading-tight text-foreground">
-                  {displayTitle}
+              {isPlaying && !isQuietMode && (
+                <div className="hidden min-w-0 sm:block">
+                  <div className="truncate text-sm font-medium leading-tight text-foreground">
+                    {displayTitle}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">{displayArtist}</div>
                 </div>
-                <div className="truncate text-xs text-muted-foreground">{displayArtist}</div>
-              </div>
+              )}
             </button>
           ) : (
             <section
@@ -964,6 +985,25 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                       </p>
                     </div>
                     <div className="relative flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        data-player-interactive="true"
+                        onClick={toggleQuietMode}
+                        className={cn(
+                          'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 touch-manipulation',
+                          isQuietMode && 'bg-accent text-foreground'
+                        )}
+                        aria-label={isQuietMode ? '退出极简角标模式' : '启用极简角标模式'}
+                        aria-pressed={isQuietMode}
+                        title={
+                          isQuietMode
+                            ? '已启用极简角标：收起后仅留半透明小图标'
+                            : '极简角标：收起后仅保留小图标不展歌名'
+                        }
+                      >
+                        {isQuietMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+
                       <button
                         ref={volumeBtnRef}
                         type="button"

@@ -4,6 +4,7 @@ import test from 'node:test';
 import { getFallbackMetadata } from '../src/lib/mp3-metadata';
 import {
   MUSIC_PLAYBACK_STATE_STORAGE_KEY,
+  MUSIC_QUIET_MODE_STORAGE_KEY,
   clampPlayerAnchor,
   clearPlayerAnchorStyle,
   getActiveLyricIndex,
@@ -11,7 +12,9 @@ import {
   getPlaybackTime,
   isPointerInsidePlayer,
   persistPlaybackState,
+  persistQuietMode,
   readStoredPlaybackState,
+  readStoredQuietMode,
   restorePlaybackState,
 } from '../src/components/music/player-utils';
 
@@ -326,5 +329,33 @@ test('isPointerInsidePlayer correctly identifies player interactions and protect
     delete (globalThis as any).Element;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (globalThis as any).HTMLElement;
+  }
+});
+
+test('readStoredQuietMode and persistQuietMode persist and clear quiet mode preference', () => {
+  const store: Record<string, string> = {};
+  const mockLocalStorage = {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, val: string) => {
+      store[key] = val;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).window = { localStorage: mockLocalStorage };
+  try {
+    assert.equal(readStoredQuietMode(), false);
+    persistQuietMode(true);
+    assert.equal(store[MUSIC_QUIET_MODE_STORAGE_KEY], '1');
+    assert.equal(readStoredQuietMode(), true);
+    persistQuietMode(false);
+    assert.equal(store[MUSIC_QUIET_MODE_STORAGE_KEY], undefined);
+    assert.equal(readStoredQuietMode(), false);
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).window;
   }
 });

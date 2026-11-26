@@ -37,6 +37,7 @@ export const PLAYER_DRAG_THRESHOLD = 6;
 export const MUSIC_VOLUME_STORAGE_KEY = 'blog-music-volume';
 export const PLAYER_ANCHOR_STORAGE_KEY = 'blog-music-anchor';
 export const MUSIC_PLAYBACK_STATE_STORAGE_KEY = 'blog-music-playback-state';
+export const MUSIC_QUIET_MODE_STORAGE_KEY = 'blog-music-quiet-mode';
 export const DEFAULT_VOLUME = 0.8;
 export const VOLUME_PERSIST_DEBOUNCE_MS = 200;
 export const PLAYBACK_STATE_PERSIST_INTERVAL_MS = 1000;
@@ -59,6 +60,28 @@ export const getPlayerViewportSize = () => {
     width: root?.clientWidth || window.innerWidth,
     height: root?.clientHeight || window.innerHeight,
   };
+};
+
+export const readStoredQuietMode = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(MUSIC_QUIET_MODE_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+export const persistQuietMode = (quiet: boolean) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (quiet) {
+      window.localStorage.setItem(MUSIC_QUIET_MODE_STORAGE_KEY, '1');
+    } else {
+      window.localStorage.removeItem(MUSIC_QUIET_MODE_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
 };
 
 export const readStoredVolume = () => {

@@ -1,10 +1,13 @@
 ---
 import { ClientRouter } from 'astro:transitions'; // Using ClientRouter for ViewTransitions in modern Astro
+import { getCollection } from 'astro:content';
 import { Header } from '@/components/layout/Header';
 import { FloatingMusicPlayer } from '@/components/music/FloatingMusicPlayer';
 import ScrollToTop from '@/components/ui/ScrollToTop.astro';
 import { getIconComponent } from '@/lib/icons';
+import { getSeriesPath } from '@/utils/content-paths';
 import { getMusicTracks } from '@/utils/music-tracks';
+import { createSeriesSummaries, getPublicBlogPostsSorted } from '@/utils/posts';
 import { getSiteSettings } from '@/utils/site-settings';
 import { getCanonicalUrl, serializeJsonLd } from '@/utils/seo';
 import '@/styles/global.css';
@@ -57,6 +60,13 @@ const footerSocials = settings.socials
   }))
   .filter((item): item is typeof item & { icon: string } => Boolean(item.icon));
 const musicTracks = await getMusicTracks();
+const [allSeries, publicPosts] = await Promise.all([
+  getCollection('series'),
+  getPublicBlogPostsSorted(),
+]);
+const footerSeries = createSeriesSummaries(allSeries, publicPosts)
+  .filter((summary) => summary.postCount > 0)
+  .slice(0, 4);
 ---
 
 <!doctype html>
@@ -222,44 +232,140 @@ const musicTracks = await getMusicTracks();
         navigation={settings.navigation}
         githubUrl={settings.links.github}
       />
-      <main
-        id="main-content"
-        class:list={['page-enter flex-1', type !== 'article' ? 'pb-8 md:pb-20' : 'pb-8']}
-      >
+      <main id="main-content" class="page-enter flex-1 pb-10">
         <slot />
       </main>
 
-      <!-- Footer 美化版 -->
-      <footer
-        class:list={[
-          'border-t py-1 bg-background z-50 left-0 right-0',
-          type !== 'article' ? 'md:fixed md:bottom-0' : 'relative',
-        ]}
-      >
-        <div class="container mx-auto flex flex-col items-center justify-center gap-0.5">
-          <div class="flex items-center gap-4">
-            {footerSocials.map((item) => {
-              const Icon = getIconComponent(item.icon);
-              const external = !item.href.startsWith('/');
-
-              return (
+      <footer class="mt-auto border-t border-border/70 bg-card/40 relative z-10">
+        <div class="container mx-auto py-8 sm:py-10">
+          <div class="grid grid-cols-1 gap-8 md:grid-cols-12 md:gap-8 lg:gap-10 md:items-start">
+            <div class="space-y-3.5 md:col-span-5">
+              <div class="flex flex-wrap items-center gap-2.5">
                 <a
-                  href={item.href}
-                  target={external ? '_blank' : undefined}
-                  rel={external ? 'noopener noreferrer' : undefined}
-                  class="text-muted-foreground hover:text-primary transition-colors"
+                  href="/"
+                  class="text-xl font-bold tracking-tight text-foreground hover:text-primary transition-colors"
                 >
-                  <span class="sr-only">{item.label}</span>
-                  <Icon aria-hidden="true" width={24} height={24} />
+                  {settings.name}
                 </a>
-              );
-            })}
+                <span class="text-xs font-medium px-2.5 py-0.5 rounded-full border border-border/80 text-muted-foreground">
+                  {settings.ui.home.taglineFallback}
+                </span>
+              </div>
+              <p class="max-w-md text-sm sm:text-[15px] leading-relaxed text-muted-foreground">
+                {settings.ui.home.focusLine || settings.description}
+              </p>
+              <div class="flex items-center gap-4 pt-1">
+                {footerSocials.map((item) => {
+                  const Icon = getIconComponent(item.icon);
+                  const external = !item.href.startsWith('/');
+
+                  return (
+                    <a
+                      href={item.href}
+                      target={external ? '_blank' : undefined}
+                      rel={external ? 'noopener noreferrer' : undefined}
+                      class="text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <span class="sr-only">{item.label}</span>
+                      <Icon aria-hidden="true" width={22} height={22} />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              class:list={[
+                'grid grid-cols-2 gap-8 md:col-span-7',
+                footerSeries.length > 0 ? 'sm:grid-cols-3' : 'sm:grid-cols-2',
+              ]}
+            >
+              {footerSeries.length > 0 && (
+                <nav aria-label="页脚精选专栏" class="col-span-2 sm:col-span-1 space-y-3">
+                  <h2 class="text-sm font-semibold tracking-wide text-foreground/90">精选专栏</h2>
+                  <ul class="space-y-2 text-sm sm:text-[15px] text-muted-foreground">
+                    {footerSeries.map((summary) => (
+                      <li>
+                        <a
+                          href={getSeriesPath(summary.series.id)}
+                          class="hover:text-primary transition-colors line-clamp-1"
+                        >
+                          {summary.series.data.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+
+              <nav aria-label="页脚内容导航" class="space-y-3">
+                <h2 class="text-sm font-semibold tracking-wide text-foreground/90">内容导航</h2>
+                <ul class="space-y-2 text-sm sm:text-[15px] text-muted-foreground">
+                  <li>
+                    <a href="/series/" class="hover:text-primary transition-colors">
+                      系统专栏
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/archives/" class="hover:text-primary transition-colors">
+                      写作归档
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/categories/" class="hover:text-primary transition-colors">
+                      分类与标签
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/tags/" class="hover:text-primary transition-colors">
+                      全部标签
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+
+              <nav aria-label="页脚站点与订阅" class="space-y-3">
+                <h2 class="text-sm font-semibold tracking-wide text-foreground/90">站点与订阅</h2>
+                <ul class="space-y-2 text-sm sm:text-[15px] text-muted-foreground">
+                  <li>
+                    <a href="/projects/" class="hover:text-primary transition-colors">
+                      项目展示
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/friends/" class="hover:text-primary transition-colors">
+                      友情链接
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/about/" class="hover:text-primary transition-colors">
+                      关于我
+                    </a>
+                  </li>
+                  <li>
+                    <a href={settings.links.rss} class="hover:text-primary transition-colors">
+                      RSS 订阅
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
 
-          <p class="text-balance text-center text-sm leading-none text-muted-foreground mt-1">
-            © {new Date().getFullYear()}
-            {settings.name}. {settings.ui.footer.rights}
-          </p>
+          <div class="mt-7 border-t border-border/60 pt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs sm:text-sm text-muted-foreground">
+            <p>
+              © {new Date().getFullYear()} {settings.name}. {settings.ui.footer.rights}
+            </p>
+            <p class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-muted-foreground/80">
+              <a href="/sitemap-index.xml" class="hover:text-primary transition-colors">
+                站点地图
+              </a>
+              <span aria-hidden="true">·</span>
+              <span>Built with Astro</span>
+              <span aria-hidden="true">·</span>
+              <span>Content by Keystatic</span>
+            </p>
+          </div>
         </div>
       </footer>
 

@@ -219,6 +219,7 @@ const site = defineCollection({
         badge: z.string(),
         taglineFallback: z.string(),
         subtitleFallback: z.string(),
+        focusLine: z.string().optional(),
         readButton: z.string(),
         archivesButton: z.string(),
         latestTitle: z.string(),

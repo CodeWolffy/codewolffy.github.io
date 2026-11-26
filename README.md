@@ -63,25 +63,25 @@
 
 | 领域         | 核心库                                                          | 版本     | 作用说明                              |
 | :----------- | :-------------------------------------------------------------- | :------- | :------------------------------------ |
-| **Core**     | [Astro](https://astro.build/)                                   | v7.4.2   | 静态站点生成器，路由管理              |
-| **Build**    | [Vite](https://vite.dev/)                                       | v8.3.5   | 极速构建引擎与开发服务器              |
+| **Core**     | [Astro](https://astro.build/)                                   | v7.4.13  | 静态站点生成器，路由管理              |
+| **Build**    | [Vite](https://vite.dev/)                                       | v8.3.8   | 极速构建引擎与开发服务器              |
 | **UI**       | [React](https://react.dev/)                                     | v19.3.1  | 构建交互式岛屿组件 (Search, Comments) |
 | **Language** | [TypeScript](https://www.typescriptlang.org/)                   | v7.0.2   | 原生编译器检查 TypeScript / TSX       |
 | **Runtime**  | [Node.js](https://nodejs.org/)                                  | v24.22.1 | 本地与 CI 构建使用的 LTS 运行时       |
 | **Package**  | [npm](https://www.npmjs.com/)                                   | v12.2.1  | 锁文件安装与依赖脚本策略              |
-| **Style**    | [Tailwind CSS](https://tailwindcss.com/)                        | v4.3.3   | CSS 框架 (配合 Vite 插件)             |
+| **Style**    | [Tailwind CSS](https://tailwindcss.com/)                        | v4.3.5   | CSS 框架 (配合 Vite 插件)             |
 | **Motion**   | [tw-animate-css](https://github.com/Wombosvideo/tw-animate-css) | v1.4.0   | Tailwind v4 CSS 动画工具              |
-| **CMS**      | [Keystatic](https://keystatic.com/)                             | v0.6.9   | 可视化内容编辑器                      |
-| **Search**   | [Pagefind](https://pagefind.app/)                               | v1.5.2   | 静态搜索索引生成器                    |
-| **Icons**    | [Lucide React](https://lucide.dev/)                             | v1.61.0  | 统一的 SVG 图标库                     |
-| **Diagrams** | [Mermaid](https://mermaid.js.org/)                              | v12.2.0  | 文章中的流程图与 E-R 图               |
+| **CMS**      | [Keystatic](https://keystatic.com/)                             | v0.6.10  | 可视化内容编辑器                      |
+| **Search**   | [Pagefind](https://pagefind.app/)                               | v1.6.0   | 静态搜索索引生成器                    |
+| **Icons**    | [Lucide React](https://lucide.dev/)                             | v1.80.0  | 统一的 SVG 图标库                     |
+| **Diagrams** | [Mermaid](https://mermaid.js.org/)                              | v12.3.0  | 文章中的流程图与 E-R 图               |
 | **Utility**  | [clsx](https://github.com/lukeed/clsx)                          | v2.1.1   | 动态类名拼接                          |
-| **Utility**  | [tailwind-merge](https://github.com/dcastil/tailwind-merge)     | v3.7.0   | Tailwind 类名冲突合并                 |
+| **Utility**  | [tailwind-merge](https://github.com/dcastil/tailwind-merge)     | v3.7.1   | Tailwind 类名冲突合并                 |
 | **Deploy**   | [Cloudflare Pages](https://pages.cloudflare.com/)               | -        | 全球边缘节点托管                      |
 
-版本以 `package-lock.json` 为准（更新于 2026-11-07）。`typescript-native` 是 `typescript@7.0.2` 的 npm 别名，`npm run typecheck:ts` 显式调用它检查 TypeScript / TSX。`typescript` 保留在 6.0.3，供 `astro check`、Astro 语言服务和 `typescript-eslint` 使用：这些工具依赖旧版 JavaScript 编译器 API，目前尚不支持 TypeScript 7。`npm run typecheck` 依次执行两种检查。
+版本以 `package-lock.json` 为准（更新于 2026-11-26）。`typescript-native` 是 `typescript@7.0.2` 的 npm 别名，`npm run typecheck:ts` 显式调用它检查 TypeScript / TSX。`typescript` 保留在 6.0.3，供 `astro check`、Astro 语言服务和 `typescript-eslint` 使用：这些工具依赖旧版 JavaScript 编译器 API，目前尚不支持 TypeScript 7。`npm run typecheck` 依次执行两种检查。
 
-Keystatic Core 固定为 0.6.9，以匹配 `patches/` 中的编辑器修复补丁。`npm ci` 通过 `scripts/apply-keystatic-patch.mjs` 自动应用补丁，并验证包版本与目标文件；重复执行会跳过已应用的补丁，源码不匹配时安装失败。维护补丁时直接更新该 `.patch` 文件。
+Keystatic Core 固定为 0.6.10，以匹配 `patches/` 中的编辑器修复补丁。`npm ci` 通过 `scripts/apply-keystatic-patch.mjs` 自动应用补丁，并验证包版本与目标文件；重复执行会跳过已应用的补丁，源码不匹配时安装失败。维护补丁时直接更新该 `.patch` 文件。
 
 Mermaid 12 要求 Safari 17.4+ 等支持 ES2024 的浏览器。前台和后台预览显式使用 dagre 布局与 classic 外观。
 

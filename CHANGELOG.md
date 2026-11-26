@@ -8,11 +8,11 @@
 
 ### 依赖
 
-- 升级 Astro 7.4.2、Cloudflare 适配器 14.4.2、Markdown Remark 7.3.4、MDX 8.1.1、React 集成 7.1.1 和 React / React DOM 19.3.1。
-- 升级 Mermaid 12.2.0、Lucide React 1.61.0、Radix UI、ESLint 和 Prettier 等依赖，同步 Pagefind 1.5.2 的版本声明，并刷新锁文件中的间接依赖。
+- 升级 Astro 7.4.13（含安全修复）、Cloudflare 适配器 14.4.9、Markdown Remark 7.3.10、MDX 8.1.6、React 集成 7.1.9、Sitemap 3.7.6、Vite 8.3.8 和 React / React DOM 19.3.1。
+- 升级 Tailwind CSS 4.3.5（含 `@tailwindcss/vite`）、Mermaid 12.3.0、Lucide React 1.80.0、Pagefind 1.6.0、tailwind-merge 3.7.1、Wrangler 4.168.0、Radix UI、ESLint 10.15.0 和 Prettier 3.10.1 等依赖，更新 `fast-xml-parser` 至 5.12.1 消除审计告警，并刷新锁文件中的间接依赖。
 - 将构建 Node.js 统一为 24.22.1 LTS，更新 `engines.node` 至包含 2026 年 10 月安全补丁的版本，并显式声明 Node 24 类型定义。
-- 将包管理器基线升级为 npm 12.2.1，CI 显式安装同版 npm，并为 esbuild / workerd 配置版本限定的 `allowScripts`，适配新版依赖安装脚本策略。
-- 使用 npm 别名引入 TypeScript 7.0.2 原生编译器检查 TypeScript / TSX，将 Astro Check 与 ESLint 依赖的 JavaScript 编译器升级为 TypeScript 6.0.3；固定 Keystatic Core 0.6.9 以匹配现有编辑器补丁。
+- 将包管理器基线升级为 npm 12.2.1，CI 显式安装同版 npm，并为 esbuild / workerd（`workerd@1.20261123.1`）配置版本限定的 `allowScripts`，适配新版依赖安装脚本策略。
+- 使用 npm 别名引入 TypeScript 7.0.2 原生编译器检查 TypeScript / TSX，将 Astro Check 与 ESLint 依赖的 JavaScript 编译器升级为 TypeScript 6.0.3；固定 Keystatic Core 0.6.10 以匹配迁移后的编辑器修复补丁。
 - 将旧版 `tailwindcss-animate` 替换为面向 Tailwind v4 的 `tw-animate-css` 1.4.0。
 - 升级 GitHub Actions Checkout / Setup Node 至 v7，Pages 上传 / 部署至 v5，并将 Cloudflare 兼容日期推进至 2026-10-12。
 

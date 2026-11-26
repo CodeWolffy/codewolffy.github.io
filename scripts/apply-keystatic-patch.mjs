@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { applyPatch, parsePatch, reversePatch } from 'diff';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const expectedVersion = '0.6.9';
+const expectedVersion = '0.6.10';
 const packageDir = join(rootDir, 'node_modules', '@keystatic', 'core');
 const installedPackage = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
 
@@ -14,7 +14,7 @@ if (installedPackage.version !== expectedVersion) {
   );
 }
 
-const targetPath = 'node_modules/@keystatic/core/dist/index-3c244051.js';
+const targetPath = 'node_modules/@keystatic/core/dist/index-af84bca7.js';
 const patchPath = join(rootDir, 'patches', `@keystatic+core+${expectedVersion}.patch`);
 const normalizeNewlines = (source) => source.replace(/\r\n/g, '\n');
 const patches = parsePatch(normalizeNewlines(readFileSync(patchPath, 'utf8')));

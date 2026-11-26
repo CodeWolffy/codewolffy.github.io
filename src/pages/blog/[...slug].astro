@@ -7,7 +7,7 @@ import { CopyCodeButton } from '@/components/blog/CopyCodeButton';
 import { ShareButtons } from '@/components/blog/ShareButtons';
 import { ExportButton } from '@/components/blog/ExportButton';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
-import { Copyright } from '@/components/blog/Copyright';
+import AuthorCopyright from '@/components/blog/AuthorCopyright.astro';
 import { buttonVariants } from '@/components/ui/button';
 import { FilePenLine } from 'lucide-react';
 import Callout from '../../components/mdx/Callout.astro';
@@ -188,7 +188,16 @@ const articleImageUrl = new URL(
       timeRequired: `PT${readingTime}M`,
     })}
   />
-  <div class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6 relative lg:gap-8 lg:grid lg:grid-cols-[1fr_330px] lg:items-start">
+  <div
+    class="fixed top-[45px] md:top-[49px] left-0 right-0 z-40 h-[2.5px] bg-transparent pointer-events-none"
+    aria-hidden="true"
+  >
+    <div
+      id="article-reading-progress-bar"
+      class="h-full w-full origin-left scale-x-0 bg-gradient-to-r from-primary/70 via-primary to-primary"
+    />
+  </div>
+  <div class="container mx-auto pt-2 pb-4 lg:pt-4 lg:pb-6 relative lg:grid lg:grid-cols-[minmax(0,760px)_280px] xl:grid-cols-[minmax(0,760px)_300px] lg:justify-center lg:gap-10 lg:items-start">
     <div class="w-full min-w-0">
       <div class="mb-1">
         <Breadcrumbs
@@ -330,7 +339,7 @@ const articleImageUrl = new URL(
       <CopyCodeButton client:idle />
 
       <!-- 分享与导出按钮 -->
-      <div class="mt-2 pt-2 border-t border-border flex flex-wrap items-center justify-between gap-4">
+      <div class="mt-6 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-4">
         <ShareButtons
           title={post.data.title}
           description={post.data.description}
@@ -360,15 +369,25 @@ const articleImageUrl = new URL(
         </div>
       </div>
 
+      <AuthorCopyright
+        authorName={settings.author.name}
+        githubUrl={settings.links.github}
+        rssUrl={settings.links.rss}
+        licenseName={settings.ui.copyright.licenseName}
+        licenseUrl={settings.ui.copyright.licenseUrl}
+        noticePrefix={settings.ui.copyright.noticePrefix}
+        noticeSuffix={settings.ui.copyright.noticeSuffix}
+      />
+
       <!-- 上一篇/下一篇导航 -->
       {(prevPost || nextPost) && (
-        <div class="mt-2">
+        <div class="mt-6">
           <p class="mb-2 text-xs font-medium text-muted-foreground">{navigationLabel}</p>
           <div class="grid gap-4 sm:grid-cols-2">
             {prevPost ? (
               <a
                 href={getBlogPostPath(prevPost)}
-                class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all"
+                class="group flex flex-col p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all"
               >
                 <span class="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                   <svg
@@ -398,7 +417,7 @@ const articleImageUrl = new URL(
             {nextPost ? (
               <a
                 href={getBlogPostPath(nextPost)}
-                class="group flex flex-col p-2 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-right"
+                class="group flex flex-col p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-right"
               >
                 <span class="text-xs text-muted-foreground mb-1 flex items-center justify-end gap-1">
                   下一篇
@@ -431,8 +450,8 @@ const articleImageUrl = new URL(
 
       <!-- 相关文章推荐 -->
       {relatedPosts.length > 0 && (
-        <div class="mt-2">
-          <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
+        <div class="mt-6">
+          <h2 class="text-lg font-bold mb-2.5 flex items-center gap-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="20"
@@ -447,8 +466,8 @@ const articleImageUrl = new URL(
               <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
             </svg>
             相关文章
-          </h3>
-          <div class="grid gap-1">
+          </h2>
+          <div class="grid gap-2">
             {relatedPosts.map((relatedPost) => (
               <a
                 href={getBlogPostPath(relatedPost)}
@@ -466,9 +485,9 @@ const articleImageUrl = new URL(
                   />
                 )}
                 <div class="min-w-0 p-3 flex flex-col justify-center">
-                  <h4 class="font-bold text-sm group-hover:text-primary transition-colors line-clamp-1 mb-1">
+                  <h3 class="font-bold text-sm group-hover:text-primary transition-colors line-clamp-1 mb-1">
                     {relatedPost.data.title}
-                  </h4>
+                  </h3>
                   <p class="text-xs text-muted-foreground line-clamp-2">
                     {relatedPost.data.description}
                   </p>
@@ -479,16 +498,17 @@ const articleImageUrl = new URL(
         </div>
       )}
 
-      <Copyright
-        author={settings.author.name}
-        licenseName={settings.ui.copyright.licenseName}
-        licenseUrl={settings.ui.copyright.licenseUrl}
-        noticePrefix={settings.ui.copyright.noticePrefix}
-        noticeSuffix={settings.ui.copyright.noticeSuffix}
-      />
-
-      <hr class="mt-2" />
-      <Comments client:visible giscus={settings.comments.giscus} />
+      <section aria-labelledby="post-comments-heading" class="mt-6 pt-6 border-t border-border">
+        <div class="mb-4">
+          <h2 id="post-comments-heading" class="text-xl font-bold tracking-tight text-foreground">
+            评论交流
+          </h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            欢迎在下方留言讨论、指正或分享实践经验（基于 GitHub Discussions）。
+          </p>
+        </div>
+        <Comments client:visible giscus={settings.comments.giscus} />
+      </section>
     </div>
 
     <aside class="hidden lg:block lg:sticky lg:top-24 lg:self-start pl-4 border-l max-h-[calc(100vh-8rem)] overflow-y-auto">
@@ -757,6 +777,55 @@ const articleImageUrl = new URL(
       // Run after initial rendering and View Transitions have settled
       scheduleVideos();
       document.addEventListener('astro:page-load', scheduleVideos);
+
+      let cleanupReadingProgress = () => {};
+      const setupReadingProgress = () => {
+        cleanupReadingProgress();
+        const bar = document.getElementById('article-reading-progress-bar');
+        const prose = document.querySelector('.prose');
+        if (!(bar instanceof HTMLElement)) return;
+
+        let rafId = 0;
+        const updateProgress = () => {
+          rafId = 0;
+          const totalDocScroll = document.documentElement.scrollHeight - window.innerHeight;
+          let ratio: number;
+          if (prose instanceof HTMLElement) {
+            const rect = prose.getBoundingClientRect();
+            const proseTop = window.scrollY + rect.top;
+            const proseBottom = proseTop + rect.height;
+            const scrollable = proseBottom - window.innerHeight - proseTop;
+            if (scrollable > 0) {
+              ratio = (window.scrollY - proseTop) / scrollable;
+            } else {
+              ratio = totalDocScroll > 0 ? window.scrollY / totalDocScroll : 0;
+            }
+          } else {
+            ratio = totalDocScroll > 0 ? window.scrollY / totalDocScroll : 0;
+          }
+          const clamped = Math.min(1, Math.max(0, ratio));
+          bar.style.transform = `scaleX(${clamped})`;
+        };
+
+        const scheduleUpdate = () => {
+          if (rafId) return;
+          rafId = window.requestAnimationFrame(updateProgress);
+        };
+
+        window.addEventListener('scroll', scheduleUpdate, { passive: true });
+        window.addEventListener('resize', scheduleUpdate);
+        updateProgress();
+
+        cleanupReadingProgress = () => {
+          if (rafId) window.cancelAnimationFrame(rafId);
+          window.removeEventListener('scroll', scheduleUpdate);
+          window.removeEventListener('resize', scheduleUpdate);
+        };
+      };
+
+      setupReadingProgress();
+      document.addEventListener('astro:page-load', setupReadingProgress);
+      document.addEventListener('astro:before-swap', () => cleanupReadingProgress());
     </script>
   </div>
 </BaseLayout>

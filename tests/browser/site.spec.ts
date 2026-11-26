@@ -228,3 +228,45 @@ test('the Cloudflare build serves its CMS entry and correct audio ranges', async
   expect(head.status()).toBe(200);
   expect(head.headers()['content-length']).not.toBe('0');
 });
+
+test('homepage layout, article reading experience, and quiet music mode work cleanly', async ({
+  page,
+}, testInfo) => {
+  await openPage(page, '/');
+  const cardCount = await page.locator('#latest-posts ~ div article').count();
+  expect(cardCount).toBe(7);
+  expect(
+    await page.locator('footer').evaluate((element) => getComputedStyle(element).position)
+  ).toBe('relative');
+
+  await openPage(page, '/blog/01-why-redis-is-fast/');
+  await expect(page.locator('#post-comments-heading')).toHaveText('评论交流');
+  await page.evaluate(() => window.scrollTo(0, 600));
+  await expect(page.locator('#article-reading-progress-bar')).not.toHaveCSS(
+    'transform',
+    'matrix(0, 0, 0, 1, 0, 0)'
+  );
+  const articleMetrics = await page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth > innerWidth,
+    proseWidth: Math.round(document.querySelector('.prose')?.getBoundingClientRect().width ?? 0),
+    usesRawAvatar: [...document.querySelectorAll('img')].some((img) =>
+      img.currentSrc.endsWith('/images/pages/avatar.jpg')
+    ),
+  }));
+  expect(articleMetrics.overflow).toBe(false);
+  expect(articleMetrics.usesRawAvatar).toBe(false);
+  if (testInfo.project.name === 'desktop') {
+    expect(articleMetrics.proseWidth).toBeLessThanOrEqual(760);
+  }
+
+  await page.getByRole('button', { name: '展开音乐播放器', exact: true }).click();
+  await page.getByRole('button', { name: '启用极简角标模式', exact: true }).click();
+  await page.reload();
+  await page.locator('astro-island[component-export="Header"]:not([ssr])').waitFor();
+  await expect(page.locator('astro-island[client="load"][ssr]')).toHaveCount(0);
+  await page.getByRole('button', { name: '展开音乐播放器', exact: true }).click();
+  await expect(page.getByRole('button', { name: '退出极简角标模式', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+});

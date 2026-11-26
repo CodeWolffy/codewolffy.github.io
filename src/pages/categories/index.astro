@@ -26,11 +26,13 @@ const sortedCategories = countPostCategories(allPosts, categoryMap);
 
 const tagMap = createTaxonomyNameMap(tags);
 const sortedTags = countPostTags(allPosts, tagMap);
+const popularTags = sortedTags.filter((tag) => tag.count >= 2);
+const displayedTags = popularTags.length > 0 ? popularTags : sortedTags;
 ---
 
 <BaseLayout
   title={`${pageTitle} | ${settings.name}`}
-  description={`浏览 ${allPosts.length} 篇技术文章的 ${sortedCategories.length} 个分类与 ${sortedTags.length} 个标签，按 Java、Spring、数据库、分布式系统等主题查找学习记录。`}
+  description={`浏览 ${allPosts.length} 篇技术文章的 ${sortedCategories.length} 个分类与 ${sortedTags.length} 个标签，按 Java、Spring、数据库与缓存、分布式与架构等主题查找学习记录。`}
 >
   <section class="container mx-auto pt-0 pb-8">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
@@ -52,9 +54,20 @@ const sortedTags = countPostTags(allPosts, tagMap);
         <div class="space-y-10">
           <!-- 分类区域 -->
           <section>
-            <div class="mb-5 flex items-center gap-3">
-              <div class="h-8 w-1.5 bg-primary rounded-full"></div>
-              <h2 class="text-2xl font-bold tracking-tight">文章分类</h2>
+            <div class="mb-5 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="h-8 w-1.5 bg-primary rounded-full"></div>
+                <h2 class="text-2xl font-bold tracking-tight">文章分类</h2>
+                <span class="text-xs text-muted-foreground font-mono">
+                  ({sortedCategories.length})
+                </span>
+              </div>
+              <a
+                href="/series/"
+                class="text-xs sm:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                按专栏系统阅读 →
+              </a>
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -88,18 +101,29 @@ const sortedTags = countPostTags(allPosts, tagMap);
 
           <!-- 标签区域 -->
           <section>
-            <div class="mb-5 flex items-center gap-3">
-              <div class="h-8 w-1.5 bg-secondary-foreground/30 rounded-full"></div>
-              <h2 class="text-2xl font-bold tracking-tight">热门标签</h2>
+            <div class="mb-5 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="h-8 w-1.5 bg-secondary-foreground/30 rounded-full"></div>
+                <h2 class="text-2xl font-bold tracking-tight">热门标签</h2>
+                <span class="text-xs text-muted-foreground">
+                  仅展示 2 篇以上（共 {displayedTags.length} 个）
+                </span>
+              </div>
+              <a
+                href="/tags/"
+                class="text-xs sm:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                查看全部 {sortedTags.length} 个标签 →
+              </a>
             </div>
 
             <div class="flex flex-wrap gap-3">
-              {sortedTags.length === 0 ? (
+              {displayedTags.length === 0 ? (
                 <div class="w-full">
                   <EmptyState type="tag" />
                 </div>
               ) : (
-                sortedTags.map((tag, index) => (
+                displayedTags.map((tag, index) => (
                   <a
                     href={getTagPath(tag.id)}
                     class="group relative inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full border bg-background px-4 py-2 text-sm font-medium transition-all hover:border-primary hover:text-primary hover:shadow-sm animate-slide-up"

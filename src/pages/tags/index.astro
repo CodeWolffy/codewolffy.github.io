@@ -16,6 +16,9 @@ const allTags = await getCollection('tags');
 
 const tagMap = createTaxonomyNameMap(allTags);
 const sortedTags = countPostTags(allPosts, tagMap);
+const coreTags = sortedTags.filter((tag) => tag.count >= 2);
+const singleTags = sortedTags.filter((tag) => tag.count === 1);
+const displayedCoreTags = coreTags.length > 0 ? coreTags : sortedTags;
 ---
 
 <BaseLayout
@@ -34,21 +37,26 @@ const sortedTags = countPostTags(allPosts, tagMap);
               {tagsUi.title}
             </h1>
             <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
-              共 <span class="font-bold text-foreground">{sortedTags.length}</span> 个标签。
+              核心主题标签 <span class="font-bold text-foreground">{displayedCoreTags.length}</span>{' '}
+              个
+              {singleTags.length > 0
+                ? `（另有 ${singleTags.length} 个单篇细分标签已折叠收起）`
+                : ''}
+              。
             </p>
           </div>
         </section>
 
-        <div class="rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-6">
+        <div class="rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm sm:p-6 space-y-8">
           <div class="flex flex-wrap justify-start gap-3 sm:gap-4">
-            {sortedTags.length === 0 ? (
+            {displayedCoreTags.length === 0 ? (
               <div class="w-full">
                 <EmptyState type="tag" />
               </div>
             ) : (
-              sortedTags.map((tag, index) => {
+              displayedCoreTags.map((tag, index) => {
                 // 根据文章数量计算标签大小
-                const maxCount = sortedTags[0].count;
+                const maxCount = displayedCoreTags[0].count;
                 const minSize = 0.875; // 最小 text-sm
                 const maxSize = 1.5; // 最大 text-2xl
                 const size = minSize + (tag.count / maxCount) * (maxSize - minSize);
@@ -75,8 +83,26 @@ const sortedTags = countPostTags(allPosts, tagMap);
             )}
           </div>
 
+          {coreTags.length > 0 && singleTags.length > 0 && (
+            <details class="rounded-xl border border-border/60 bg-muted/20 p-4 group">
+              <summary class="cursor-pointer select-none text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                展开仅出现 1 次的长尾标签（共 {singleTags.length} 个）
+              </summary>
+              <div class="mt-4 flex flex-wrap gap-2">
+                {singleTags.map((tag) => (
+                  <a
+                    href={getTagPath(tag.id)}
+                    class="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background px-3 py-1 text-xs text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+                  >
+                    <span>#{tag.name}</span>
+                  </a>
+                ))}
+              </div>
+            </details>
+          )}
+
           <!-- 返回按钮 -->
-          <div class="mt-12 text-center">
+          <div class="pt-4 text-center">
             <a
               href="/categories/"
               class="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"

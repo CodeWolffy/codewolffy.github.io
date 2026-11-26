@@ -30,8 +30,22 @@ export function byNewestPost(a: BlogPost, b: BlogPost) {
   return b.data.pubDate.valueOf() - a.data.pubDate.valueOf();
 }
 
+export { formatPostDate, getDedupedMainTagLabel } from './post-meta';
+
 export function getPostActivityDate(post: BlogPost) {
   return post.data.updatedDate ?? post.data.pubDate;
+}
+
+export function getPostSeriesMap(seriesEntries: SeriesEntry[]): Map<string, SeriesEntry> {
+  const map = new Map<string, SeriesEntry>();
+  seriesEntries.forEach((series) => {
+    series.data.posts?.forEach((postId) => {
+      if (!map.has(postId)) {
+        map.set(postId, series);
+      }
+    });
+  });
+  return map;
 }
 
 export function hasManagedSeriesPosts(series: SeriesEntry) {

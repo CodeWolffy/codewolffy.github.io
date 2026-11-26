@@ -3,28 +3,29 @@ export const prerender = true;
 
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buttonVariants } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, BookOpen, Rss } from 'lucide-react';
 import PostCard from '@/components/blog/PostCard.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
 import Sidebar from '@/components/Sidebar.astro';
 import { getCollection } from 'astro:content';
-import { getReadingTimeMinutes } from '@/utils/reading-time';
+import { calculateReadingTime } from '@/utils/reading-time';
 import { getSiteSettings } from '@/utils/site-settings';
+import { getSeriesPath } from '@/utils/content-paths';
 import { serializeJsonLd } from '@/utils/seo';
 import {
   countPostCategories,
   countPostTags,
   createSeriesSummaries,
   createTaxonomyNameMap,
+  getDedupedMainTagLabel,
+  getPostSeriesMap,
   getPublicBlogPostsSorted,
 } from '@/utils/posts';
 
 const settings = await getSiteSettings();
 const homeUi = settings.ui.home;
 
-const posts = (await getPublicBlogPostsSorted()).sort(
-  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
-);
+const posts = await getPublicBlogPostsSorted();
 
 const allCategories = await getCollection('categories');
 const allTags = await getCollection('tags');
@@ -32,27 +33,36 @@ const allSeries = await getCollection('series');
 
 const categoryMap = createTaxonomyNameMap(allCategories);
 const tagMap = createTaxonomyNameMap(allTags);
+const seriesByPostId = getPostSeriesMap(allSeries);
 
-const latestPosts = posts.slice(0, 15);
+const readingTimeById = new Map<string, number>();
+let totalWordCount = 0;
+for (const post of posts) {
+  const result = calculateReadingTime(post.body || '');
+  totalWordCount += result.wordCount;
+  readingTimeById.set(post.id, result.minutes);
+}
+const wordCountLabel =
+  totalWordCount >= 10000 ? `${(totalWordCount / 10000).toFixed(1)} 万字` : `${totalWordCount} 字`;
+
+const latestPosts = posts.slice(0, 7);
 
 const sortedTags = countPostTags(posts, tagMap);
 const sortedCategories = countPostCategories(posts, categoryMap);
 
-// 精选专栏数据 (取文章数大于 0 的前 3 个)
+// 活跃专栏数据
 const seriesSummaries = createSeriesSummaries(allSeries, posts);
-const featuredSeries = seriesSummaries
-  .filter((summary) => summary.postCount > 0)
-  .slice(0, 3)
-  .map((summary) => ({
-    id: summary.series.id,
-    name: summary.series.data.name,
-    description: summary.series.data.description,
-    postCount: summary.postCount,
-  }));
+const activeSeries = seriesSummaries.filter((summary) => summary.postCount > 0);
+const featuredSeries = activeSeries.slice(0, 4).map((summary) => ({
+  id: summary.series.id,
+  name: summary.series.data.name,
+  description: summary.series.data.description,
+  postCount: summary.postCount,
+}));
 
-// Limit items for homepage (Preview)
-const topCategories = sortedCategories.slice(0, 4);
-const topTags = sortedTags.slice(0, 8);
+// Limit items for homepage sidebar
+const topCategories = sortedCategories.slice(0, 7);
+const topTags = sortedTags.slice(0, 10);
 
 // 首页结构化数据：WebSite + 站内搜索（SearchAction 指向 /?q=，由 Search 组件接管）
 const siteUrl = new URL(settings.urls.primary).href.replace(/\/$/, '');
@@ -88,15 +98,13 @@ const websiteJsonLd = {
   <!-- Hero Section -->
 
   <!-- Main Content Grid -->
-  <section class="container mx-auto pt-0 pb-8">
+  <section class="container mx-auto pt-0 pb-2">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
-      <!-- Mobile Sidebar Content (Moved to bottom) -->
-
       <!-- Left Column: Posts List -->
-      <div class="lg:col-span-8 space-y-4">
+      <div class="lg:col-span-8 space-y-5">
         <!-- Hero Text Block -->
-        <div class="space-y-3 text-center md:text-left max-w-3xl mb-4 pt-1">
-          <div class="space-y-2">
+        <div class="space-y-3 text-center md:text-left max-w-3xl mb-2 pt-1">
+          <div class="space-y-2.5">
             <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20">
               {homeUi.badge}
             </div>
@@ -106,29 +114,89 @@ const websiteJsonLd = {
             <p class="mx-auto md:mx-0 max-w-[620px] text-muted-foreground text-base md:text-lg leading-relaxed">
               {homeUi.subtitleFallback}
             </p>
+            <div class="flex flex-wrap items-center justify-center md:justify-start gap-x-2.5 gap-y-1 text-xs sm:text-sm text-muted-foreground pt-0.5">
+              <span class="font-medium text-foreground/85">
+                {homeUi.focusLine || '聚焦 Java · JVM · Spring · 数据库与分布式系统实战'}
+              </span>
+              <span class="hidden sm:inline text-border" aria-hidden="true">
+                |
+              </span>
+              <span class="font-mono text-xs tabular-nums text-muted-foreground">
+                {posts.length} 篇文章 · {wordCountLabel} · {activeSeries.length} 个专栏
+              </span>
+            </div>
           </div>
-          <div class="flex flex-col sm:flex-row gap-3 justify-center md:justify-start pt-1">
+          <div class="flex flex-wrap gap-2.5 justify-center md:justify-start pt-1.5">
             <a
-              href="#latest-posts"
-              class:list={[
-                buttonVariants({ size: 'default', variant: 'outline' }),
-                'rounded-full px-6 bg-background hover:bg-muted text-foreground shadow-sm border transition-all',
-              ]}
-            >
-              {homeUi.readButton}
-              <ArrowRight className="ml-2 w-4 h-4" />
-            </a>
-            <a
-              href="/archives/"
+              href="/series/"
               class:list={[
                 buttonVariants({ size: 'default' }),
                 'rounded-full px-6 bg-foreground text-background hover:bg-foreground/90 shadow-md transition-all',
               ]}
             >
+              {homeUi.readButton}
+              <ArrowRight className="ml-1.5 w-4 h-4" />
+            </a>
+            <a
+              href="/archives/"
+              class:list={[
+                buttonVariants({ size: 'default', variant: 'outline' }),
+                'rounded-full px-5 bg-background hover:bg-muted text-foreground shadow-sm border transition-all',
+              ]}
+            >
               {homeUi.archivesButton}
+            </a>
+            <a
+              href={settings.links.rss}
+              class:list={[
+                buttonVariants({ size: 'default', variant: 'ghost' }),
+                'rounded-full px-4 text-muted-foreground hover:text-foreground hover:bg-muted transition-all gap-1.5',
+              ]}
+            >
+              <Rss className="w-4 h-4" />
+              RSS 订阅
             </a>
           </div>
         </div>
+
+        {/* 移动端精选专栏快捷入口 */}
+        {activeSeries.length > 0 && (
+          <div class="lg:hidden space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-primary" />
+                系统专栏
+              </span>
+              <a
+                href="/series/"
+                class="text-xs font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-0.5"
+              >
+                全部 {activeSeries.length} 个
+                <ArrowRight className="w-3 h-3" />
+              </a>
+            </div>
+            <div class="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+              {activeSeries.slice(0, 6).map((summary) => (
+                <a
+                  href={getSeriesPath(summary.series.id)}
+                  class="shrink-0 w-48 rounded-xl border border-border/70 bg-card p-3 shadow-xs hover:border-primary/40 transition-colors"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-semibold text-sm text-foreground truncate">
+                      {summary.series.data.name}
+                    </span>
+                    <span class="shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary tabular-nums">
+                      {summary.postCount} 篇
+                    </span>
+                  </div>
+                  <p class="mt-1 text-xs text-muted-foreground line-clamp-1">
+                    {summary.series.data.description}
+                  </p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div
           id="latest-posts"
@@ -147,25 +215,54 @@ const websiteJsonLd = {
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
-          {latestPosts.map((post, index) => (
-            <PostCard
-              post={post}
-              index={index}
-              featured={index === 0}
-              categoryLabel={
-                post.data.category
-                  ? categoryMap.get(post.data.category) || post.data.category
-                  : undefined
-              }
-              mainTagLabel={
-                post.data.tags && post.data.tags.length > 0
-                  ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
-                  : undefined
-              }
-              readingTime={getReadingTimeMinutes(post.body || '')}
-            />
-          ))}
+          {latestPosts.map((post, index) => {
+            const seriesEntry = seriesByPostId.get(post.id);
+            const seriesLabel = seriesEntry?.data.name;
+            const categoryLabel = post.data.category
+              ? categoryMap.get(post.data.category) || post.data.category
+              : undefined;
+            const mainTagLabel = getDedupedMainTagLabel(
+              post.data.tags,
+              tagMap,
+              seriesLabel || categoryLabel
+            );
+
+            return (
+              <PostCard
+                post={post}
+                index={index}
+                featured={index === 0}
+                seriesLabel={seriesLabel}
+                categoryLabel={categoryLabel}
+                mainTagLabel={mainTagLabel}
+                readingTime={readingTimeById.get(post.id)}
+              />
+            );
+          })}
         </div>
+
+        {posts.length > latestPosts.length && (
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-xs sm:text-sm">
+            <span class="text-muted-foreground">
+              首页仅展示最新 {latestPosts.length} 篇（全站共 {posts.length} 篇 ·{' '}
+              {activeSeries.length} 个专栏）
+            </span>
+            <div class="flex items-center gap-4 font-medium">
+              <a
+                href="/series/"
+                class="inline-flex items-center gap-1 text-primary hover:underline underline-offset-4"
+              >
+                按专栏系统阅读 <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+              <a
+                href="/archives/"
+                class="inline-flex items-center gap-1 text-foreground/80 hover:text-primary transition-colors"
+              >
+                浏览完整归档 <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        )}
 
         {posts.length === 0 && <EmptyState type="post" class="w-full" />}
       </div>

@@ -130,20 +130,20 @@ export function Comments({ giscus }: CommentsProps) {
     <div
       id="comments-container"
       ref={containerRef}
-      className="w-full mt-2 scroll-mt-20 min-h-[300px]"
+      className="w-full mt-2 scroll-mt-20 min-h-[180px]"
       style={{ contain: 'content' }} // CSS Isolation: isolates layout calculations
     >
       {!giscus.enabled && (
         <p className="py-8 text-center text-sm text-muted-foreground">评论功能暂未启用。</p>
       )}
-      {giscus.enabled && loadState === 'loading' && (
-        <div className="flex min-h-[300px] items-center justify-center" role="status">
+      {giscus.enabled && (loadState === 'idle' || loadState === 'loading') && (
+        <div className="flex min-h-[180px] items-center justify-center" role="status">
           <p className="text-sm text-muted-foreground">正在加载评论…</p>
         </div>
       )}
       {giscus.enabled && loadState === 'error' && (
         <div
-          className="flex min-h-[300px] flex-col items-center justify-center gap-3 text-center"
+          className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center"
           role="alert"
         >
           <p className="text-sm text-muted-foreground">

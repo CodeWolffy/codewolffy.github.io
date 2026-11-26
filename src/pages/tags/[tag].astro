@@ -3,7 +3,13 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import PostCard from '@/components/blog/PostCard.astro';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
-import { createTaxonomyNameMap, getPublicBlogPostsSorted } from '@/utils/posts';
+import {
+  createTaxonomyNameMap,
+  getDedupedMainTagLabel,
+  getPostSeriesMap,
+  getPublicBlogPostsSorted,
+} from '@/utils/posts';
+import { getReadingTimeMinutes } from '@/utils/reading-time';
 import { getTaxonomyDescription, isIndexableTag } from '@/utils/seo';
 
 export const prerender = true;
@@ -29,9 +35,14 @@ export async function getStaticPaths() {
 
 const { posts, tagName } = Astro.props;
 
-// Get tags for the card labels
-const allTags = await getCollection('tags');
+const [allCategories, allTags, allSeries] = await Promise.all([
+  getCollection('categories'),
+  getCollection('tags'),
+  getCollection('series'),
+]);
+const categoryMap = createTaxonomyNameMap(allCategories);
 const tagMap = createTaxonomyNameMap(allTags);
+const seriesByPostId = getPostSeriesMap(allSeries);
 ---
 
 <BaseLayout
@@ -58,18 +69,30 @@ const tagMap = createTaxonomyNameMap(allTags);
           </div>
         </section>
 
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post, index) => (
-            <PostCard
-              post={post}
-              index={index}
-              mainTagLabel={
-                post.data.tags && post.data.tags.length > 0
-                  ? tagMap.get(post.data.tags[0]) || post.data.tags[0]
-                  : undefined
-              }
-            />
-          ))}
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.map((post, index) => {
+            const seriesLabel = seriesByPostId.get(post.id)?.data.name;
+            const categoryLabel = post.data.category
+              ? categoryMap.get(post.data.category) || post.data.category
+              : undefined;
+            const mainTagLabel = getDedupedMainTagLabel(
+              post.data.tags,
+              tagMap,
+              seriesLabel || categoryLabel,
+              tagName
+            );
+
+            return (
+              <PostCard
+                post={post}
+                index={index}
+                seriesLabel={seriesLabel}
+                categoryLabel={categoryLabel}
+                mainTagLabel={mainTagLabel}
+                readingTime={getReadingTimeMinutes(post.body || '')}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

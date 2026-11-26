@@ -643,9 +643,9 @@
 }
 
 .prose p {
-  line-height: 1.6;
-  margin-top: 0.4em;
-  margin-bottom: 0.4em;
+  line-height: 1.78;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
 }
 
 /* 压缩文章各元素间距 */
@@ -655,24 +655,25 @@
 .prose h4,
 .prose h5,
 .prose h6 {
-  margin-top: 1.25em;
-  margin-bottom: 0.5em;
+  margin-top: 1.35em;
+  margin-bottom: 0.55em;
 }
 
 .prose hr {
-  margin-top: 1em;
-  margin-bottom: 1em;
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
 }
 
 .prose ul,
 .prose ol {
-  margin-top: 0.4em;
-  margin-bottom: 0.4em;
+  margin-top: 0.6em;
+  margin-bottom: 0.6em;
 }
 
 .prose li {
-  margin-top: 0.15em;
-  margin-bottom: 0.15em;
+  line-height: 1.75;
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
 }
 
 .prose blockquote {
