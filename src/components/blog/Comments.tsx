@@ -18,6 +18,8 @@ interface GiscusConfig {
   loading: string;
 }
 
+const SLOW_LOADING_HINT_MS = 5000;
+
 interface CommentsProps {
   giscus: GiscusConfig;
 }
@@ -25,6 +27,7 @@ interface CommentsProps {
 export function Comments({ giscus }: CommentsProps) {
   const theme = useTheme();
   const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [isSlowLoading, setIsSlowLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const cancelLoadingRef = useRef<(() => void) | null>(null);
@@ -95,16 +98,29 @@ export function Comments({ giscus }: CommentsProps) {
   }, []);
 
   // "Smart Eager" Loading:
-  // Wait for the main thread to settle (useEffect runs after paint), then trigger "eager" loading.
+  // Wait for the main thread to settle (next animation frame after hydration), then trigger loading.
   // This prevents the heavy iframe setup from blocking the initial page scroll/interaction.
   const [shouldLoad, setShouldLoad] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const frame = window.requestAnimationFrame(() => {
       setShouldLoad(true);
       setLoadState('loading');
-    }, 100);
-    return () => clearTimeout(timer);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (!giscus.enabled || loadState !== 'loading') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset slow-hint state when leaving loading.
+      setIsSlowLoading(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIsSlowLoading(true);
+    }, SLOW_LOADING_HINT_MS);
+    return () => window.clearTimeout(timer);
+  }, [giscus.enabled, loadState, retryCount]);
 
   useEffect(() => {
     if (!shouldLoad || !giscus.enabled) return;
@@ -122,6 +138,7 @@ export function Comments({ giscus }: CommentsProps) {
 
   const retry = () => {
     cancelLoadingRef.current?.();
+    setIsSlowLoading(false);
     setLoadState('loading');
     setRetryCount((count) => count + 1);
   };
@@ -130,20 +147,59 @@ export function Comments({ giscus }: CommentsProps) {
     <div
       id="comments-container"
       ref={containerRef}
-      className="w-full mt-2 scroll-mt-20 min-h-[180px]"
+      className="relative mt-2 min-h-[300px] w-full scroll-mt-20"
       style={{ contain: 'content' }} // CSS Isolation: isolates layout calculations
     >
       {!giscus.enabled && (
         <p className="py-8 text-center text-sm text-muted-foreground">评论功能暂未启用。</p>
       )}
       {giscus.enabled && (loadState === 'idle' || loadState === 'loading') && (
-        <div className="flex min-h-[180px] items-center justify-center" role="status">
-          <p className="text-sm text-muted-foreground">正在加载评论…</p>
+        <div
+          className="flex min-h-[300px] flex-col justify-between rounded-xl border border-border/60 bg-card/50 p-4 sm:p-5"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="h-5 w-28 animate-pulse rounded-md bg-muted" />
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-14 animate-pulse rounded-full bg-muted" />
+                <div className="h-7 w-14 animate-pulse rounded-full bg-muted" />
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border/50 bg-background/60 p-3.5">
+              <div className="flex items-center gap-2 border-b border-border/40 pb-2.5">
+                <div className="h-6 w-14 animate-pulse rounded bg-muted" />
+                <div className="h-6 w-14 animate-pulse rounded bg-muted/70" />
+              </div>
+              <div className="space-y-2 py-2">
+                <div className="h-3.5 w-3/4 animate-pulse rounded bg-muted/80" />
+                <div className="h-3.5 w-1/2 animate-pulse rounded bg-muted/60" />
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <div className="h-3.5 w-32 animate-pulse rounded bg-muted/60" />
+                <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+            <span
+              className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-primary/60"
+              aria-hidden="true"
+            />
+            <span>
+              {isSlowLoading
+                ? '正在连接 GitHub Discussions，弱网或首次加载可能需要十余秒…'
+                : '正在加载评论区…'}
+            </span>
+          </div>
         </div>
       )}
       {giscus.enabled && loadState === 'error' && (
         <div
-          className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center"
+          className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-card/50 p-6 text-center"
           role="alert"
         >
           <p className="text-sm text-muted-foreground">
@@ -159,22 +215,31 @@ export function Comments({ giscus }: CommentsProps) {
         </div>
       )}
       {shouldLoad && giscus.enabled && loadState !== 'error' && (
-        <Giscus
-          key={retryCount}
-          id={giscus.id}
-          repo={giscus.repo as `${string}/${string}`}
-          repoId={giscus.repoId}
-          category={giscus.category}
-          categoryId={giscus.categoryId}
-          mapping={giscus.mapping as 'pathname'}
-          reactionsEnabled={giscus.reactionsEnabled as '0' | '1'}
-          // Metadata confirms that the discussion loaded, including cached iframe documents.
-          emitMetadata="1"
-          inputPosition={giscus.inputPosition as 'top' | 'bottom'}
-          theme={theme}
-          lang={giscus.lang as 'zh-CN'}
-          loading={giscus.loading as 'eager'} // Load immediately once component is mounted
-        />
+        <div
+          className={
+            loadState === 'ready'
+              ? 'relative opacity-100 transition-opacity duration-150'
+              : 'pointer-events-none absolute inset-x-0 top-0 opacity-0'
+          }
+          aria-hidden={loadState !== 'ready' || undefined}
+        >
+          <Giscus
+            key={retryCount}
+            id={giscus.id}
+            repo={giscus.repo as `${string}/${string}`}
+            repoId={giscus.repoId}
+            category={giscus.category}
+            categoryId={giscus.categoryId}
+            mapping={giscus.mapping as 'pathname'}
+            reactionsEnabled={giscus.reactionsEnabled as '0' | '1'}
+            // Metadata confirms that the discussion loaded, including cached iframe documents.
+            emitMetadata="1"
+            inputPosition={giscus.inputPosition as 'top' | 'bottom'}
+            theme={theme}
+            lang={giscus.lang as 'zh-CN'}
+            loading={giscus.loading as 'eager'} // Load immediately once component is mounted
+          />
+        </div>
       )}
     </div>
   );

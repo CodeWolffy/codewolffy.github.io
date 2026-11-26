@@ -958,7 +958,7 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
               data-player-surface="true"
               className="music-player-panel flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-3 shadow-2xl shadow-black/15 backdrop-blur outline-none dark:bg-card/90"
             >
-              <div className="flex shrink-0 items-start gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted ring-1 ring-border/70">
                   <RecordCover
                     coverUrl={displayCover}
@@ -968,20 +968,39 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                     iconClassName="h-6 w-6"
                     centerClassName="h-2.5 w-2.5"
                   />
+                  {metadataLoading && !displayCover && (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 animate-pulse rounded-xl bg-muted-foreground/15"
+                    />
+                  )}
                   {isPlaying && (
                     <span className="pointer-events-none absolute inset-1 rounded-full ring-2 ring-primary/20" />
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-sm font-semibold text-foreground">
+                  <div className="flex min-h-12 items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="truncate text-sm font-semibold leading-5 text-foreground">
                         {displayTitle}
                       </h2>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {displayArtist}
-                        {displayAlbum ? ` · ${displayAlbum}` : ''}
+                      <p className="mt-0.5 flex h-4 items-center gap-1.5 text-xs leading-4 text-muted-foreground">
+                        <span className="truncate">
+                          {displayArtist}
+                          {displayAlbum ? ` · ${displayAlbum}` : ''}
+                        </span>
+                        {metadataLoading && !displayAlbum && (
+                          <>
+                            <span
+                              aria-hidden="true"
+                              className="inline-block h-2.5 w-12 shrink-0 animate-pulse rounded-full bg-muted-foreground/20"
+                            />
+                            <span className="sr-only" role="status">
+                              正在加载音乐信息
+                            </span>
+                          </>
+                        )}
                       </p>
                     </div>
                     <div className="relative flex items-center gap-1 shrink-0">
@@ -1057,10 +1076,6 @@ export function FloatingMusicPlayer({ tracks }: FloatingMusicPlayerProps) {
                       )}
                     </div>
                   </div>
-
-                  {metadataLoading && (
-                    <p className="mt-1 text-xs text-muted-foreground">正在加载音乐信息…</p>
-                  )}
                 </div>
               </div>
 

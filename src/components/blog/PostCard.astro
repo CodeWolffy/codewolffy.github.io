@@ -28,7 +28,7 @@ const hasImage = Boolean(post.data.coverImage || post.data.heroImage);
 const imageUrl = post.data.coverImage || post.data.heroImage;
 const primaryLabel = seriesLabel ? `专栏 · ${seriesLabel}` : categoryLabel;
 const formattedDate = formatPostDate(post.data.pubDate);
-const animationDelayMs = Math.min(index, 5) * 50;
+const animationDelayMs = Math.min(index, 4) * 25;
 ---
 
 {featured ? (

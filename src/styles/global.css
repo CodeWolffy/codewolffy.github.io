@@ -218,11 +218,30 @@
     @apply bg-background text-foreground;
   }
 
-  /* 不蒜子访问统计样式 - 强制 inline-flex 对齐 */
+  /* 不蒜子访问统计样式 - 强制 inline-flex 对齐与加载骨架占位 */
   #busuanzi_container_page_pv {
     display: inline-flex !important;
     align-items: center !important;
     gap: 0.25rem !important;
+  }
+
+  #busuanzi_container_page_pv[data-pv-state='loading'] #busuanzi_value_page_pv {
+    width: 2.5rem;
+    height: 1rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--muted-foreground) 18%, transparent);
+    animation: pv-skeleton-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pv-skeleton-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+
+    50% {
+      opacity: 1;
+    }
   }
 
   #busuanzi_container_page_pv[style*='display:none'],
@@ -316,6 +335,7 @@
   padding: 0.75rem 0;
   display: flex;
   align-items: center;
+  font-variant-numeric: tabular-nums;
 }
 
 #pagefind-results .pagefind-ui__result {
@@ -1000,8 +1020,8 @@
 /* 滑入动画 */
 @keyframes blog-slide-up {
   from {
-    opacity: 0;
-    transform: translateY(20px);
+    opacity: 0.72;
+    transform: translateY(8px);
   }
 
   to {
@@ -1011,9 +1031,8 @@
 }
 
 .animate-slide-up {
-  /* `both` applies the first keyframe during a delay, so markup does not need
-     a permanent `opacity-0` fallback that can leave content invisible. */
-  animation: blog-slide-up 0.6s ease-out both;
+  /* `both` applies the first keyframe during a delay while keeping initial contrast readable. */
+  animation: blog-slide-up 0.18s ease-out both;
 }
 
 /* 技能条填充动画 */
@@ -1090,13 +1109,13 @@
 
 /* ========== View Transitions 页面过渡动画 ========== */
 
-/* 主内容区域过渡 - 纯淡入淡出，更丝滑 */
+/* 主内容区域过渡 - 短时长高对比淡入 */
 ::view-transition-old(root) {
-  animation: fade-out 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-out 0.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 ::view-transition-new(root) {
-  animation: fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-in 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes fade-out {
@@ -1111,7 +1130,7 @@
 
 @keyframes fade-in {
   from {
-    opacity: 0;
+    opacity: 0.55;
   }
 
   to {
@@ -1122,8 +1141,8 @@
 /* 页面滑入动画 - 用于内容区域 */
 @keyframes blog-page-slide-in {
   from {
-    opacity: 0;
-    transform: translateY(20px);
+    opacity: 0.72;
+    transform: translateY(6px);
   }
 
   to {
@@ -1133,7 +1152,7 @@
 }
 
 .page-enter {
-  animation: blog-page-slide-in 0.4s ease-out both;
+  animation: blog-page-slide-in 0.15s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ========== 额外实用动画类 ========== */
@@ -1384,8 +1403,8 @@
 /* 淡入上滑 - 用于列表项 */
 @keyframes fade-in-up {
   from {
-    opacity: 0;
-    transform: translateY(16px);
+    opacity: 0.72;
+    transform: translateY(8px);
   }
 
   to {
@@ -1395,7 +1414,7 @@
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.5s ease-out forwards;
+  animation: fade-in-up 0.18s ease-out both;
 }
 
 /* 渐进延迟动画 - 用于列表 */
@@ -1404,31 +1423,31 @@
 }
 
 .stagger-animation > *:nth-child(2) {
-  animation-delay: 50ms;
+  animation-delay: 20ms;
 }
 
 .stagger-animation > *:nth-child(3) {
-  animation-delay: 100ms;
+  animation-delay: 40ms;
 }
 
 .stagger-animation > *:nth-child(4) {
-  animation-delay: 150ms;
+  animation-delay: 60ms;
 }
 
 .stagger-animation > *:nth-child(5) {
-  animation-delay: 200ms;
+  animation-delay: 80ms;
 }
 
 .stagger-animation > *:nth-child(6) {
-  animation-delay: 250ms;
+  animation-delay: 100ms;
 }
 
 .stagger-animation > *:nth-child(7) {
-  animation-delay: 300ms;
+  animation-delay: 120ms;
 }
 
 .stagger-animation > *:nth-child(8) {
-  animation-delay: 350ms;
+  animation-delay: 140ms;
 }
 
 /* ========== 减少动画偏好支持 ========== */

@@ -5,12 +5,19 @@ import {
   useCallback,
   useSyncExternalStore,
   type ChangeEvent,
+  type CompositionEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lockPageScroll } from '@/lib/scroll-lock';
 import { containOverlayFocus } from '@/components/ui/overlay-focus';
+import {
+  SEARCH_DEBOUNCE_MS,
+  getTrimmedSearchQuery,
+  shouldShowSearchSkeleton,
+  type SearchStatus,
+} from './search-state';
 
 declare global {
   interface Window {
@@ -19,6 +26,7 @@ declare global {
       showSubResults?: boolean;
       showImages?: boolean;
       autofocus?: boolean;
+      debounceTimeoutMs?: number;
     }) => {
       triggerSearch: (term: string) => void;
       destroy: () => void;
@@ -151,9 +159,9 @@ interface SearchProps {
 
 export function Search({ isExpanded, onExpandedChange }: SearchProps) {
   const [searchValue, setSearchValue] = useState('');
-  const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>(
-    'idle'
-  );
+  const [searchStatus, setSearchStatus] = useState<SearchStatus>('idle');
+  const [isComposing, setIsComposing] = useState(false);
+  const [settledQuery, setSettledQuery] = useState('');
   const [retryCount, setRetryCount] = useState(0);
   const isModal = useSyncExternalStore(
     subscribeSearchModal,
@@ -172,13 +180,17 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
   const pagefindInstanceRef = useRef<PagefindInstance | null>(null);
   const cancelInitializationRef = useRef<(() => void) | null>(null);
   const restoreFocusFrameRef = useRef<number | null>(null);
+  const lastTriggeredQueryRef = useRef('');
 
   // Handle Cmd+K / Ctrl+K keyboard shortcut and Escape
   const closeSearch = useCallback(
     (restoreFocus = true) => {
       cancelInitializationRef.current?.();
       onExpandedChange(false);
+      setIsComposing(false);
       setSearchValue('');
+      setSettledQuery('');
+      lastTriggeredQueryRef.current = '';
       if (restoreFocusFrameRef.current !== null) {
         cancelAnimationFrame(restoreFocusFrameRef.current);
       }
@@ -202,7 +214,10 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
       if (e.key === 'Escape' && isExpanded) {
         e.preventDefault();
         if (searchValue) {
+          setIsComposing(false);
           setSearchValue('');
+          setSettledQuery('');
+          lastTriggeredQueryRef.current = '';
           inputRef.current?.focus({ preventScroll: true });
         } else {
           closeSearch();
@@ -308,10 +323,10 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
     let cancelled = false;
     let instance: PagefindInstance | null = null;
     let controlsFrame: number | null = null;
+    setSearchStatus('loading');
 
     const timer = setTimeout(async () => {
       try {
-        setSearchStatus('loading');
         await loadPagefindAssets();
         if (cancelled || !pagefindContainer.isConnected) return;
 
@@ -325,6 +340,9 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
           showSubResults: true,
           showImages: false,
           autofocus: false,
+          // Search.tsx owns debouncing and composition gating so PagefindUI never runs
+          // a second competing timer that flashes intermediate prefix result counts.
+          debounceTimeoutMs: 0,
         });
         pagefindInstanceRef.current = instance;
 
@@ -348,6 +366,8 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
       instance?.destroy();
       if (pagefindInstanceRef.current === instance) pagefindInstanceRef.current = null;
       pagefindContainer.innerHTML = '';
+      lastTriggeredQueryRef.current = '';
+      setSettledQuery('');
       setSearchStatus('idle');
     };
     cancelInitializationRef.current = cancel;
@@ -357,25 +377,67 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
     };
   }, [isExpanded, retryCount]);
 
-  // Debounced search query trigger: 150ms debounce eliminates burst queries
-  // while typing fast, while 0ms debounce when clearing keeps resets instantaneous.
+  // Single-owner debounced search trigger that keeps a skeleton up until Pagefind renders the
+  // settled result list for the exact trimmed query.
   useEffect(() => {
     if (!isExpanded || searchStatus !== 'ready') return;
     const instance = pagefindInstanceRef.current;
-    if (!instance) return;
+    const container = pagefindContainerRef.current;
+    if (!instance || !container) return;
+    if (isComposing) return;
 
-    const query = searchValue.trim();
+    const query = getTrimmedSearchQuery(searchValue);
     if (!query) {
+      lastTriggeredQueryRef.current = '';
       instance.triggerSearch('');
       return;
     }
 
-    const timer = setTimeout(() => {
-      if (pagefindInstanceRef.current === instance) instance.triggerSearch(query);
-    }, 150);
+    let cancelled = false;
+    let observer: MutationObserver | null = null;
+    const isInitialDispatch = lastTriggeredQueryRef.current === '';
 
-    return () => clearTimeout(timer);
-  }, [searchValue, isExpanded, searchStatus]);
+    const settleIfRendered = () => {
+      if (cancelled || !container.isConnected) return false;
+      if (!container.querySelector('.pagefind-ui__results')) return false;
+      observer?.disconnect();
+      observer = null;
+      setSettledQuery(query);
+      return true;
+    };
+
+    const runSearch = async () => {
+      if (lastTriggeredQueryRef.current !== query) {
+        lastTriggeredQueryRef.current = query;
+        instance.triggerSearch(query);
+        // Wait two microtasks for PagefindUI's Svelte scheduler to replace any previous
+        // results list with its searching view before observing completion.
+        await Promise.resolve();
+        await Promise.resolve();
+        if (cancelled || !container.isConnected) return;
+      }
+
+      if (settleIfRendered()) return;
+
+      observer = new MutationObserver(() => {
+        settleIfRendered();
+      });
+      observer.observe(container, { childList: true, subtree: true });
+    };
+
+    const timer = window.setTimeout(
+      () => {
+        void runSearch();
+      },
+      isInitialDispatch ? 0 : SEARCH_DEBOUNCE_MS
+    );
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      observer?.disconnect();
+    };
+  }, [searchValue, isExpanded, searchStatus, isComposing]);
 
   // Click outside to close (desktop)
   useEffect(() => {
@@ -559,7 +621,26 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
   }, [isExpanded, searchStatus, searchValue]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(e.target.value);
+    const nextValue = e.target.value;
+    setSearchValue(nextValue);
+    if (!getTrimmedSearchQuery(nextValue)) {
+      setSettledQuery('');
+      lastTriggeredQueryRef.current = '';
+    }
+  };
+
+  const handleCompositionStart = () => {
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = (e: CompositionEvent<HTMLInputElement>) => {
+    const nextValue = e.currentTarget.value;
+    setIsComposing(false);
+    setSearchValue(nextValue);
+    if (!getTrimmedSearchQuery(nextValue)) {
+      setSettledQuery('');
+      lastTriggeredQueryRef.current = '';
+    }
   };
 
   const handleInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -573,7 +654,10 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
   };
 
   const handleClear = () => {
+    setIsComposing(false);
     setSearchValue('');
+    setSettledQuery('');
+    lastTriggeredQueryRef.current = '';
     inputRef.current?.focus({ preventScroll: true });
   };
 
@@ -583,7 +667,15 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
 
   const handleSearchClose = () => closeSearch();
 
-  const hasSearchQuery = searchValue.trim().length > 0;
+  const trimmedSearchQuery = getTrimmedSearchQuery(searchValue);
+  const hasSearchQuery = trimmedSearchQuery.length > 0;
+  const isResultsSkeletonVisible = shouldShowSearchSkeleton({
+    searchStatus,
+    searchValue,
+    isComposing,
+    settledQuery,
+  });
+  const areResultsVisible = searchStatus === 'ready' && hasSearchQuery && !isResultsSkeletonVisible;
 
   return (
     <>
@@ -634,6 +726,8 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
                 enterKeyHint="search"
                 value={searchValue}
                 onChange={handleInputChange}
+                onCompositionStart={handleCompositionStart}
+                onCompositionEnd={handleCompositionEnd}
                 onKeyDown={handleInputKeyDown}
                 className="ml-2 min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden [&::-webkit-search-results-button]:hidden [&::-webkit-search-results-decoration]:hidden [&::-ms-clear]:hidden"
               />
@@ -683,15 +777,28 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
           <div
             className={cn(
               'fixed left-2 right-2 top-12 z-[60] mt-1 rounded-xl border border-border bg-background shadow-xl overflow-hidden overscroll-contain md:absolute md:top-full md:left-0 md:right-0 md:mt-2 md:rounded-lg md:shadow-lg',
-              hasSearchQuery && 'min-h-[12rem]'
+              (hasSearchQuery || searchStatus === 'loading') && 'min-h-[16rem]'
             )}
             role="region"
             aria-label="搜索结果"
             id="pagefind-results-panel"
           >
-            {searchStatus === 'loading' && (
-              <div className="p-2 py-8 text-center text-sm text-muted-foreground">
-                正在加载搜索...
+            {isResultsSkeletonVisible && (
+              <div className="min-h-[16rem] space-y-3 p-3" role="status" aria-live="polite">
+                <span className="sr-only">
+                  {searchStatus === 'loading' ? '正在加载搜索服务' : '正在搜索文章'}
+                </span>
+                <div className="h-4 w-36 animate-pulse rounded bg-muted" />
+                {[0, 1, 2].map((item) => (
+                  <div
+                    key={item}
+                    className="space-y-2 rounded-lg border border-border/50 bg-card/40 p-3"
+                  >
+                    <div className="h-4 w-3/5 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-full animate-pulse rounded bg-muted/70" />
+                    <div className="h-3 w-4/5 animate-pulse rounded bg-muted/60" />
+                  </div>
+                ))}
               </div>
             )}
             {searchStatus === 'unavailable' && (
@@ -726,7 +833,7 @@ export function Search({ isExpanded, onExpandedChange }: SearchProps) {
               id="pagefind-results"
               className={cn(
                 'w-full p-2 overscroll-contain',
-                searchStatus === 'ready' && hasSearchQuery ? 'block' : 'hidden'
+                areResultsVisible ? 'block' : 'hidden'
               )}
             />
           </div>

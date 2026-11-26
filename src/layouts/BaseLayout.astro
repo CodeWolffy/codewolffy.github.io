@@ -22,6 +22,7 @@ interface Props {
   author?: string;
   robots?: string;
   canonical?: boolean;
+  preconnectGiscus?: boolean;
 }
 
 const settings = await getSiteSettings();
@@ -36,6 +37,7 @@ const {
   author = settings.author.name,
   robots,
   canonical = true,
+  preconnectGiscus = false,
 } = Astro.props;
 
 // 构建完整的 OG 图片 URL
@@ -108,6 +110,12 @@ const footerSeries = createSeriesSummaries(allSeries, publicPosts)
         <link rel="preconnect" href={busuanzi.origin} crossorigin />
       </>
     )}
+    {preconnectGiscus && settings.comments.giscus.enabled && (
+      <>
+        <link rel="dns-prefetch" href="https://giscus.app" />
+        <link rel="preconnect" href="https://giscus.app" crossorigin />
+      </>
+    )}
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     {settings.verification.google.map((token) => (
@@ -153,18 +161,46 @@ const footerSeries = createSeriesSummaries(allSeries, publicPosts)
 (() => {
   const config = ${busuanziClientConfig};
   const stateKey = '__busuanziPageviewLoader';
-  const state = (window[stateKey] ||= { installed: false, timer: 0, lastUrl: '', lastAt: 0 });
+  const state = (window[stateKey] ||= {
+    installed: false,
+    timer: 0,
+    observer: null,
+    lastUrl: '',
+    lastAt: 0,
+  });
+
+  const disconnectObserver = () => {
+    if (state.observer) {
+      state.observer.disconnect();
+      state.observer = null;
+    }
+  };
 
   const hideCounter = (container) => {
+    disconnectObserver();
+    window.clearTimeout(state.timer);
     if (!container) return;
+    container.setAttribute('data-pv-state', 'hidden');
     container.style.display = 'none';
     container.setAttribute('aria-hidden', 'true');
   };
 
   const resetCounter = (container, value) => {
-    value.textContent = '...';
+    value.textContent = '';
+    value.setAttribute('aria-label', '正在加载浏览量');
+    container.setAttribute('data-pv-state', 'loading');
     container.style.display = 'inline-flex';
     container.removeAttribute('aria-hidden');
+  };
+
+  const syncCounterReady = (container, value) => {
+    const text = value?.textContent?.trim();
+    if (!text) return false;
+    container.setAttribute('data-pv-state', 'ready');
+    value.removeAttribute('aria-label');
+    window.clearTimeout(state.timer);
+    disconnectObserver();
+    return true;
   };
 
   const loadCounter = () => {
@@ -178,8 +214,14 @@ const footerSeries = createSeriesSummaries(allSeries, publicPosts)
     state.lastUrl = currentUrl;
     state.lastAt = now;
 
+    disconnectObserver();
     resetCounter(container, value);
     window.clearTimeout(state.timer);
+
+    state.observer = new MutationObserver(() => {
+      syncCounterReady(container, value);
+    });
+    state.observer.observe(value, { childList: true, characterData: true, subtree: true });
 
     document.getElementById(config.scriptId)?.remove();
 
@@ -189,13 +231,17 @@ const footerSeries = createSeriesSummaries(allSeries, publicPosts)
     script.async = true;
     script.defer = true;
     script.referrerPolicy = 'no-referrer-when-downgrade';
+    script.onload = () => {
+      syncCounterReady(container, value);
+    };
     script.onerror = () => hideCounter(container);
 
     state.timer = window.setTimeout(() => {
       const latestContainer = document.getElementById(config.pagePvContainerId);
       const latestValue = document.getElementById(config.pagePvValueId);
-      const text = latestValue?.textContent?.trim();
-      if (!text || text === '...') hideCounter(latestContainer);
+      if (!syncCounterReady(latestContainer, latestValue)) {
+        hideCounter(latestContainer);
+      }
     }, Number(config.timeoutMs) || 5000);
 
     document.head.appendChild(script);
@@ -203,6 +249,10 @@ const footerSeries = createSeriesSummaries(allSeries, publicPosts)
 
   if (!state.installed) {
     state.installed = true;
+    document.addEventListener('astro:before-swap', () => {
+      window.clearTimeout(state.timer);
+      disconnectObserver();
+    });
     document.addEventListener('astro:page-load', loadCounter);
   }
 

@@ -44,7 +44,11 @@ const pageConfig = {
 };
 ---
 
-<BaseLayout title={`${pageConfig.title} | ${settings.name}`} description={pageConfig.description}>
+<BaseLayout
+  title={`${pageConfig.title} | ${settings.name}`}
+  description={pageConfig.description}
+  preconnectGiscus={settings.comments.giscus.enabled}
+>
   {/* 装饰背景 */}
   <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
     <div class="absolute top-1/4 -left-20 w-[400px] h-[400px] rounded-full bg-blue-500/5 blur-[100px]"></div>
@@ -81,7 +85,7 @@ const pageConfig = {
                 target="_blank"
                 rel="noopener noreferrer"
                 class="group relative flex flex-col items-center p-5 rounded-2xl bg-card border border-border/60 shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-lg animate-slide-up"
-                style={`animation-delay: ${index * 100}ms;`}
+                style={`animation-delay: ${Math.min(index, 4) * 30}ms;`}
               >
                 <div class="absolute inset-0 rounded-2xl bg-card z-[-1]" />
 
@@ -198,7 +202,7 @@ const pageConfig = {
               </p>
             </div>
             <hr class="mb-6" />
-            <Comments client:visible giscus={settings.comments.giscus} />
+            <Comments client:visible={{ rootMargin: '400px' }} giscus={settings.comments.giscus} />
           </section>
         )}
       </div>

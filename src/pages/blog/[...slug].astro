@@ -155,6 +155,7 @@ const articleImageUrl = new URL(
   publishedTime={post.data.pubDate}
   modifiedTime={post.data.updatedDate}
   author={settings.author.name}
+  preconnectGiscus={settings.comments.giscus.enabled}
 >
   <!-- JSON-LD 结构化数据 -->
   <script
@@ -256,9 +257,10 @@ const articleImageUrl = new URL(
           <span
             class="inline-flex items-center gap-1.5 busuanzi-loading"
             id={busuanzi.pagePvContainerId}
+            data-pv-state="loading"
           >
             <svg
-              class="size-4"
+              class="size-4 shrink-0"
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               fill="none"
@@ -272,9 +274,11 @@ const articleImageUrl = new URL(
                 <circle cx="12" cy="12" r="3" />
               </>
             </svg>
-            <span id={busuanzi.pagePvValueId} class="min-w-[1.5rem] text-center">
-              ...
-            </span>
+            <span
+              id={busuanzi.pagePvValueId}
+              class="inline-flex h-[1.125rem] min-w-[2.5rem] items-center justify-center text-center tabular-nums"
+              aria-label="正在加载浏览量"
+            />
             次浏览
           </span>
         )}
@@ -507,7 +511,7 @@ const articleImageUrl = new URL(
             欢迎在下方留言讨论、指正或分享实践经验（基于 GitHub Discussions）。
           </p>
         </div>
-        <Comments client:visible giscus={settings.comments.giscus} />
+        <Comments client:visible={{ rootMargin: '400px' }} giscus={settings.comments.giscus} />
       </section>
     </div>
 

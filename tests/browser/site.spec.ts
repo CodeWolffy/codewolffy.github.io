@@ -22,6 +22,42 @@ test.beforeEach(async ({ context }) => {
   });
 });
 
+test('search keeps a skeleton while typing and never flashes intermediate result counts', async ({
+  page,
+}) => {
+  await openPage(page, '/');
+  await page.getByRole('button', { name: '展开搜索', exact: true }).click();
+  const panel = page.getByRole('region', { name: '搜索结果' });
+  await expect(panel.getByRole('status')).toBeVisible();
+  const input = page.getByRole('searchbox', { name: '搜索文章' });
+  await input.waitFor();
+
+  await page.evaluate(() => {
+    const target = document.getElementById('pagefind-results');
+    if (!target) throw new Error('Missing #pagefind-results');
+    const seenMessages: string[] = [];
+    (window as Window & { __seenSearchMessages?: string[] }).__seenSearchMessages = seenMessages;
+    const observer = new MutationObserver(() => {
+      if (target.classList.contains('hidden')) return;
+      const msg = target.querySelector('.pagefind-ui__message')?.textContent?.trim();
+      if (msg && seenMessages.at(-1) !== msg) seenMessages.push(msg);
+    });
+    observer.observe(target, { childList: true, subtree: true, characterData: true });
+    observer.observe(target, { attributes: true, attributeFilter: ['class'] });
+  });
+
+  await input.pressSequentially('Redis', { delay: 80 });
+  await expect(
+    page.getByRole('link', { name: 'Redis 为什么快？“单线程”解释远远不够', exact: true })
+  ).toBeVisible();
+
+  const messages = await page.evaluate(
+    () => (window as Window & { __seenSearchMessages?: string[] }).__seenSearchMessages ?? []
+  );
+  expect(messages.length).toBeGreaterThan(0);
+  expect(messages.every((msg) => msg.includes('Redis'))).toBe(true);
+});
+
 test('search survives navigation and restores the page after closing', async ({ page }) => {
   await openPage(page, '/');
   await page.getByRole('button', { name: '展开搜索', exact: true }).click();
@@ -108,6 +144,11 @@ test('tag animations have a bounded delay and single-post tags remain available 
 }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await openPage(page, '/categories/');
+  const entranceDuration = await page
+    .locator('#main-content')
+    .evaluate((el) => Number.parseFloat(getComputedStyle(el).animationDuration) || 0);
+  expect(entranceDuration).toBeGreaterThan(0);
+  expect(entranceDuration).toBeLessThanOrEqual(0.2);
   const delays = await page
     .locator('a[href^="/tags/"]')
     .evaluateAll((links) =>
@@ -260,6 +301,7 @@ test('homepage layout, article reading experience, and quiet music mode work cle
   }
 
   await page.getByRole('button', { name: '展开音乐播放器', exact: true }).click();
+  await expect(page.getByText('正在加载音乐信息…')).toHaveCount(0);
   await page.getByRole('button', { name: '启用极简角标模式', exact: true }).click();
   await page.reload();
   await page.locator('astro-island[component-export="Header"]:not([ssr])').waitFor();
@@ -269,4 +311,56 @@ test('homepage layout, article reading experience, and quiet music mode work cle
     'aria-pressed',
     'true'
   );
+});
+
+test('async placeholders keep stable dimensions across view count, comments, and music player', async ({
+  page,
+}) => {
+  let releaseVercount: (() => void) | undefined;
+  const vercountGate = new Promise<void>((resolve) => {
+    releaseVercount = resolve;
+  });
+  await page.route('https://events.vercount.one/js', async (route) => {
+    await vercountGate;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: 'document.getElementById("busuanzi_value_page_pv").textContent = "128";',
+    });
+  });
+
+  const response = await page.goto('/blog/01-why-redis-is-fast/', {
+    waitUntil: 'domcontentloaded',
+  });
+  expect(response?.status()).toBe(200);
+  await page.locator('astro-island[component-export="Header"]:not([ssr])').waitFor();
+  await expect(page.locator('astro-island[client="load"][ssr]')).toHaveCount(0);
+  const pvContainer = page.locator('#busuanzi_container_page_pv');
+  const pvValue = page.locator('#busuanzi_value_page_pv');
+  await expect(pvContainer).toHaveAttribute('data-pv-state', 'loading');
+  await expect(pvValue).toHaveText('');
+  expect((await pvValue.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(36);
+  releaseVercount?.();
+  await expect(pvContainer).toHaveAttribute('data-pv-state', 'ready');
+  await expect(pvValue).toHaveText('128');
+
+  const commentsContainer = page.locator('#comments-container');
+  await commentsContainer.scrollIntoViewIfNeeded();
+  const commentsBox = await commentsContainer.boundingBox();
+  expect(commentsBox?.height ?? 0).toBeGreaterThanOrEqual(300);
+  await expect(commentsContainer.getByRole('status')).toBeVisible();
+
+  await page.route('**/music/**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await route.continue();
+  });
+  await page.getByRole('button', { name: '展开音乐播放器', exact: true }).click();
+  const playerPanel = page.getByRole('dialog', { name: '音乐播放器' });
+  await expect(playerPanel).toBeVisible();
+  const playerHeader = playerPanel.locator('> div').first();
+  const initialBox = await playerHeader.boundingBox();
+  await expect(playerPanel.getByText('正在加载音乐信息…')).toHaveCount(0);
+  await page.waitForTimeout(700);
+  const settledBox = await playerHeader.boundingBox();
+  expect(Math.abs((initialBox?.height ?? 0) - (settledBox?.height ?? 0))).toBeLessThanOrEqual(1);
 });
